@@ -123,7 +123,8 @@ async def preflight_docker():
     except subprocess.TimeoutExpired:
         return {"available": False, "error": "Docker check timed out"}
     except Exception as e:
-        return {"available": False, "error": str(e)}
+        logger.exception("Docker preflight check failed")
+        return {"available": False, "error": "Docker check failed"}
 
 
 @app.get("/api/preflight/gpu", dependencies=[Depends(verify_api_key)])
@@ -183,7 +184,8 @@ async def preflight_disk():
         usage = shutil.disk_usage(check_path)
         return {"free": usage.free, "total": usage.total, "used": usage.used, "path": str(check_path)}
     except Exception as e:
-        return {"error": str(e), "free": 0, "total": 0, "used": 0, "path": ""}
+        logger.exception("Disk preflight check failed")
+        return {"error": "Disk check failed", "free": 0, "total": 0, "used": 0, "path": ""}
 
 
 # --- Core Data ---

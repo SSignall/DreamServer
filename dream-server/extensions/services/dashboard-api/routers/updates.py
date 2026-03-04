@@ -1,6 +1,7 @@
 """Version checking and update endpoints."""
 
 import json
+import logging
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -10,6 +11,8 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from config import INSTALL_DIR
 from models import VersionInfo, UpdateAction
 from security import verify_api_key
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["updates"])
 
@@ -83,7 +86,8 @@ async def trigger_update(action: UpdateAction, background_tasks: BackgroundTasks
             script_path = Path(INSTALL_DIR) / "scripts" / "dream-update.sh"
 
     if not script_path.exists():
-        raise HTTPException(status_code=501, detail=f"dream-update.sh not found at {script_path}. Update system not installed.")
+        logger.error("dream-update.sh not found at %s", script_path)
+        raise HTTPException(status_code=501, detail="Update system not installed.")
 
     if action.action == "check":
         try:
@@ -92,7 +96,8 @@ async def trigger_update(action: UpdateAction, background_tasks: BackgroundTasks
         except subprocess.TimeoutExpired:
             raise HTTPException(status_code=504, detail="Update check timed out")
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Check failed: {e}")
+            logger.exception("Update check failed")
+            raise HTTPException(status_code=500, detail="Check failed")
     elif action.action == "backup":
         try:
             result = subprocess.run([str(script_path), "backup", f"dashboard-{datetime.now().strftime('%Y%m%d-%H%M%S')}"], capture_output=True, text=True, timeout=60)
@@ -100,7 +105,8 @@ async def trigger_update(action: UpdateAction, background_tasks: BackgroundTasks
         except subprocess.TimeoutExpired:
             raise HTTPException(status_code=504, detail="Backup timed out")
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Backup failed: {e}")
+            logger.exception("Backup failed")
+            raise HTTPException(status_code=500, detail="Backup failed")
     elif action.action == "update":
         def run_update():
             subprocess.run([str(script_path), "update"], capture_output=True)

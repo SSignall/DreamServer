@@ -1,5 +1,7 @@
 """Agent monitoring endpoints."""
 
+import html as html_mod
+
 from fastapi import APIRouter, Depends
 from fastapi.responses import HTMLResponse
 
@@ -27,7 +29,7 @@ async def get_agent_metrics_html(api_key: str = Depends(verify_api_key)):
     if top_models:
         rows = "".join(
             "<tr><td>{}</td><td>{}K</td><td>{}</td></tr>".format(
-                m["model"], m["tokens"] // 1000, m["requests"]
+                html_mod.escape(str(m["model"])), m["tokens"] // 1000, m["requests"]
             )
             for m in top_models
         )

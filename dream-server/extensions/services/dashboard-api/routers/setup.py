@@ -1,6 +1,7 @@
 """Setup wizard, persona management, and chat endpoints."""
 
 import json
+import logging
 import os
 import subprocess
 from datetime import datetime, timezone
@@ -13,6 +14,8 @@ from fastapi.responses import StreamingResponse
 from config import SERVICES, PERSONAS, SETUP_CONFIG_DIR, INSTALL_DIR
 from models import PersonaRequest, ChatRequest
 from security import verify_api_key
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["setup"])
 
@@ -174,4 +177,5 @@ async def chat(request: ChatRequest, api_key: str = Depends(verify_api_key)):
                     error_text = await resp.text()
                     raise HTTPException(status_code=resp.status, detail=f"LLM error: {error_text}")
     except aiohttp.ClientError as e:
-        raise HTTPException(status_code=503, detail=f"Cannot reach LLM backend: {e}")
+        logger.exception("Cannot reach LLM backend")
+        raise HTTPException(status_code=503, detail="Cannot reach LLM backend")
