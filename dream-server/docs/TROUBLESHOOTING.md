@@ -42,22 +42,22 @@ sudo systemctl restart docker
 
 ## Startup Issues
 
-### vLLM Container Won't Start
+### llama-server Container Won't Start
 
 **Check logs:**
 ```bash
-docker compose logs vllm
+docker compose logs llama-server
 ```
 
 **Common causes:**
 
 1. **Not enough VRAM:**
-   - Reduce context: Edit `.env`, set `MAX_CONTEXT=4096`
-   - Use smaller model: Set `LLM_MODEL=Qwen/Qwen2.5-7B-Instruct`
+   - Reduce context: Edit `.env`, set `CTX_SIZE=4096`
+   - Use smaller model: Set `LLM_MODEL=qwen2.5-7b-instruct`
 
 2. **Model download failed:**
    - Check disk space: `df -h`
-   - Restart: `docker compose restart vllm`
+   - Restart: `docker compose restart llama-server`
 
 3. **GPU not detected:**
    - Check: `nvidia-smi`
@@ -65,12 +65,12 @@ docker compose logs vllm
 
 ### Open WebUI Shows "No Models Available"
 
-**Cause:** vLLM is still loading the model.
+**Cause:** llama-server is still loading the model.
 
 **Check:**
 ```bash
-# Watch vLLM logs
-docker compose logs -f vllm
+# Watch llama-server logs
+docker compose logs -f llama-server
 
 # Wait for "Application startup complete"
 ```
@@ -113,7 +113,7 @@ docker compose logs -f vllm
 1. **Reduce context window:**
    ```bash
    # In .env
-   MAX_CONTEXT=4096  # or even 2048
+   CTX_SIZE=4096  # or even 2048
    ```
 
 2. **Reduce VRAM utilization:**
@@ -124,7 +124,7 @@ docker compose logs -f vllm
 
 3. **Use smaller model:**
    ```bash
-   LLM_MODEL=Qwen/Qwen2.5-7B-Instruct
+   LLM_MODEL=qwen2.5-7b-instruct
    ```
 
 ### Responses Very Slow
@@ -144,7 +144,7 @@ docker compose logs whisper
 
 **Common fixes:**
 1. Whisper may need to download model on first use — wait
-2. Ensure voice profile is enabled: `docker compose --profile voice up -d`
+2. Check that Whisper is running: `docker compose ps whisper`
 3. Check GPU memory — Whisper needs ~3GB for medium model
 
 ---
@@ -159,7 +159,10 @@ To allow remote access:
 
 1. **Warning:** Only do this on trusted networks!
 
-2. Edit docker-compose.yml, change ports:
+2. Edit the compose file for your platform:
+   - NVIDIA: `docker-compose.base.yml` + `docker-compose.nvidia.yml`
+   - AMD Strix Halo: `docker-compose.base.yml` + `docker-compose.amd.yml`
+   Then change ports, for example:
    ```yaml
    ports:
      - "0.0.0.0:3000:8080"  # Was "3000:8080"
@@ -234,7 +237,7 @@ docker compose up -d
    df -h
    ```
 
-5. **Open an issue:** https://github.com/Light-Heart-Labs/Lighthouse-AI/issues
+5. **Open an issue:** https://github.com/Light-Heart-Labs/DreamServer/issues
 
 ---
 

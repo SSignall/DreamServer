@@ -2,8 +2,8 @@
 # M8 Missing Test: Concurrency Test
 # Tests system stability under parallel load
 
-VLLM_URL="http://localhost:8000"
-MODEL="Qwen/Qwen2.5-32B-Instruct-AWQ"
+LLAMA_SERVER_URL="http://localhost:8080"
+MODEL="qwen2.5-32b-instruct"
 CONCURRENT_REQUESTS=5
 
 echo "=== M8 Test: Concurrency ($CONCURRENT_REQUESTS parallel requests) ==="
@@ -17,7 +17,7 @@ START=$(date +%s%N)
 
 for i in $(seq 1 $CONCURRENT_REQUESTS); do
   (
-    curl -s -X POST "$VLLM_URL/v1/chat/completions" \
+    curl -s -X POST "$LLAMA_SERVER_URL/v1/chat/completions" \
       -H "Content-Type: application/json" \
       -d "{
         \"model\": \"$MODEL\",

@@ -1,179 +1,101 @@
 <div align="center">
 
-# Lighthouse AI
+# Dream Server
 
-**Local AI infrastructure. Your hardware. Your data. Your rules.**
+**Your turnkey local AI stack. Buy hardware. Run installer. AI running.**
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![GitHub Stars](https://img.shields.io/github/stars/Light-Heart-Labs/Lighthouse-AI)](https://github.com/Light-Heart-Labs/Lighthouse-AI/stargazers)
-[![Release](https://img.shields.io/github/v/release/Light-Heart-Labs/Lighthouse-AI)](https://github.com/Light-Heart-Labs/Lighthouse-AI/releases)
-[![CI](https://img.shields.io/github/actions/workflow/status/Light-Heart-Labs/Lighthouse-AI/lint-python.yml?label=CI)](https://github.com/Light-Heart-Labs/Lighthouse-AI/actions)
+[![GitHub Stars](https://img.shields.io/github/stars/Light-Heart-Labs/DreamServer)](https://github.com/Light-Heart-Labs/DreamServer/stargazers)
+[![Release](https://img.shields.io/github/v/release/Light-Heart-Labs/DreamServer)](https://github.com/Light-Heart-Labs/DreamServer/releases)
+[![Docker](https://img.shields.io/badge/Docker-Required-2496ED?logo=docker)](https://docs.docker.com/get-docker/)
 
 </div>
 
 ---
 
-## Dream Server — One Command, Full AI Stack
-
-One installer gets you from bare metal to a fully running local AI stack — LLM inference, chat UI, voice agents, workflow automation, RAG, and privacy tools. No manual config. No dependency hell. No six months of piecing it together. Run one command, answer a few questions, everything works.
+## 5-Minute Quickstart
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Light-Heart-Labs/Lighthouse-AI/main/dream-server/get-dream-server.sh | bash
+# One-line install (Linux/WSL)
+curl -fsSL https://raw.githubusercontent.com/Light-Heart-Labs/DreamServer/main/dream-server/get-dream-server.sh | bash
 ```
 
-<p align="center">
-  <img src="docs/images/dream-server-install.png" alt="Dream Server installer — auto-detects GPU, recommends model tier, and lets you choose your stack" width="800">
-  <br>
-  <em>The installer detects your hardware, picks the optimal model, and asks how deep you want to go.</em>
-</p>
+Or manually:
 
----
-
-## Dashboard
-
-Everything running, at a glance. GPU metrics, service health, one-click access to Chat, Voice, Workflows, Agents, and Documents.
-
-<p align="center">
-  <img src="docs/images/dream-server-dashboard.png" alt="Dream Server dashboard — GPU metrics, service status, feature cards" width="800">
-</p>
-
----
-
-## Architecture
-
-```mermaid
-graph TB
-    subgraph User["&nbsp;&nbsp;You&nbsp;&nbsp;"]
-        Browser(["Browser"])
-        Mic(["Microphone"])
-        API(["API Client"])
-    end
-
-    subgraph DreamServer["Dream Server &lpar;Docker Compose&rpar;"]
-        subgraph Core["Core"]
-            VLLM["vLLM · :8000<br/>LLM Inference"]
-            WebUI["Open WebUI · :3000<br/>Chat Interface"]
-            Dashboard["Dashboard · :3001<br/>GPU Metrics"]
-        end
-
-        subgraph Voice["Voice"]
-            Whisper["Whisper · :9000<br/>Speech → Text"]
-            Kokoro["Kokoro · :8880<br/>Text → Speech"]
-            LiveKit["LiveKit · :7880<br/>WebRTC"]
-            VoiceAgent["Voice Agent"]
-        end
-
-        subgraph RAGp["RAG"]
-            Qdrant["Qdrant · :6333<br/>Vector DB"]
-            Embeddings["Embeddings · :8090"]
-        end
-
-        subgraph Workflows["Workflows"]
-            N8N["n8n · :5678<br/>400+ Integrations"]
-        end
-
-        subgraph Agents["Agents"]
-            OpenClaw["OpenClaw · :7860<br/>Multi-Agent"]
-            ToolProxy["Tool Proxy<br/>vLLM Bridge"]
-        end
-
-        subgraph Privacy["Privacy"]
-            Shield["Privacy Shield · :8085<br/>PII Redaction"]
-        end
-    end
-
-    Browser --> WebUI
-    Browser --> Dashboard
-    Browser --> N8N
-    Mic --> LiveKit
-    API --> VLLM
-
-    WebUI --> VLLM
-    VoiceAgent --> Whisper
-    VoiceAgent --> Kokoro
-    VoiceAgent --> VLLM
-    LiveKit --> VoiceAgent
-    OpenClaw --> ToolProxy
-    ToolProxy --> VLLM
-    Shield -.->|PII scrubbed| VLLM
-
-    style Core fill:#e8f0fe,stroke:#1a73e8,color:#1a1a1a
-    style Voice fill:#fce8e6,stroke:#d93025,color:#1a1a1a
-    style RAGp fill:#e6f4ea,stroke:#1e8e3e,color:#1a1a1a
-    style Workflows fill:#fef7e0,stroke:#f9ab00,color:#1a1a1a
-    style Agents fill:#f3e8fd,stroke:#9334e6,color:#1a1a1a
-    style Privacy fill:#e8eaed,stroke:#5f6368,color:#1a1a1a
+```bash
+git clone https://github.com/Light-Heart-Labs/DreamServer.git
+cd DreamServer/dream-server
+./install.sh
 ```
 
-The installer auto-detects your GPU and activates the right profiles. Core services start immediately; voice, RAG, workflows, and agents activate based on your hardware and preferences.
+The installer auto-detects your GPU, picks the right model, generates secure passwords, and starts everything. Open **http://localhost:3000** and start chatting.
 
----
+### 🚀 Instant Start (Bootstrap Mode)
 
-## Who Is This For?
+By default, Dream Server uses **bootstrap mode** for instant gratification:
 
-**Hobbyists** — Want local ChatGPT without subscriptions? Install Dream Server, open `localhost:3000`, start chatting. Voice mode, document Q&A, and workflow automation are one toggle away.
+1. Starts immediately with a tiny 1.5B model (downloads in <1 minute)
+2. You can start chatting within **2 minutes** of running the installer
+3. The full model downloads in the background
+4. When ready, hot-swap to the full model with zero downtime
 
-**Developers** — Building AI agents? Dream Server gives you a local OpenAI-compatible API (vLLM), multi-agent coordination (OpenClaw), and a workflow engine (n8n) — all on your GPU. No API keys, no rate limits, no cost per token.
+No more staring at download bars. Start playing immediately.
 
-**Teams** — Need private AI infrastructure? Everything runs on your hardware. The Privacy Shield scrubs PII before anything leaves your network. Deploy once, use from any device on your LAN.
+### Windows
+
+```powershell
+# Download and run
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Light-Heart-Labs/DreamServer/main/install.ps1" -OutFile install.ps1
+.\install.ps1
+```
+
+Windows installer checks prerequisites (WSL2, Docker, NVIDIA), then delegates to the Linux install path.
 
 ---
 
 ## What You Get
 
-| Component | What It Does |
-|-----------|-------------|
-| **vLLM** | GPU-accelerated LLM inference with continuous batching — auto-selects 7B to 72B models for your hardware |
-| **Open WebUI** | Full-featured chat interface with conversation history, model switching, web search |
-| **Dashboard** | Real-time GPU metrics (VRAM, temp, utilization), service health, model management |
-| **Whisper** | Speech-to-text — local, fast, private |
-| **Kokoro** | Text-to-speech — natural-sounding voices, no cloud |
-| **LiveKit** | Real-time WebRTC voice conversations — talk to your AI like a phone call |
-| **n8n** | Visual workflow automation with 400+ integrations (GitHub, Slack, email, webhooks) |
-| **Qdrant** | Vector database for document Q&A (RAG) |
-| **OpenClaw** | Multi-agent AI framework — agents coordinating autonomously on your GPU |
-| **Privacy Shield** | PII redaction proxy — scrubs personal data before any external API call |
+One installer. Full AI stack. Zero config.
 
-### Hardware Tiers (Auto-Detected)
-
-| Tier | VRAM | Model | Example GPUs |
-|------|------|-------|--------------|
-| Entry | <12GB | Qwen2.5-7B | RTX 3080, RTX 4070 |
-| Prosumer | 12–20GB | Qwen2.5-14B-AWQ | RTX 3090, RTX 4080 |
-| Pro | 20–40GB | Qwen2.5-32B-AWQ | RTX 4090, A6000 |
-| Enterprise | 40GB+ | Qwen2.5-72B-AWQ | A100, H100, multi-GPU |
-
-**Bootstrap mode:** Chat in 2 minutes. A tiny model starts instantly while the full model downloads in the background. Hot-swap with zero downtime when ready.
-
-### How It Compares
-
-| | Dream Server | Ollama + Open WebUI | LocalAI |
-|---|:---:|:---:|:---:|
-| Full-stack install (LLM + voice + workflows + RAG + privacy) | **One command** | Manual assembly | Manual assembly |
-| Hardware auto-detection + model selection | **Yes** | No | No |
-| Voice agents (STT + TTS + WebRTC) | **Built in** | No | Partial |
-| Inference engine | **vLLM** (continuous batching) | llama.cpp | llama.cpp |
-| Workflow automation | **n8n (400+ integrations)** | No | No |
-| PII redaction | **Built in** | No | No |
-| Multi-agent framework | **OpenClaw** | No | No |
-
-Ollama is great for running models locally. Dream Server is a complete AI platform — inference, voice, workflows, RAG, agents, privacy, and monitoring in one installer.
+| Component | Purpose | Port |
+|-----------|---------|------|
+| **llama-server** | LLM inference engine with continuous batching | 8080 |
+| **Open WebUI** | Beautiful chat interface with history & web search | 3000 |
+| **Dashboard** | Real-time GPU metrics, service health, model management | 3001 |
+| **LiteLLM** | Multi-model API gateway | 4000 |
+| **OpenClaw** | Autonomous AI agent framework | 7860 |
+| **SearXNG** | Self-hosted web search | 8888 |
+| **Perplexica** | Deep research engine | 3004 |
+| **n8n** | Workflow automation (400+ integrations) | 5678 |
+| **Qdrant** | Vector database for RAG | 6333 |
+| **Whisper** | Speech-to-text | 9000 |
+| **Kokoro** | Text-to-speech | 8880 |
+| **ComfyUI** | Image generation | 8188 |
+| **Privacy Shield** | PII scrubbing proxy | 8085 |
 
 ---
 
-## Operations Toolkit
+## Hardware Support
 
-Standalone tools for running persistent AI agents in production. Each works independently — grab what you need.
+The installer **automatically detects your GPU** and selects the optimal configuration:
 
-| Tool | Purpose |
-|------|---------|
-| [**Guardian**](guardian/) | Self-healing process watchdog — monitors services, auto-restores from backup, runs as root so agents can't kill it |
-| [**Memory Shepherd**](memory-shepherd/) | Periodic memory reset to prevent identity drift in long-running agents |
-| [**Token Spy**](token-spy/) | API cost monitoring with real-time dashboard and auto-kill for runaway sessions |
-| [**vLLM Tool Proxy**](dream-server/vllm-tool-proxy/) | Makes local vLLM tool calling work with OpenClaw — SSE re-wrapping, extraction, loop protection |
-| [**LLM Cold Storage**](scripts/llm-cold-storage.sh) | Archives idle HuggingFace models to free disk, keeps them resolvable via symlink |
+### NVIDIA GPUs
 
-These tools were born from the [OpenClaw Collective](COLLECTIVE.md) — 3 AI agents running autonomously on local GPUs, producing 3,464 commits in 8 days. Dream Server packages the infrastructure they built into something anyone can use.
+| Tier | VRAM | Model | Example GPUs |
+|------|------|-------|--------------|
+| Tier 1 | 8-11GB | qwen2.5-7b-instruct (Q4_K_M) | RTX 4060 Ti, RTX 3060 12GB |
+| Tier 2 | 12-15GB | qwen2.5-14b-instruct (Q4_K_M) | RTX 3080 12GB, RTX 4070 Ti |
+| Tier 3 | 16-23GB | qwen2.5-32b-instruct (Q4_K_M) | RTX 4090, RTX 3090, A5000 |
+| Tier 4 | 24GB+ | qwen2.5-72b-instruct (Q4_K_M) | 2x RTX 4090, A100 |
+
+### AMD APUs (Strix Halo)
+
+| Tier | Unified Memory | Model | Hardware |
+|------|---------------|-------|----------|
+| SH_LARGE | 90GB+ | qwen3-coder-next (80B MoE) | Ryzen AI MAX+ 395 (96GB) |
+| SH_COMPACT | 64-89GB | qwen3-30b-a3b (30B MoE) | Ryzen AI MAX+ 395 (64GB) |
+
+All models auto-selected based on available VRAM. No manual configuration.
 
 ---
 
@@ -183,17 +105,56 @@ These tools were born from the [OpenClaw Collective](COLLECTIVE.md) — 3 AI age
 |---|---|
 | [**Quickstart**](dream-server/QUICKSTART.md) | Step-by-step install guide with troubleshooting |
 | [**FAQ**](dream-server/FAQ.md) | Common questions, hardware advice, configuration |
-| [**Hardware Guide**](dream-server/docs/HARDWARE-GUIDE.md) | GPU recommendations with real prices |
-| [**Cookbook**](docs/cookbook/) | Recipes: voice agents, RAG pipelines, code assistant, privacy proxy |
-| [**Architecture**](docs/ARCHITECTURE.md) | Deep dive into the system design |
-| [**Contributing**](CONTRIBUTING.md) | How to contribute to Lighthouse AI |
+| [**Changelog**](dream-server/CHANGELOG.md) | Version history and release notes |
+| [**Contributing**](dream-server/CONTRIBUTING.md) | How to contribute to Dream Server |
+| [**Architecture**](dream-server/docs/INSTALLER-ARCHITECTURE.md) | Modular installer design deep dive |
+| [**Extensions**](dream-server/docs/EXTENSIONS.md) | How to add custom services |
 
-Windows: [`install.ps1`](dream-server/README.md#windows) handles WSL2 + Docker + NVIDIA drivers automatically.
+---
+
+## Repository Structure
+
+```
+DreamServer/
+├── dream-server/          # v2.0.0 - Production-ready local AI stack
+│   ├── install.sh         # Linux/WSL installer
+│   ├── docker-compose.*.yml
+│   ├── installers/        # Modular installer (13 phases)
+│   ├── extensions/        # Drop-in service integrations
+│   └── docs/              # 30+ documentation files
+│
+├── install.sh             # Root installer (delegates to dream-server/)
+├── install.ps1            # Windows installer
+│
+└── archive/               # Legacy projects (reference only)
+    ├── guardian/          # Process watchdog
+    ├── memory-shepherd/   # Agent memory lifecycle
+    ├── token-spy/         # API cost monitoring
+    └── docs/              # Historical documentation
+```
+
+**Shipping:** `dream-server/` is the v2.0.0 release.
+**Archive:** Legacy tools from the [OpenClaw Collective](archive/COLLECTIVE.md) development period.
+
+---
+
+## What's New in v2.0.0
+
+- **Modular installer**: 2591-line monolith → 6 libraries + 13 phases
+- **Zero-config service discovery**: Extensions auto-register via manifests
+- **AMD Strix Halo support**: ROCm 6.3 with unified memory models
+- **Bootstrap mode**: Chat in 2 minutes, upgrade later
+- **Comprehensive testing**: `make gate` runs lint + test + smoke + simulate
+- **30+ docs**: Installation, troubleshooting, Windows guides, extensions
+
+See [`dream-server/CHANGELOG.md`](dream-server/CHANGELOG.md) for full release notes.
 
 ---
 
 ## License
 
-Apache 2.0 — see [LICENSE](LICENSE). Use it, modify it, ship it.
+Apache 2.0 — Use it, modify it, ship it. See [LICENSE](LICENSE).
 
-Built by [Lightheart Labs](https://github.com/Light-Heart-Labs) and the [OpenClaw Collective](COLLECTIVE.md).
+---
+
+*Built by [The Collective](https://github.com/Light-Heart-Labs/DreamServer) — Android-17, Todd, and friends*

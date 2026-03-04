@@ -14,7 +14,7 @@ Run OpenClaw with your Dream Server for AI agent capabilities.
 
 ### Option 1: Add to Docker Compose
 
-Add this to your `docker-compose.yml`:
+OpenClaw is already included in `docker-compose.base.yml`. To add it manually:
 
 ```yaml
   openclaw:
@@ -27,9 +27,9 @@ Add this to your `docker-compose.yml`:
       - ./config/openclaw:/config
       - ./data/openclaw:/data
     ports:
-      - "7860:7860"
+      - "7860:18789"
     depends_on:
-      vllm:
+      llama-server:
         condition: service_healthy
     profiles:
       - openclaw
@@ -44,8 +44,8 @@ npm install -g @openclaw/openclaw
 # Copy config
 cp config/openclaw/openclaw.json.example ~/.openclaw/openclaw.json
 
-# Edit config to point to your vLLM
-# Change baseUrl if vLLM is on different host
+# Edit config to point to your llama-server
+# Change baseUrl if llama-server is on different host
 vim ~/.openclaw/openclaw.json
 
 # Start
@@ -59,12 +59,12 @@ Key settings in `openclaw.json`:
 ```json
 {
   "agent": {
-    "model": "local-vllm/Qwen/Qwen2.5-32B-Instruct-AWQ"
+    "model": "local-llama/qwen2.5-32b-instruct"
   },
   "providers": {
-    "local-vllm": {
+    "local-llama": {
       "type": "openai-compatible",
-      "baseUrl": "http://vllm:8000/v1",  // or http://localhost:8000/v1
+      "baseUrl": "http://llama-server:8080/v1",  // or http://localhost:8080/v1
       "apiKey": "not-needed"
     }
   },
@@ -87,7 +87,7 @@ openclaw chat
 openclaw ask "Summarize the files in ./docs"
 
 # With specific model
-openclaw ask --model local-vllm/Qwen/Qwen2.5-32B-Instruct-AWQ "Hello"
+openclaw ask --model local-llama/qwen2.5-32b-instruct "Hello"
 ```
 
 ### Gateway Mode (For Channels)
@@ -173,9 +173,9 @@ volumes:
 
 ### "Model not found"
 
-Verify vLLM is running and model name matches:
+Verify llama-server is running and model name matches:
 ```bash
-curl http://localhost:8000/v1/models
+curl http://localhost:8080/v1/models
 ```
 
 ### Sub-agents timing out

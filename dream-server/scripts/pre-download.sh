@@ -4,7 +4,7 @@
 #
 # Part of Dream Server — Phase 3
 #
-# Downloads models ahead of time so setup.sh can skip the download step.
+# Downloads models ahead of time so install.sh can skip the download step.
 # Useful for slow/metered connections or offline installs.
 #
 # Usage:
@@ -92,7 +92,7 @@ check_dependencies() {
 }
 
 #=============================================================================
-# Hardware Detection (simplified from setup.sh)
+# Hardware Detection (simplified from install-core.sh)
 #=============================================================================
 
 detect_vram_gb() {
@@ -282,8 +282,8 @@ download_tier() {
     echo ""
     success "Pre-download complete!"
     echo ""
-    echo "You can now run setup.sh — it will use the cached models."
-    echo "  curl -fsSL https://dream.openclaw.ai/setup.sh | bash"
+    echo "You can now run install.sh — it will use the cached models."
+    echo "  ./install.sh"
 }
 
 interactive_menu() {

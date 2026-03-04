@@ -2,13 +2,22 @@
 
 One command to a fully running local AI stack. No manual config, no dependency hell.
 
+See [`docs/SUPPORT-MATRIX.md`](docs/SUPPORT-MATRIX.md) before installing to confirm current platform support.
+
 ## Prerequisites
 
-**Linux:**
+**Linux (NVIDIA GPU):**
 - Docker with Compose v2+ ([Install](https://docs.docker.com/get-docker/))
 - NVIDIA GPU with 8GB+ VRAM (16GB+ recommended)
 - NVIDIA Container Toolkit ([Install](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html))
 - 40GB+ disk space (for models)
+
+**Linux (AMD Strix Halo):**
+- Docker with Compose v2+ ([Install](https://docs.docker.com/get-docker/))
+- AMD Ryzen AI MAX+ APU with 64GB+ unified memory
+- ROCm-compatible kernel (6.17+ recommended, 6.18.4+ ideal)
+- `/dev/kfd` and `/dev/dri` accessible (user in `video` + `render` groups)
+- 60GB+ disk space (for GGUF model files)
 
 **Windows:**
 - Windows 10 21H2+ or Windows 11
@@ -16,7 +25,7 @@ One command to a fully running local AI stack. No manual config, no dependency h
 - Docker Desktop (installer will prompt if missing)
 - WSL2 (installer will enable if needed)
 
-For Windows, use `install.ps1` instead — see [README.md](README.md#windows).
+For Windows and macOS status, see [README.md](README.md#platform-support) and [`docs/SUPPORT-MATRIX.md`](docs/SUPPORT-MATRIX.md).
 
 ## Step 1: Run the Installer
 
@@ -26,14 +35,19 @@ For Windows, use `install.ps1` instead — see [README.md](README.md#windows).
 
 The installer will:
 1. **Detect your GPU** and auto-select the right tier:
-   - Tier 1 (Entry): <12GB VRAM → Qwen2.5-7B, 8K context
-   - Tier 2 (Prosumer): 12-20GB VRAM → Qwen2.5-14B-AWQ, 16K context
-   - Tier 3 (Pro): 20-40GB VRAM → Qwen2.5-32B-AWQ, 32K context
-   - Tier 4 (Enterprise): 40GB+ VRAM → Qwen2.5-72B-AWQ, 32K context
-2. Check Docker and NVIDIA toolkit
+   - **AMD Strix Halo (unified memory)**:
+     - SH_LARGE (90GB+): qwen3-coder-next (80B MoE), 128K context
+     - SH_COMPACT (64-89GB): qwen3-30b-a3b (30B MoE), 128K context
+   - **NVIDIA (discrete GPU)**:
+     - Tier 1 (Entry): <12GB VRAM → qwen2.5-7b-instruct (GGUF Q4_K_M), 16K context
+     - Tier 2 (Prosumer): 12-20GB VRAM → qwen2.5-14b-instruct (GGUF Q4_K_M), 16K context
+     - Tier 3 (Pro): 20-40GB VRAM → qwen2.5-32b-instruct (GGUF Q4_K_M), 32K context
+     - Tier 4 (Enterprise): 40GB+ VRAM → qwen2.5-72b-instruct (GGUF Q4_K_M), 32K context
+2. Check Docker and GPU toolkit (NVIDIA Container Toolkit or ROCm devices)
 3. Ask which optional components to enable (voice, workflows, RAG)
 4. Generate secure passwords and configuration
-5. Start all services
+5. Apply system tuning (AMD: sysctl, amdgpu modprobe, etc.)
+6. Start all services
 
 **Override tier manually:** `./install.sh --tier 3`
 
@@ -41,13 +55,24 @@ The installer will:
 
 ## Step 2: Wait for Model Download
 
-First run downloads the LLM (~20GB for 32B AWQ). Watch progress:
+**NVIDIA:** First run downloads the LLM (~20GB for 32B GGUF). Watch progress:
 
 ```bash
-docker compose logs -f vllm
+docker compose logs -f llama-server
 ```
 
-When you see `Application startup complete`, you're ready!
+When you see `server is listening on`, you're ready!
+
+**AMD Strix Halo:** The GGUF model downloads in the background (~25-52GB). Watch progress:
+
+```bash
+tail -f ~/dream-server/logs/model-download.log
+
+# Or check llama-server readiness:
+docker compose -f docker-compose.base.yml -f docker-compose.amd.yml logs -f llama-server
+```
+
+When you see `server is listening on`, the model is loaded and ready.
 
 ## Step 3: Validate Installation
 
@@ -76,11 +101,22 @@ Visit: **http://localhost:3000**
 
 ## Step 5: Test the API
 
+**NVIDIA:**
 ```bash
-curl http://localhost:8000/v1/chat/completions \
+curl http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "Qwen/Qwen2.5-32B-Instruct-AWQ",
+    "model": "qwen2.5-32b-instruct",
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'
+```
+
+**AMD Strix Halo:**
+```bash
+curl http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "qwen3-coder-next",
     "messages": [{"role": "user", "content": "Hello!"}]
   }'
 ```
@@ -91,12 +127,21 @@ curl http://localhost:8000/v1/chat/completions \
 
 The installer auto-detects your GPU and selects the optimal configuration:
 
+**AMD Strix Halo:**
+
+| Tier | Unified VRAM | Model | Hardware |
+|------|-------------|-------|----------|
+| SH_LARGE | 90GB+ | qwen3-coder-next (80B MoE) | Ryzen AI MAX+ (96GB config) |
+| SH_COMPACT | 64-89GB | qwen3:30b-a3b (30B MoE) | Ryzen AI MAX+ (64GB config) |
+
+**NVIDIA:**
+
 | Tier | VRAM | Model | Example GPUs |
 |------|------|-------|--------------|
 | 1 (Entry) | <12GB | Qwen2.5-7B | RTX 3080, RTX 4070 |
-| 2 (Prosumer) | 12-20GB | Qwen2.5-14B-AWQ | RTX 3090, RTX 4080 |
-| 3 (Pro) | 20-40GB | Qwen2.5-32B-AWQ | RTX 4090, A6000 |
-| 4 (Enterprise) | 40GB+ | Qwen2.5-72B-AWQ | A100, H100 |
+| 2 (Prosumer) | 12-20GB | Qwen2.5-14B (GGUF Q4_K_M) | RTX 3090, RTX 4080 |
+| 3 (Pro) | 20-40GB | Qwen2.5-32B (GGUF Q4_K_M) | RTX 4090, A6000 |
+| 4 (Enterprise) | 40GB+ | Qwen2.5-72B (GGUF Q4_K_M) | A100, H100 |
 
 To check what tier you'd get without installing:
 
@@ -108,61 +153,79 @@ To check what tier you'd get without installing:
 
 ## Common Issues
 
-### "OOM" or "CUDA out of memory"
+### "OOM" or "CUDA out of memory" (NVIDIA)
 
 Reduce context window in `.env`:
 ```
-MAX_CONTEXT=4096  # or even 2048
+CTX_SIZE=4096  # or even 2048
 ```
 
 Or switch to a smaller model:
 ```
-LLM_MODEL=Qwen/Qwen2.5-7B-Instruct
+LLM_MODEL=qwen2.5-7b-instruct
 ```
+
+### AMD: llama-server crash loop
+
+Check logs: `docker compose -f docker-compose.base.yml -f docker-compose.amd.yml logs llama-server`
+
+Common causes:
+- GGUF file not found: ensure `data/models/*.gguf` exists
+- Wrong GGUF format: use upstream llama.cpp GGUFs (NOT Ollama blobs)
+- Missing ROCm env vars: `HSA_OVERRIDE_GFX_VERSION=11.5.1` must be set
 
 ### Model download fails
 
 1. Check disk space: `df -h`
-2. Try again: `docker compose restart vllm`
-3. Or pre-download with Hugging Face CLI
+2. **NVIDIA:** Try again: `docker compose restart llama-server`
+3. **AMD:** Resume download: `wget -c -O data/models/<model>.gguf <url>`
 
 ### WebUI shows "No models available"
 
-vLLM is still loading. Check: `docker compose logs vllm`
+The inference engine is still loading.
+- **NVIDIA:** Check: `docker compose logs llama-server`
+- **AMD:** Check: `docker compose -f docker-compose.base.yml -f docker-compose.amd.yml logs llama-server`
 
 ### Port conflicts
 
 Edit `.env` to change ports:
 ```
 WEBUI_PORT=3001
-VLLM_PORT=8001
+LLAMA_SERVER_PORT=8081    # LLM inference port
 ```
 
 ---
 
 ## Next Steps
 
-- **Enable voice**: `docker compose --profile voice up -d`
-- **Try voice-to-voice**: Import `workflows/05-voice-to-voice.json` into n8n — speak, get spoken answers back
-- **Add workflows**: `docker compose --profile workflows up -d` (see `workflows/README.md`)
-- **Set up RAG**: `docker compose --profile rag up -d`
-- **Connect OpenClaw**: Use this as your local inference backend
+- **Add workflows**: Open n8n at http://localhost:5678 to create custom automation workflows
+- **Connect OpenClaw**: Use this as your local inference backend at http://localhost:7860
+- **Dashboard**: Monitor services, GPU, and health at http://localhost:3001
 
 ---
 
 ## Stopping
 
 ```bash
+# NVIDIA
 docker compose down
+
+# AMD Strix Halo
+docker compose -f docker-compose.base.yml -f docker-compose.amd.yml down
 ```
 
 ## Updating
 
 ```bash
+# NVIDIA
 docker compose pull
 docker compose up -d
+
+# AMD Strix Halo
+docker compose -f docker-compose.base.yml -f docker-compose.amd.yml pull
+docker compose -f docker-compose.base.yml -f docker-compose.amd.yml up -d --build
 ```
 
 ---
 
-Built by The Collective • [Lighthouse AI](https://github.com/Light-Heart-Labs/Lighthouse-AI)
+Built by The Collective • [DreamServer](https://github.com/Light-Heart-Labs/DreamServer)

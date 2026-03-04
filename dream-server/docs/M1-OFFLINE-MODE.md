@@ -27,7 +27,7 @@ M1 mode configures Dream Server for fully air-gapped operation:
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| vLLM (local LLM) | ✅ | All inference local |
+| llama-server (local LLM) | ✅ | All inference local |
 | Open WebUI | ✅ | Local web interface |
 | Whisper STT | ✅ | `--voice` flag |
 | Kokoro TTS | ✅ | `--voice` flag |
@@ -48,10 +48,10 @@ M1 mode configures Dream Server for fully air-gapped operation:
 
 ```bash
 # Check services are running
-./status.sh
+dream status
 
 # Test LLM (should work offline)
-curl http://localhost:8000/v1/chat/completions \
+curl http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{"model": "local", "messages": [{"role": "user", "content": "Hello"}]}'
 
@@ -62,7 +62,7 @@ curl http://localhost:8000/v1/chat/completions \
 ### Full Air-Gap Procedure
 
 1. Complete installation with `--offline` flag
-2. Verify all services running: `./status.sh`
+2. Verify all services running: `dream status`
 3. Test core functionality while online
 4. Disconnect network (unplug ethernet / disable WiFi)
 5. Verify services still work

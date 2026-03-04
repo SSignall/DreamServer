@@ -15,15 +15,23 @@ BOLD='\033[1m'
 DIM='\033[2m'
 NC='\033[0m'
 
-# URLs
-VLLM_URL="${VLLM_URL:-http://localhost:8000}"
-WHISPER_URL="${WHISPER_URL:-http://localhost:9000}"
-TTS_URL="${TTS_URL:-http://localhost:8880}"
-QDRANT_URL="${QDRANT_URL:-http://localhost:6333}"
-
 # Get script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DREAM_DIR="$(dirname "$SCRIPT_DIR")"
+
+# Source service registry for port resolution
+if [[ -f "$DREAM_DIR/lib/service-registry.sh" ]]; then
+    export SCRIPT_DIR="$DREAM_DIR"
+    . "$DREAM_DIR/lib/service-registry.sh"
+    sr_load
+    [[ -f "$DREAM_DIR/.env" ]] && set -a && . "$DREAM_DIR/.env" && set +a
+fi
+
+# URLs — resolved from registry
+LLM_URL="${LLM_URL:-http://localhost:${SERVICE_PORTS[llama-server]:-8080}}"
+WHISPER_URL="${WHISPER_URL:-http://localhost:${SERVICE_PORTS[whisper]:-9000}}"
+TTS_URL="${TTS_URL:-http://localhost:${SERVICE_PORTS[tts]:-8880}}"
+QDRANT_URL="${QDRANT_URL:-http://localhost:${SERVICE_PORTS[qdrant]:-6333}}"
 EXAMPLES_DIR="$DREAM_DIR/examples"
 
 clear_screen() {
@@ -63,8 +71,8 @@ demo_chat() {
     echo -e "${DIM}────────────────────────────────────────${NC}"
     echo ""
     
-    if ! check_service "$VLLM_URL" "/health"; then
-        echo -e "${RED}Error: vLLM is not running${NC}"
+    if ! check_service "$LLM_URL" "/health"; then
+        echo -e "${RED}Error: LLM is not running${NC}"
         echo "Start Dream Server first: docker compose up -d"
         return
     fi
@@ -86,7 +94,7 @@ demo_chat() {
         
         echo -ne "${CYAN}AI: ${NC}"
         
-        response=$(curl -sf "${VLLM_URL}/v1/chat/completions" \
+        response=$(curl -sf "${LLM_URL}/v1/chat/completions" \
             -H "Content-Type: application/json" \
             -d "$(jq -n --arg msg "$user_input" '{
                 model: "local",
@@ -108,13 +116,13 @@ demo_voice() {
     
     if ! check_service "$WHISPER_URL" "/health"; then
         echo -e "${YELLOW}Whisper (STT) not running. Voice input disabled.${NC}"
-        echo -e "${DIM}Enable with: docker compose --profile voice up -d${NC}"
+        echo -e "${DIM}Enable with: docker compose ps whisper  # Voice services start with the stack${NC}"
         echo ""
     fi
     
     if ! check_service "$TTS_URL" "/health"; then
         echo -e "${YELLOW}Kokoro (TTS) not running. Voice output disabled.${NC}"
-        echo -e "${DIM}Enable with: docker compose --profile voice up -d${NC}"
+        echo -e "${DIM}Enable with: docker compose ps whisper  # Voice services start with the stack${NC}"
         echo ""
     fi
     
@@ -155,13 +163,13 @@ demo_rag() {
     echo -e "${DIM}────────────────────────────────────────${NC}"
     echo ""
     
-    if ! check_service "$VLLM_URL" "/health"; then
-        echo -e "${RED}Error: vLLM is not running${NC}"
+    if ! check_service "$LLM_URL" "/health"; then
+        echo -e "${RED}Error: LLM is not running${NC}"
         return
     fi
     
     if ! check_service "$QDRANT_URL" "/healthz"; then
-        echo -e "${YELLOW}Qdrant not running. Enable with: docker compose --profile rag up -d${NC}"
+        echo -e "${YELLOW}Qdrant not running. Enable with: docker compose ps qdrant  # RAG services start with the stack${NC}"
         echo ""
         echo -e "${DIM}Press Enter to return to menu...${NC}"
         read -r
@@ -206,7 +214,7 @@ demo_rag() {
         echo -ne "${CYAN}Answer: ${NC}"
         
         # Use document as context
-        response=$(curl -sf "${VLLM_URL}/v1/chat/completions" \
+        response=$(curl -sf "${LLM_URL}/v1/chat/completions" \
             -H "Content-Type: application/json" \
             -d "$(jq -n --arg doc "$DOC_CONTENT" --arg q "$question" '{
                 model: "local",
@@ -229,8 +237,8 @@ demo_code() {
     echo -e "${DIM}────────────────────────────────────────${NC}"
     echo ""
     
-    if ! check_service "$VLLM_URL" "/health"; then
-        echo -e "${RED}Error: vLLM is not running${NC}"
+    if ! check_service "$LLM_URL" "/health"; then
+        echo -e "${RED}Error: LLM is not running${NC}"
         return
     fi
     
@@ -278,7 +286,7 @@ demo_code() {
     
     prompt="Task: $task\n\nCode:\n\`\`\`\n$CODE\n\`\`\`"
     
-    response=$(curl -sf "${VLLM_URL}/v1/chat/completions" \
+    response=$(curl -sf "${LLM_URL}/v1/chat/completions" \
         -H "Content-Type: application/json" \
         -d "$(jq -n --arg p "$prompt" '{
             model: "local",
@@ -307,21 +315,16 @@ show_status() {
     echo -e "${BOLD}Services:${NC}"
     echo ""
     
-    services=(
-        "vLLM (LLM)|$VLLM_URL|/health"
-        "Whisper (STT)|$WHISPER_URL|/health"
-        "Kokoro (TTS)|$TTS_URL|/health"
-        "Qdrant (Vector DB)|$QDRANT_URL|/healthz"
-        "n8n (Workflows)|http://localhost:5678|/healthz"
-        "Open WebUI|http://localhost:3000|/"
-    )
-    
-    for service in "${services[@]}"; do
-        IFS='|' read -r name url endpoint <<< "$service"
-        if check_service "$url" "$endpoint"; then
-            echo -e "  ${GREEN}✓${NC} $name ${DIM}($url)${NC}"
+    for sid in "${SERVICE_IDS[@]}"; do
+        _port="${SERVICE_PORTS[$sid]:-0}"
+        _health="${SERVICE_HEALTH[$sid]:-/health}"
+        _name="${SERVICE_NAMES[$sid]:-$sid}"
+        [[ "$_port" == "0" ]] && continue
+        _url="http://localhost:${_port}"
+        if check_service "$_url" "$_health"; then
+            echo -e "  ${GREEN}✓${NC} $_name ${DIM}($_url)${NC}"
         else
-            echo -e "  ${RED}✗${NC} $name ${DIM}($url)${NC}"
+            echo -e "  ${RED}✗${NC} $_name ${DIM}($_url)${NC}"
         fi
     done
     
@@ -340,9 +343,9 @@ show_status() {
     echo ""
     echo -e "${BOLD}Quick Links:${NC}"
     echo ""
-    echo -e "  Chat UI:    ${CYAN}http://localhost:3000${NC}"
-    echo -e "  Workflows:  ${CYAN}http://localhost:5678${NC}"
-    echo -e "  API:        ${CYAN}http://localhost:8000/v1${NC}"
+    echo -e "  Chat UI:    ${CYAN}http://localhost:${SERVICE_PORTS[open-webui]:-3000}${NC}"
+    echo -e "  Workflows:  ${CYAN}http://localhost:${SERVICE_PORTS[n8n]:-5678}${NC}"
+    echo -e "  API:        ${CYAN}http://localhost:${SERVICE_PORTS[llama-server]:-8080}/v1${NC}"
     
     echo ""
     echo -e "${DIM}Press Enter to return to menu...${NC}"

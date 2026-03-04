@@ -1,6 +1,6 @@
 #!/bin/bash
 # Dream Server — Progress Bar Utilities
-# Sourced by setup.sh for download/install progress display
+# Sourced by install-core.sh for download/install progress display
 
 # ═══════════════════════════════════════════════════════════════
 # PROGRESS BAR
@@ -172,7 +172,7 @@ docker_pull_with_progress() {
     fi
 }
 
-# Monitor model download progress (for vLLM/HuggingFace downloads)
+# Monitor model download progress (for llama-server/GGUF downloads)
 # Watches a directory for model files and shows progress
 monitor_model_download() {
     local model_dir=$1

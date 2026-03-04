@@ -13,7 +13,7 @@
 #   ./dream-test.sh                  # Run all tests
 #   ./dream-test.sh --quick          # Fast mode (~30s, no inference)
 #   ./dream-test.sh --json           # JSON output for automation
-#   ./dream-test.sh --service vllm   # Test specific service
+#   ./dream-test.sh --service llm     # Test specific service
 #
 # Exit codes:
 #   0 - All critical tests passed
@@ -30,19 +30,28 @@ ENV_FILE="${ENV_FILE:-$DREAM_DIR/.env}"
 TIMEOUT=15
 QUICK_TIMEOUT=5
 
-# Service endpoints
-VLLM_HOST="${VLLM_HOST:-localhost}"
-VLLM_PORT="${VLLM_PORT:-8000}"
-VLLM_URL="http://${VLLM_HOST}:${VLLM_PORT}"
+# Source service registry for port resolution
+_DT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+if [[ -f "$_DT_DIR/lib/service-registry.sh" ]]; then
+    export SCRIPT_DIR="$_DT_DIR"
+    . "$_DT_DIR/lib/service-registry.sh"
+    sr_load
+    [[ -f "$_DT_DIR/.env" ]] && set -a && . "$_DT_DIR/.env" && set +a
+fi
+
+# Service endpoints — resolved from registry
+LLM_HOST="${LLM_HOST:-localhost}"
+LLM_PORT="${LLM_PORT:-${SERVICE_PORTS[llama-server]:-8080}}"
+LLM_URL="http://${LLM_HOST}:${LLM_PORT}"
 WHISPER_HOST="${WHISPER_HOST:-localhost}"
-WHISPER_PORT="${WHISPER_PORT:-9000}"
+WHISPER_PORT="${WHISPER_PORT:-${SERVICE_PORTS[whisper]:-9000}}"
 TTS_HOST="${TTS_HOST:-localhost}"
-TTS_PORT="${TTS_PORT:-8880}"
+TTS_PORT="${TTS_PORT:-${SERVICE_PORTS[tts]:-8880}}"
 EMBEDDING_HOST="${EMBEDDING_HOST:-localhost}"
-EMBEDDING_PORT="${EMBEDDING_PORT:-9103}"
+EMBEDDING_PORT="${EMBEDDING_PORT:-${SERVICE_PORTS[embeddings]:-9103}}"
 LIVEKIT_HOST="${LIVEKIT_HOST:-localhost}"
 LIVEKIT_PORT="${LIVEKIT_PORT:-7880}"
-PRIVACY_SHIELD_PORT="${PRIVACY_SHIELD_PORT:-8085}"
+PRIVACY_SHIELD_PORT="${PRIVACY_SHIELD_PORT:-${SERVICE_PORTS[privacy-shield]:-8085}}"
 
 # Colors (ANSI escape sequences)
 RED='\e[0;31m'
@@ -262,35 +271,39 @@ test_gpu() {
     fi
 }
 
-test_vllm() {
+test_llm() {
     echo ""
-    echo "> vLLM LLM Inference"
-    
-    test_http "vLLM Health" "$VLLM_URL/health" "200" || return 1
-    test_http "vLLM Models API" "$VLLM_URL/v1/models" "200"
-    
+    echo "> LLM Inference (llama-server)"
+
+    test_http "LLM Health" "$LLM_URL/health" "200" || return 1
+    test_http "LLM Models API" "$LLM_URL/v1/models" "200"
+
     if [[ "$QUICK_MODE" == "true" ]]; then
-        record_result "vLLM Inference" "skip" "quick mode"
-        print_test "vLLM Inference" "skip"
+        record_result "LLM Inference" "skip" "quick mode"
+        print_test "LLM Inference" "skip"
         return 0
     fi
-    
-    local payload='{"model": "Qwen/Qwen2.5-32B-Instruct-AWQ", "messages": [{"role": "user", "content": "Say hello"}], "max_tokens": 10}'
+
+    local model_id
+    model_id=$(curl -s --max-time 10 "$LLM_URL/v1/models" 2>/dev/null | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+    model_id="${model_id:-local}"
+
+    local payload="{\"model\": \"$model_id\", \"messages\": [{\"role\": \"user\", \"content\": \"Say hello\"}], \"max_tokens\": 10}"
     local response
-    
+
     response=$(curl -s --max-time 30 \
-        -X POST "$VLLM_URL/v1/chat/completions" \
+        -X POST "$LLM_URL/v1/chat/completions" \
         -H "Content-Type: application/json" \
         -d "$payload" 2>/dev/null)
-    
+
     if echo "$response" | grep -q '"content"'; then
         local tokens_used
         tokens_used=$(echo "$response" | grep -o '"total_tokens":[0-9]*' | cut -d: -f2)
-        record_result "vLLM Inference" "pass" "${tokens_used} tokens"
-        print_test "vLLM Inference" "pass" "${tokens_used} tokens"
+        record_result "LLM Inference" "pass" "${tokens_used} tokens"
+        print_test "LLM Inference" "pass" "${tokens_used} tokens"
     else
-        record_result "vLLM Inference" "fail" "no content in response"
-        print_test "vLLM Inference" "fail"
+        record_result "LLM Inference" "fail" "no content in response"
+        print_test "LLM Inference" "fail"
         return 1
     fi
 }
@@ -310,7 +323,7 @@ test_tool_calling() {
     
     local response
     response=$(curl -s --max-time 30 \
-        -X POST "$VLLM_URL/v1/chat/completions" \
+        -X POST "$LLM_URL/v1/chat/completions" \
         -H "Content-Type: application/json" \
         -d "$payload" 2>/dev/null)
     
@@ -405,7 +418,7 @@ test_voice_roundtrip() {
     if curl -s --max-time 5 "http://${TTS_HOST}:${TTS_PORT}/v1/audio/voices" &>/dev/null; then
         tts_ready=true
     fi
-    if curl -s --max-time 5 "$VLLM_URL/health" &>/dev/null; then
+    if curl -s --max-time 5 "$LLM_URL/health" &>/dev/null; then
         llm_ready=true
     fi
     
@@ -431,7 +444,7 @@ test_voice_roundtrip() {
     local llm_payload='{"model": "Qwen/Qwen2.5-32B-Instruct-AWQ", "messages": [{"role": "user", "content": "What is the weather today?"}], "max_tokens": 50}'
     local llm_response
     llm_response=$(curl -s --max-time 15 \
-        -X POST "$VLLM_URL/v1/chat/completions" \
+        -X POST "$LLM_URL/v1/chat/completions" \
         -H "Content-Type: application/json" \
         -d "$llm_payload" 2>/dev/null)
     
@@ -573,15 +586,15 @@ _print_text_summary() {
         echo ""
         echo "Actionable fixes:"
         
-        if [[ "${RESULTS_STATUS[0]:-}" == "fail" ]] && [[ "${RESULTS_NAMES[0]:-}" == *"vLLM"* ]]; then
-            echo "  - vLLM not responding - check: docker logs dream-vllm"
+        if [[ "${RESULTS_STATUS[0]:-}" == "fail" ]] && [[ "${RESULTS_NAMES[0]:-}" == *"LLM"* ]]; then
+            echo "  - LLM not responding - check: docker logs dream-llama-server"
         fi
-        
+
         local i
         for i in "${!RESULTS_NAMES[@]}"; do
             if [[ "${RESULTS_STATUS[$i]}" == "fail" ]]; then
                 case "${RESULTS_NAMES[$i]}" in
-                    "Tool Calling") echo "  - Tool calling failed - check vLLM tool proxy on port 8003" ;;
+                    "Tool Calling") echo "  - Tool calling failed - check llama-server tool support" ;;
                     "Whisper Port") echo "  - Whisper not running - start: docker compose up whisper" ;;
                     "TTS Port") echo "  - TTS not running - start: docker compose up kokoro-tts" ;;
                 esac
@@ -611,14 +624,14 @@ OPTIONS:
     --help, -h         Show this help
 
 SERVICES:
-    docker, gpu, vllm, tool-calling, whisper, tts, 
+    docker, gpu, llm, tool-calling, whisper, tts,
     embeddings, voice-roundtrip, privacy-shield, livekit
 
 EXAMPLES:
     dream-test.sh                    # Run all tests
     dream-test.sh --quick            # Fast health check
     dream-test.sh --json > results.json
-    dream-test.sh --service vllm     # Test LLM only
+    dream-test.sh --service llm      # Test LLM only
 
 EXIT CODES:
     0 - All tests passed
@@ -633,7 +646,7 @@ run_all_tests() {
     
     test_docker
     test_gpu
-    test_vllm
+    test_llm
     test_tool_calling
     test_whisper
     test_tts
@@ -651,7 +664,7 @@ run_specific_service() {
     case "$service" in
         docker)          test_docker ;;
         gpu)             test_gpu ;;
-        vllm)            test_vllm ;;
+        llm)             test_llm ;;
         tool-calling)    test_tool_calling ;;
         whisper)         test_whisper ;;
         tts)             test_tts ;;
@@ -661,7 +674,7 @@ run_specific_service() {
         livekit)         test_livekit ;;
         *)
             echo "Unknown service: $service" >&2
-            echo "Available: docker, gpu, vllm, tool-calling, whisper, tts, embeddings, voice-roundtrip, privacy-shield, livekit" >&2
+            echo "Available: docker, gpu, llm, tool-calling, whisper, tts, embeddings, voice-roundtrip, privacy-shield, livekit" >&2
             exit 2
             ;;
     esac

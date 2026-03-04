@@ -1,10 +1,25 @@
 # Runtime / secrets
 .env
 .env.*
+!.env.example
+!.env.schema.json
+.current-mode
+.profiles
+.target-model
+.target-quantization
 
 # Install-time data directories
 data/
 models/
+artifacts/
+logs/
+
+# User presets (dream preset save/load)
+presets/
+
+# Python cache
+**/__pycache__/
+*.pyc
 
 # OpenClaw workspace (runtime state)
 config/openclaw/workspace/

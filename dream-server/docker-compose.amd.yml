@@ -1,0 +1,29 @@
+# Dream Server — AMD GPU Overlay (Core Services Only)
+# ComfyUI GPU config moved to extensions/services/comfyui/compose.amd.yaml
+# Use with: docker compose -f docker-compose.base.yml -f docker-compose.amd.yml up -d
+
+services:
+  llama-server:
+    image: kyuz0/amd-strix-halo-toolboxes:rocm-7.2
+    entrypoint: ["llama-server"]
+    devices:
+      - /dev/dri:/dev/dri
+      - /dev/kfd:/dev/kfd
+    group_add:
+      - "${VIDEO_GID:-44}"
+      - "${RENDER_GID:-992}"
+    environment:
+      - HSA_OVERRIDE_GFX_VERSION=11.5.1
+      - ROCBLAS_USE_HIPBLASLT=0
+    deploy:
+      resources:
+        limits:
+          cpus: '16.0'
+          memory: 110G
+        reservations:
+          cpus: '4.0'
+          memory: 8G
+
+  dashboard-api:
+    volumes:
+      - /sys/class/drm:/sys/class/drm:ro

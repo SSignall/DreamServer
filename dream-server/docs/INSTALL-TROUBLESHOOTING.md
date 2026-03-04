@@ -81,7 +81,7 @@ df -h
 ### Problem: Health Checks Fail Due to Timeout
 **Solution:** Increase the timeout settings or check the server's health manually.
 
-Increase timeout settings in the configuration file (e.g., `docker-compose.yml`).
+Increase timeout settings in the compose file (e.g., `docker-compose.base.yml`).
 
 Check server health:
 ```bash

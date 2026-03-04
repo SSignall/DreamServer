@@ -3,7 +3,7 @@
 # dream-test-functional.sh - Functional Testing for Dream Server
 #
 # Tests actual functionality, not just port availability:
-# - vLLM generates coherent text
+# - LLM (llama-server) generates coherent text
 # - Whisper transcribes actual audio
 # - TTS generates valid audio files
 # - Embeddings produce vectors
@@ -19,11 +19,20 @@ GREEN='\e[0;32m'
 YELLOW='\e[1;33m'
 NC='\e[0m'
 
-# Service endpoints
-VLLM_URL="${VLLM_URL:-http://localhost:8000}"
-WHISPER_URL="${WHISPER_URL:-http://localhost:9000}"
-TTS_URL="${TTS_URL:-http://localhost:8880}"
-EMBEDDING_URL="${EMBEDDING_URL:-http://localhost:9103}"
+# Source service registry for port resolution
+_FT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+if [[ -f "$_FT_DIR/lib/service-registry.sh" ]]; then
+    export SCRIPT_DIR="$_FT_DIR"
+    . "$_FT_DIR/lib/service-registry.sh"
+    sr_load
+    [[ -f "$_FT_DIR/.env" ]] && set -a && . "$_FT_DIR/.env" && set +a
+fi
+
+# Service endpoints — resolved from registry
+LLM_URL="${LLM_URL:-http://localhost:${SERVICE_PORTS[llama-server]:-8080}}"
+WHISPER_URL="${WHISPER_URL:-http://localhost:${SERVICE_PORTS[whisper]:-9000}}"
+TTS_URL="${TTS_URL:-http://localhost:${SERVICE_PORTS[tts]:-8880}}"
+EMBEDDING_URL="${EMBEDDING_URL:-http://localhost:${SERVICE_PORTS[embeddings]:-9103}}"
 
 # Test tracking
 TESTS_PASSED=0
@@ -43,39 +52,43 @@ warn() {
     echo -e "${YELLOW}⚠${NC} $1"
 }
 
-# Test 1: vLLM generates coherent text
-test_vllm_functional() {
+# Test 1: LLM generates coherent text
+test_llm_functional() {
     echo ""
-    echo "> Testing vLLM Functional Generation"
-    
+    echo "> Testing LLM Functional Generation"
+
+    local model_id
+    model_id=$(curl -s --max-time 10 "$LLM_URL/v1/models" 2>/dev/null | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+    model_id="${model_id:-local}"
+
     local prompt="What is 2+2? Answer with just the number."
-    local payload="{\"model\": \"Qwen/Qwen2.5-32B-Instruct-AWQ\", \"messages\": [{\"role\": \"user\", \"content\": \"$prompt\"}], \"max_tokens\": 10, \"temperature\": 0.1}"
-    
+    local payload="{\"model\": \"$model_id\", \"messages\": [{\"role\": \"user\", \"content\": \"$prompt\"}], \"max_tokens\": 10, \"temperature\": 0.1}"
+
     local response
     response=$(curl -s --max-time 30 \
-        -X POST "$VLLM_URL/v1/chat/completions" \
+        -X POST "$LLM_URL/v1/chat/completions" \
         -H "Content-Type: application/json" \
         -d "$payload" 2>/dev/null || echo "")
-    
+
     if [[ -z "$response" ]]; then
-        fail "vLLM returned no response"
+        fail "LLM returned no response"
         return 1
     fi
-    
+
     local content
     content=$(echo "$response" | grep -oP '"content":\s*"[^"]+"' | head -1 | cut -d'"' -f4)
-    
+
     if [[ -z "$content" ]]; then
-        fail "vLLM returned empty content"
+        fail "LLM returned empty content"
         return 1
     fi
-    
+
     # Check if response contains "4" (the answer to 2+2)
     if echo "$content" | grep -q "4"; then
-        pass "vLLM generates correct answer: '$content'"
+        pass "LLM generates correct answer: '$content'"
     else
-        warn "vLLM generated: '$content' (expected '4')"
-        pass "vLLM generates text (answer may vary)"
+        warn "LLM generated: '$content' (expected '4')"
+        pass "LLM generates text (answer may vary)"
     fi
 }
 
@@ -230,7 +243,7 @@ echo "  DREAM SERVER - FUNCTIONAL TESTS"
 echo "  Tests actual functionality, not ports"
 echo "========================================"
 
-test_vllm_functional
+test_llm_functional
 test_tts_functional
 test_embeddings_functional
 test_whisper_functional

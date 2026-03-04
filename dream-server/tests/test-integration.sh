@@ -98,7 +98,7 @@ test_llm() {
     
     local data
     data=$(jq -n --arg prompt "$prompt" '{
-        model: "Qwen/Qwen2.5-32B-Instruct-AWQ",
+        model: "qwen2.5-32b-instruct",
         messages: [{role: "user", content: $prompt}],
         max_tokens: 50,
         stream: false
@@ -172,12 +172,12 @@ test_json "Voice status" "http://localhost:3002/api/voice/status" '.services'
 echo ""
 echo -e "${BLUE}▸ Core Services${NC}"
 
-# vLLM
+# llama-server
 if ! $QUICK; then
-    test_http "vLLM health" "http://localhost:8000/health"
-    test_llm "vLLM inference" "http://localhost:8000" "Say hello in exactly 3 words."
+    test_http "llama-server health" "http://localhost:8080/health"
+    test_llm "llama-server inference" "http://localhost:8080" "Say hello in exactly 3 words."
 else
-    log_skip "vLLM inference test"
+    log_skip "llama-server inference test"
 fi
 
 # n8n

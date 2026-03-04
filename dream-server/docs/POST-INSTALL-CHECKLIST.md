@@ -1,9 +1,9 @@
 # Dream Server Post-Install Checklist
 
-## vLLM
-- [ ] Verify vLLM is running
-- [ ] Check vLLM logs for any errors
-- [ ] Test basic functionality of vLLM
+## llama-server
+- [ ] Verify llama-server is running
+- [ ] Check llama-server logs for any errors
+- [ ] Test basic functionality of llama-server
 
 ## Whisper
 - [ ] Verify Whisper is installed

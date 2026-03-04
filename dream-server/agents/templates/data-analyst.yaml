@@ -1,13 +1,13 @@
 # Data Analyst Agent Template
 # Mission: M7 (OpenClaw Frontier Pushing)
-# Validated on: Qwen2.5-32B-Instruct-AWQ
+# Validated on: Qwen3-14B
 # Purpose: CSV/JSON analysis, data processing, visualization guidance
 
 agent:
   name: data-analyst
   description: "Data analysis assistant for processing CSV, JSON, and structured data"
   
-  model: local-vllm/Qwen/Qwen2.5-32B-Instruct-AWQ
+  model: local-llama/qwen3-14b
   # Coder model excels at data manipulation tasks
   
   system_prompt: |

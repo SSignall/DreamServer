@@ -18,12 +18,12 @@ pip install openai
 from openai import OpenAI
 
 client = OpenAI(
-    base_url="http://localhost:8000/v1",  # Dream Server vLLM
+    base_url="http://localhost:8080/v1",  # Dream Server llama-server
     api_key="not-needed"  # Local, no auth required
 )
 
 response = client.chat.completions.create(
-    model="Qwen/Qwen2.5-32B-Instruct-AWQ",  # Your running model
+    model="qwen2.5-32b-instruct",  # Your running model
     messages=[
         {"role": "user", "content": "Hello!"}
     ]
@@ -41,12 +41,12 @@ npm install openai
 import OpenAI from 'openai';
 
 const openai = new OpenAI({
-  baseURL: 'http://localhost:8000/v1',
+  baseURL: 'http://localhost:8080/v1',
   apiKey: 'not-needed',
 });
 
 const response = await openai.chat.completions.create({
-  model: 'Qwen/Qwen2.5-32B-Instruct-AWQ',
+  model: 'qwen2.5-32b-instruct',
   messages: [{ role: 'user', content: 'Hello!' }],
 });
 
@@ -56,10 +56,10 @@ console.log(response.choices[0].message.content);
 ### curl
 
 ```bash
-curl http://localhost:8000/v1/chat/completions \
+curl http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "Qwen/Qwen2.5-32B-Instruct-AWQ",
+    "model": "qwen2.5-32b-instruct",
     "messages": [{"role": "user", "content": "Hello!"}]
   }'
 ```
@@ -76,9 +76,9 @@ pip install langchain langchain-openai
 from langchain_openai import ChatOpenAI
 
 llm = ChatOpenAI(
-    base_url="http://localhost:8000/v1",
+    base_url="http://localhost:8080/v1",
     api_key="not-needed",
-    model="Qwen/Qwen2.5-32B-Instruct-AWQ",
+    model="qwen2.5-32b-instruct",
     temperature=0.7,
 )
 
@@ -93,7 +93,7 @@ from langchain_openai import OpenAIEmbeddings
 from langchain_qdrant import Qdrant
 
 embeddings = OpenAIEmbeddings(
-    base_url="http://localhost:9103/v1",  # TEI embeddings service
+    base_url="http://localhost:8090/v1",  # Embeddings service
     api_key="not-needed",
 )
 
@@ -123,8 +123,8 @@ Continue is an open-source AI code assistant that works in VS Code.
     {
       "title": "Dream Server",
       "provider": "openai",
-      "model": "Qwen/Qwen2.5-32B-Instruct-AWQ",
-      "apiBase": "http://localhost:8000/v1",
+      "model": "qwen2.5-32b-instruct",
+      "apiBase": "http://localhost:8080/v1",
       "apiKey": "not-needed"
     }
   ]
@@ -141,9 +141,9 @@ Cursor supports custom API endpoints.
 
 1. Open Cursor Settings → Models
 2. Add custom model:
-   - **API Base:** `http://localhost:8000/v1`
+   - **API Base:** `http://localhost:8080/v1`
    - **API Key:** `not-needed`
-   - **Model:** `Qwen/Qwen2.5-32B-Instruct-AWQ`
+   - **Model:** `qwen2.5-32b-instruct`
 
 ---
 
@@ -151,26 +151,22 @@ Cursor supports custom API endpoints.
 
 Dream Server includes n8n for workflow automation. Access at `http://localhost:5678`.
 
-### Example: Document Q&A Workflow
+### Creating Workflows
 
-Import `workflows/02-document-qa.json`:
-1. Open n8n UI
-2. Click Import → From File
-3. Select the workflow JSON
-4. Configure your document source
-5. Activate
+1. Open n8n at http://localhost:5678
+2. Log in with the credentials from your `.env` (`N8N_USER` / `N8N_PASS`)
+3. Create a new workflow or import from the n8n template library
+4. Use the "HTTP Request" node pointed at `http://llama-server:8080/v1/chat/completions` (Docker-internal URL)
 
-### Pre-built Workflows
+### Example Workflow Ideas
 
-| Workflow | File | Description |
-|----------|------|-------------|
-| Chat Endpoint | `01-chat-endpoint.json` | HTTP webhook to LLM |
-| Document Q&A | `02-document-qa.json` | RAG with Qdrant |
-| Voice Transcription | `03-voice-transcription.json` | Whisper → Text |
-| TTS API | `04-tts-api.json` | Text → Speech |
-| Voice-to-Voice | `05-voice-to-voice.json` | Full voice pipeline |
-| RAG Demo | `06-rag-demo.json` | Document upload → query |
-| Code Assistant | `07-code-assistant.json` | Code generation workflow |
+| Workflow | Description |
+|----------|-------------|
+| Chat Endpoint | HTTP webhook → LLM → response |
+| Document Q&A | File upload → embeddings → Qdrant → LLM |
+| Voice Transcription | Audio → Whisper STT → text |
+| TTS API | Text → Kokoro TTS → audio |
+| Voice-to-Voice | STT → LLM → TTS pipeline |
 
 ---
 
@@ -190,10 +186,10 @@ Import `workflows/02-document-qa.json`:
 ```python
 from openai import OpenAI
 
-client = OpenAI(base_url="http://localhost:8000/v1", api_key="x")
+client = OpenAI(base_url="http://localhost:8080/v1", api_key="x")
 
 stream = client.chat.completions.create(
-    model="Qwen/Qwen2.5-32B-Instruct-AWQ",
+    model="qwen2.5-32b-instruct",
     messages=[{"role": "user", "content": "Write a poem"}],
     stream=True
 )
@@ -207,16 +203,16 @@ for chunk in stream:
 
 ## 7. Environment Variables
 
-Key variables in `.env`:
+Key variables in `.env` (see [.env.example](../.env.example) for the full list):
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `VLLM_PORT` | 8000 | vLLM API port |
+| `OLLAMA_PORT` | 11434 | llama-server external port (maps to internal 8080) |
 | `WEBUI_PORT` | 3000 | Open WebUI port |
 | `N8N_PORT` | 5678 | n8n workflows port |
-| `LLM_MODEL` | Qwen/Qwen2.5-32B-Instruct-AWQ | Model to load |
-| `MAX_CONTEXT` | 8192 | Context window size |
-| `GPU_UTIL` | 0.9 | GPU memory utilization |
+| `LLM_MODEL` | *(tier-dependent)* | Model name for OpenClaw/dashboard |
+| `CTX_SIZE` | 16384 | Context window size (tokens) |
+| `GGUF_FILE` | *(tier-dependent)* | GGUF model filename in data/models/ |
 
 ---
 
@@ -230,13 +226,13 @@ Local-only, no auth required. Good for development.
 
 Set in `.env`:
 ```
-VLLM_API_KEY=your-secret-key
+LLM_API_KEY=your-secret-key
 ```
 
 Then include in requests:
 ```python
 client = OpenAI(
-    base_url="http://localhost:8000/v1",
+    base_url="http://localhost:8080/v1",
     api_key="your-secret-key"
 )
 ```
@@ -256,7 +252,7 @@ WebUI has built-in user management:
 
 Check running model name:
 ```bash
-curl http://localhost:8000/v1/models
+curl http://localhost:8080/v1/models
 ```
 
 Use the exact model name in your requests.
@@ -268,9 +264,9 @@ Ensure services are running:
 docker compose ps
 ```
 
-Check vLLM is ready:
+Check llama-server is ready:
 ```bash
-docker compose logs vllm | tail -20
+docker compose logs llama-server | tail -20
 ```
 
 ### Slow first response

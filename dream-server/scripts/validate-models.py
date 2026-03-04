@@ -11,10 +11,10 @@ from pathlib import Path
 
 # Model requirements for offline mode
 REQUIRED_MODELS = {
-    "vllm": {
-        "path": "models/Qwen/Qwen2.5-32B-Instruct-AWQ",
-        "description": "Primary LLM (Qwen 2.5 32B AWQ)",
-        "size_gb": 18,
+    "llm": {
+        "path": "data/models",
+        "description": "Primary LLM (GGUF model)",
+        "size_gb": 4,
     },
     "whisper": {
         "path": "data/whisper/faster-whisper-base",

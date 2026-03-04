@@ -79,8 +79,8 @@ demo_chat() {
     echo -e "${BOLD}${MAGENTA}Demo: Chat with AI${NC}"
     echo -e "${DIM}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
-    echo -e "${DIM}[Connected to vLLM → Qwen2.5-32B-Instruct-AWQ]${NC}"
-    echo -e "${DIM}[API: http://localhost:8000/v1/chat/completions]${NC}"
+    echo -e "${DIM}[Connected to llama-server → local GGUF model]${NC}"
+    echo -e "${DIM}[API: http://localhost:8080/v1/chat/completions]${NC}"
     echo ""
 
     echo -ne "${GREEN}You: ${NC}"
@@ -109,7 +109,7 @@ demo_chat() {
     stream_text "  • Generation speed: 30-50 tokens/sec" 0.02
     stream_text "  • Throughput: handles multiple concurrent users" 0.02
     echo ""
-    stream_text "vLLM uses PagedAttention for efficient memory management, so you get near-optimal GPU utilization." 0.02
+    stream_text "llama-server uses continuous batching for efficient memory management, so you get near-optimal GPU utilization." 0.02
 
     pause
 }
@@ -120,7 +120,7 @@ demo_voice() {
     echo -e "${BOLD}${MAGENTA}Demo: Voice-to-Voice${NC}"
     echo -e "${DIM}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
-    echo -e "${DIM}[Pipeline: Whisper STT → vLLM → OpenTTS TTS]${NC}"
+    echo -e "${DIM}[Pipeline: Whisper STT → llama-server → Kokoro TTS]${NC}"
     echo ""
 
     echo -e "${YELLOW}Recording...${NC} ${DIM}(5 seconds)${NC}"
@@ -138,7 +138,7 @@ demo_voice() {
     echo -e "  ${GREEN}✓${NC} \"Tell me about the weather today\""
     echo ""
 
-    echo -e "${CYAN}Generating response with vLLM...${NC}"
+    echo -e "${CYAN}Generating response with llama-server...${NC}"
     sleep 0.6
     echo -ne "  ${GREEN}✓${NC} "
     stream_text "I don't have real-time weather data since I run locally, but I can help you set up a workflow that fetches weather from a free API and reads it to you every morning!" 0.02
@@ -330,9 +330,9 @@ demo_overview() {
     echo -e "  ${CYAN}└────────────────────┬──────────────────────────  ┘${NC}"
     echo -e "  ${CYAN}                     │${NC}"
     echo -e "  ${CYAN}┌────────────────────▼──────────────────────────  ┐${NC}"
-    echo -e "  ${CYAN}│              vLLM (:8000)                       │${NC}"
+    echo -e "  ${CYAN}│           llama-server (:8080)                   │${NC}"
     echo -e "  ${CYAN}│     High-performance LLM inference              │${NC}"
-    echo -e "  ${CYAN}│     Qwen2.5 • 30-50 tok/s • PagedAttention     │${NC}"
+    echo -e "  ${CYAN}│     GGUF models • 30-50 tok/s • GPU offload     │${NC}"
     echo -e "  ${CYAN}└──────┬────────────────────────────┬─────────   ┘${NC}"
     echo -e "  ${CYAN}       │                            │${NC}"
     echo -e "  ${CYAN}┌──────▼──────┐              ┌──────▼──────┐${NC}"

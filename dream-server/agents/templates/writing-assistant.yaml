@@ -1,6 +1,6 @@
 # Writing Assistant Agent Template
 # Mission: M7 (OpenClaw Frontier Pushing)
-# Validated on: Qwen2.5-32B-Instruct-AWQ
+# Validated on: Qwen3-14B
 # Purpose: Creative writing, editing, style improvement
 # NOTE: Local Qwen has limitations on creative tasks - use with fallback
 
@@ -8,8 +8,8 @@ agent:
   name: writing-assistant
   description: "Writing assistant for drafting, editing, and improving text"
   
-  model: local-vllm/Qwen/Qwen2.5-32B-Instruct-AWQ
-  # IMPORTANT: Qwen Coder is NOT optimized for creative writing
+  model: local-llama/qwen3-14b
+  # IMPORTANT: Qwen3 is NOT optimized for creative writing
   # This template uses fallback for creative generation tasks
   fallback_model: moonshot/kimi-k2-0711-preview
   
@@ -79,7 +79,7 @@ agent:
     import: "agents/templates/writing-assistant.yaml"
     
   notes:
-    - CRITICAL: Local Qwen Coder struggles with creative generation
+    - CRITICAL: Local Qwen3 struggles with creative generation
     - Use this template for EDITING tasks (grammar, clarity, structure)
     - Creative generation automatically routes to fallback model
     - For pure creative work, consider using Kimi/Claude directly

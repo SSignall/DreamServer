@@ -7,7 +7,7 @@ Get Dream Server running on Windows in 5 minutes (after downloads).
 ## One-Line Install (PowerShell)
 
 ```powershell
-Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Light-Heart-Labs/Lighthouse-AI/main/dream-server/install.ps1" -OutFile install.ps1; .\install.ps1
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Light-Heart-Labs/DreamServer/main/install.ps1" -OutFile install.ps1; .\install.ps1
 ```
 
 **Prerequisites:** Windows 10 2004+ or Windows 11, NVIDIA GPU, 16GB+ RAM.
@@ -21,7 +21,7 @@ Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Light-Heart-Labs/Light
 3. **Auto-fixes issues** — enables WSL2, prompts for Docker install
 4. **Detects GPU** — picks right model tier automatically
 5. **Downloads model** — 7B to 72B based on your VRAM (~10-40GB)
-6. **Starts services** — vLLM, Open WebUI, search, database
+6. **Starts services** — llama-server, Open WebUI, search, database
 
 **Total time:** 10-30 minutes depending on download speed.
 
@@ -113,14 +113,14 @@ Full guide: [WINDOWS-INSTALL-WALKTHROUGH.md](WINDOWS-INSTALL-WALKTHROUGH.md)
 ```
 Windows Host
   ├── Docker Desktop (WSL2 backend)
-  │     ├── vLLM container (GPU accelerated)
+  │     ├── llama-server container (GPU accelerated)
   │     ├── Open WebUI (port 3000)
   │     ├── SearXNG search
   │     └── PostgreSQL + Qdrant
   └── WSL2 Ubuntu (file system, networking)
 ```
 
-GPU access: Windows driver → WSL2 → Docker Container Toolkit → vLLM
+GPU access: Windows driver → WSL2 → Docker Container Toolkit → llama-server
 
 ---
 
