@@ -2,14 +2,14 @@
 # M8 Missing Test: Streaming Test
 # Tests LLM streaming responses
 
-VLLM_URL="http://localhost:8000"
-MODEL="Qwen/Qwen2.5-32B-Instruct-AWQ"
+LLAMA_SERVER_URL="http://localhost:8080"
+MODEL="qwen2.5-32b-instruct"
 
 echo "=== M8 Test: Streaming ==="
 
 # Test streaming endpoint
 START=$(date +%s%N)
-RESPONSE=$(curl -s -N -X POST "$VLLM_URL/v1/chat/completions" \
+RESPONSE=$(curl -s -N -X POST "$LLAMA_SERVER_URL/v1/chat/completions" \
   -H "Content-Type: application/json" \
   -d "{
     \"model\": \"$MODEL\",

@@ -1,0 +1,77 @@
+#!/bin/bash
+# ============================================================================
+# Dream Server Installer — Phase 08: Pull Docker Images
+# ============================================================================
+# Part of: installers/phases/
+# Purpose: Build image pull list and download all Docker images
+#
+# Expects: DRY_RUN, GPU_BACKEND, ENABLE_VOICE, ENABLE_WORKFLOWS,
+#           ENABLE_RAG, ENABLE_OPENCLAW, DOCKER_CMD, LOG_FILE, BGRN, AMB, NC,
+#           show_phase(), bootline(), signal(), ai(), ai_ok(), ai_warn(),
+#           pull_with_progress()
+# Provides: (Docker images pulled locally)
+#
+# Modder notes:
+#   Add new container images or change image tags here.
+# ============================================================================
+
+show_phase 4 6 "Downloading Modules" "~5-10 minutes"
+
+# Build image list with cinematic labels
+# Format: "image|friendly_name"
+PULL_LIST=()
+if [[ "$GPU_BACKEND" == "amd" ]]; then
+    PULL_LIST+=("kyuz0/amd-strix-halo-toolboxes:rocm-7.2|LLAMA-SERVER — downloading the brain (AMD ROCm)")
+    PULL_LIST+=("ignatberesnev/comfyui-gfx1151:v0.2|COMFYUI — image generation engine (gfx1151)")
+else
+    PULL_LIST+=("ghcr.io/ggml-org/llama.cpp:server-cuda|LLAMA-SERVER — downloading the brain (NVIDIA CUDA)")
+fi
+PULL_LIST+=("ghcr.io/open-webui/open-webui:v0.7.2|OPEN WEBUI — interface module")
+PULL_LIST+=("itzcrazykns1337/perplexica:slim-latest|PERPLEXICA — deep research engine")
+if [[ "$ENABLE_VOICE" == "true" ]]; then
+    if [[ "$GPU_BACKEND" == "nvidia" ]]; then
+        PULL_LIST+=("ghcr.io/speaches-ai/speaches:latest-cuda|WHISPER — ears online (Speaches STT, CUDA)")
+    else
+        PULL_LIST+=("ghcr.io/speaches-ai/speaches:latest-cpu|WHISPER — ears online (Speaches STT)")
+    fi
+    PULL_LIST+=("ghcr.io/remsky/kokoro-fastapi-cpu:v0.2.4|KOKORO — voice module")
+fi
+[[ "$ENABLE_WORKFLOWS" == "true" ]] && PULL_LIST+=("n8nio/n8n:2.6.4|N8N — automation engine")
+[[ "$ENABLE_RAG" == "true" ]] && PULL_LIST+=("qdrant/qdrant:v1.16.3|QDRANT — memory vault")
+[[ "$ENABLE_OPENCLAW" == "true" ]] && PULL_LIST+=("ghcr.io/openclaw/openclaw:latest|OPENCLAW — agent framework")
+[[ "$ENABLE_RAG" == "true" ]] && PULL_LIST+=("ghcr.io/huggingface/text-embeddings-inference:cpu-1.9.1|TEI — embedding engine")
+
+if $DRY_RUN; then
+    ai "[DRY RUN] I would download ${#PULL_LIST[@]} modules."
+else
+    echo ""
+    bootline
+    echo -e "${BGRN}DOWNLOAD SEQUENCE${NC}"
+    echo -e "${AMB}This is the long scene.${NC} (largest module first)"
+    bootline
+    echo ""
+    signal "Take a break for ten minutes. I've got this."
+    echo ""
+
+    pull_count=0
+    pull_total=${#PULL_LIST[@]}
+    pull_failed=0
+
+    for entry in "${PULL_LIST[@]}"; do
+        img="${entry%%|*}"
+        label="${entry##*|}"
+        pull_count=$((pull_count + 1))
+
+        if ! pull_with_progress "$img" "$label" "$pull_count" "$pull_total"; then
+            ai_warn "Failed to pull $img — will retry on next start"
+            pull_failed=$((pull_failed + 1))
+        fi
+    done
+
+    echo ""
+    if [[ $pull_failed -eq 0 ]]; then
+        ai_ok "All $pull_total modules downloaded"
+    else
+        ai_warn "$pull_failed of $pull_total modules failed — services may not start fully"
+    fi
+fi

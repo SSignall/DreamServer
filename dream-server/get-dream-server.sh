@@ -1,6 +1,6 @@
 #!/bin/bash
 # Dream Server Bootstrap Installer
-# curl -fsSL https://raw.githubusercontent.com/Light-Heart-Labs/Lighthouse-AI/main/dream-server/get-dream-server.sh | bash
+# curl -fsSL https://raw.githubusercontent.com/Light-Heart-Labs/DreamServer/main/get-dream-server.sh | bash
 #
 # Detects OS, clones repo, runs installer.
 
@@ -15,7 +15,7 @@ CYAN='\033[0;36m'
 BOLD='\033[1m'
 NC='\033[0m'
 
-REPO_URL="https://github.com/Light-Heart-Labs/Lighthouse-AI.git"
+REPO_URL="https://github.com/Light-Heart-Labs/DreamServer.git"
 INSTALL_DIR="$HOME/dream-server"
 
 log()     { echo -e "${CYAN}[dream]${NC} $1"; }
@@ -227,8 +227,7 @@ success "Cloned to $INSTALL_DIR"
 
 # ── Make scripts executable ──────────────────────────
 chmod +x "$INSTALL_DIR/install.sh" 2>/dev/null || true
-chmod +x "$INSTALL_DIR/setup.sh" 2>/dev/null || true
-chmod +x "$INSTALL_DIR/status.sh" 2>/dev/null || true
+chmod +x "$INSTALL_DIR/dream-cli" 2>/dev/null || true
 chmod +x "$INSTALL_DIR/scripts/"*.sh 2>/dev/null || true
 chmod +x "$INSTALL_DIR/tests/"*.sh 2>/dev/null || true
 

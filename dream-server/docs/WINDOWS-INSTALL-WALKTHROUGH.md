@@ -73,7 +73,7 @@ Open **PowerShell** (not as admin) and run:
 
 ```powershell
 # Download installer
-Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Light-Heart-Labs/Lighthouse-AI/main/dream-server/install.ps1" -OutFile install.ps1
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Light-Heart-Labs/DreamServer/main/install.ps1" -OutFile install.ps1
 
 # Run installer
 .\install.ps1
@@ -115,13 +115,13 @@ cd $env:LOCALAPPDATA\DreamServer
 docker compose ps
 ```
 
-You should see containers: `vllm`, `open-webui`, `searxng`, etc.
+You should see containers: `llama-server`, `open-webui`, `searxng`, etc.
 
 ### Test GPU Access
 
 ```powershell
-# Test inside vLLM container
-docker exec -it dream-server-vllm-1 nvidia-smi
+# Test inside llama-server container
+docker exec -it dream-server-llama-server-1 nvidia-smi
 ```
 
 ### Open Web UI

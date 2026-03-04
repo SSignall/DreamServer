@@ -2,7 +2,7 @@
 # M8 Missing Test: Embeddings Full Test
 # Tests actual embedding vector generation
 
-VLLM_URL="http://localhost:8000"
+LLAMA_SERVER_URL="http://localhost:8080"
 
 echo "=== M8 Test: Embeddings Full ==="
 
@@ -10,10 +10,10 @@ TEST_TEXT="The quick brown fox jumps over the lazy dog"
 
 # Test embeddings endpoint
 START=$(date +%s%N)
-RESPONSE=$(curl -s -X POST "$VLLM_URL/v1/embeddings" \
+RESPONSE=$(curl -s -X POST "$LLAMA_SERVER_URL/v1/embeddings" \
   -H "Content-Type: application/json" \
   -d "{
-    \"model\": \"Qwen/Qwen2.5-32B-Instruct-AWQ\",
+    \"model\": \"qwen2.5-32b-instruct\",
     \"input\": \"$TEST_TEXT\"
   }" 2>/dev/null)
 END=$(date +%s%N)

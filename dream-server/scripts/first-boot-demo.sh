@@ -20,13 +20,21 @@ NC='\033[0m'
 BOLD='\033[1m'
 
 #=============================================================================
-# Config
+# Config — resolve from service registry when available
 #=============================================================================
-VLLM_URL="${VLLM_URL:-http://localhost:8000}"
-WHISPER_URL="${WHISPER_URL:-http://localhost:9000}"
-PIPER_URL="${PIPER_URL:-http://localhost:8880}"
-N8N_URL="${N8N_URL:-http://localhost:5678}"
-WEBUI_URL="${WEBUI_URL:-http://localhost:3000}"
+_DEMO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+if [[ -f "$_DEMO_DIR/lib/service-registry.sh" ]]; then
+    export SCRIPT_DIR="$_DEMO_DIR"
+    . "$_DEMO_DIR/lib/service-registry.sh"
+    sr_load
+    [[ -f "$_DEMO_DIR/.env" ]] && set -a && . "$_DEMO_DIR/.env" && set +a
+fi
+
+LLM_URL="${LLM_URL:-http://localhost:${SERVICE_PORTS[llama-server]:-8080}}"
+WHISPER_URL="${WHISPER_URL:-http://localhost:${SERVICE_PORTS[whisper]:-9000}}"
+PIPER_URL="${PIPER_URL:-http://localhost:${SERVICE_PORTS[tts]:-8880}}"
+N8N_URL="${N8N_URL:-http://localhost:${SERVICE_PORTS[n8n]:-5678}}"
+WEBUI_URL="${WEBUI_URL:-http://localhost:${SERVICE_PORTS[open-webui]:-3000}}"
 
 QUICK_MODE=false
 ALL_MODE=false
@@ -120,11 +128,11 @@ SERVICES_TOTAL=0
 
 # Core services
 ((SERVICES_TOTAL++))
-if check_service "vLLM (Local LLM)" "$VLLM_URL" "/health"; then
+if check_service "LLM (llama-server)" "$LLM_URL" "/health"; then
     ((SERVICES_OK++))
-    VLLM_AVAILABLE=true
+    LLM_AVAILABLE=true
 else
-    VLLM_AVAILABLE=false
+    LLM_AVAILABLE=false
 fi
 
 ((SERVICES_TOTAL++))
@@ -166,9 +174,9 @@ fi
 echo ""
 echo -e "${BOLD}Services: ${SERVICES_OK}/${SERVICES_TOTAL} running${NC}"
 
-if [[ "$VLLM_AVAILABLE" != "true" ]]; then
-    echo -e "\n${RED}vLLM is required for demos. Is it still loading?${NC}"
-    echo "Check status: docker compose logs -f vllm"
+if [[ "$LLM_AVAILABLE" != "true" ]]; then
+    echo -e "\n${RED}LLM (llama-server) is required for demos. Is it still loading?${NC}"
+    echo "Check status: docker compose logs -f llama-server"
     exit 1
 fi
 
@@ -181,7 +189,7 @@ header "💬 Demo 1: Local Chat Completion"
 
 demo "Asking your local AI a question..."
 
-RESPONSE=$(curl -sf "${VLLM_URL}/v1/chat/completions" \
+RESPONSE=$(curl -sf "${LLM_URL}/v1/chat/completions" \
     -H "Content-Type: application/json" \
     -d '{
         "model": "Qwen/Qwen2.5-32B-Instruct-AWQ",
@@ -209,7 +217,7 @@ header "🧑‍💻 Demo 2: Code Assistance"
 
 demo "Asking for help with a Python function..."
 
-CODE_RESPONSE=$(curl -sf "${VLLM_URL}/v1/chat/completions" \
+CODE_RESPONSE=$(curl -sf "${LLM_URL}/v1/chat/completions" \
     -H "Content-Type: application/json" \
     -d '{
         "model": "Qwen/Qwen2.5-32B-Instruct-AWQ",
@@ -239,7 +247,7 @@ demo "Watching tokens stream in real-time..."
 echo ""
 
 # Simple streaming demo - just show it works
-curl -sN "${VLLM_URL}/v1/chat/completions" \
+curl -sN "${LLM_URL}/v1/chat/completions" \
     -H "Content-Type: application/json" \
     -d '{
         "model": "Qwen/Qwen2.5-32B-Instruct-AWQ",
@@ -285,7 +293,7 @@ echo -e "${BOLD}Next steps:${NC}"
 echo "  1. Open ${WEBUI_URL} and start chatting"
 echo "  2. Import workflows from ./workflows/ into n8n"
 echo "  3. Try the voice demo: ./scripts/voice-demo.sh"
-echo "  4. Enable OpenClaw: docker compose --profile openclaw up -d"
+echo "  4. OpenClaw agent: http://localhost:7860"
 echo ""
 
 echo -e "${CYAN}Everything runs locally. Your data stays private. Enjoy! 🚀${NC}"

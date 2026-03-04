@@ -1,0 +1,34 @@
+name: Matrix Smoke
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  linux-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: AMD Path Smoke
+        run: bash tests/smoke/linux-amd.sh
+
+      - name: NVIDIA Path Smoke
+        run: bash tests/smoke/linux-nvidia.sh
+
+      - name: WSL Logic Smoke
+        run: bash tests/smoke/wsl-logic.sh
+
+  macos-smoke:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: macOS Dispatch Smoke
+        run: bash tests/smoke/macos-dispatch.sh
+

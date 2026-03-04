@@ -4,7 +4,7 @@
 #
 # Part of Dream Server — Phase 0 Foundation
 #
-# Gracefully swaps models in vLLM with automatic rollback on failure.
+# Gracefully swaps models in llama-server with automatic rollback on failure.
 # Ensures zero downtime when possible, minimal downtime otherwise.
 #
 # Usage:
@@ -18,18 +18,59 @@
 set -euo pipefail
 
 # Configuration
-DREAM_DIR="${DREAM_DIR:-$HOME/.dream-server}"
+DREAM_DIR="${DREAM_DIR:-$HOME/dream-server}"
 MODELS_DIR="${MODELS_DIR:-$DREAM_DIR/models}"
 STATE_FILE="$DREAM_DIR/model-state.json"
 BACKUP_FILE="$DREAM_DIR/model-state.backup.json"
 LOG_FILE="$DREAM_DIR/upgrade-model.log"
 
-VLLM_HOST="${VLLM_HOST:-localhost}"
-VLLM_PORT="${VLLM_PORT:-8000}"
-VLLM_CONTAINER="${VLLM_CONTAINER:-dream-server-vllm-1}"
+LLAMA_SERVER_PORT="${LLAMA_SERVER_PORT:-8080}"
+LLAMA_SERVER_CONTAINER="${LLAMA_SERVER_CONTAINER:-dream-llama-server}"
 
 HEALTH_CHECK_TIMEOUT=120  # seconds
 HEALTH_CHECK_INTERVAL=5   # seconds
+
+INFERENCE_SERVICE="llama-server"
+INFERENCE_PORT="$LLAMA_SERVER_PORT"
+INFERENCE_CONTAINER="$LLAMA_SERVER_CONTAINER"
+MODEL_ENV_KEY="LLM_MODEL"
+
+detect_compose_file() {
+    COMPOSE_FILE_ARGS=()
+    if [[ -f "$DREAM_DIR/docker-compose.base.yml" && -f "$DREAM_DIR/docker-compose.amd.yml" ]]; then
+        COMPOSE_FILE_ARGS=(-f "$DREAM_DIR/docker-compose.base.yml" -f "$DREAM_DIR/docker-compose.amd.yml")
+    elif [[ -f "$DREAM_DIR/docker-compose.base.yml" && -f "$DREAM_DIR/docker-compose.nvidia.yml" ]]; then
+        COMPOSE_FILE_ARGS=(-f "$DREAM_DIR/docker-compose.base.yml" -f "$DREAM_DIR/docker-compose.nvidia.yml")
+    elif [[ -f "$DREAM_DIR/docker-compose.yml" ]]; then
+        COMPOSE_FILE_ARGS=(-f "$DREAM_DIR/docker-compose.yml")
+    fi
+}
+
+detect_inference_service() {
+    if [[ ${#COMPOSE_FILE_ARGS[@]} -eq 0 ]]; then
+        echo "llama-server"
+        return
+    fi
+
+    if docker compose "${COMPOSE_FILE_ARGS[@]}" config --services 2>/dev/null | grep -q '^llama-server$'; then
+        echo "llama-server"
+    else
+        echo "llama-server"
+    fi
+}
+
+resolve_inference_runtime() {
+    if command -v docker &> /dev/null; then
+        detect_compose_file
+        INFERENCE_SERVICE=$(detect_inference_service)
+    else
+        INFERENCE_SERVICE="llama-server"
+    fi
+
+    INFERENCE_PORT="$LLAMA_SERVER_PORT"
+    INFERENCE_CONTAINER="$LLAMA_SERVER_CONTAINER"
+    MODEL_ENV_KEY="LLM_MODEL"
+}
 
 # Colors
 RED='\033[0;31m'
@@ -112,25 +153,27 @@ EOF
 }
 
 #-----------------------------------------------------------------------------
-# vLLM Operations
+# llama-server Operations
 #-----------------------------------------------------------------------------
 
-check_vllm_health() {
+check_llm_health() {
+    resolve_inference_runtime
     local response
     response=$(curl -s -o /dev/null -w "%{http_code}" \
-        "http://${VLLM_HOST}:${VLLM_PORT}/health" 2>/dev/null || echo "000")
+        "http://${LLM_HOST:-localhost}:${INFERENCE_PORT}/health" 2>/dev/null || echo "000")
     [[ "$response" == "200" ]]
 }
 
-wait_for_vllm() {
+wait_for_llm() {
     local timeout=$1
     local elapsed=0
     
-    log "Waiting for vLLM to be ready (timeout: ${timeout}s)..."
+    resolve_inference_runtime
+    log "Waiting for ${INFERENCE_SERVICE} to be ready (timeout: ${timeout}s)..."
     
     while [[ $elapsed -lt $timeout ]]; do
-        if check_vllm_health; then
-            success "vLLM is ready"
+        if check_llm_health; then
+            success "${INFERENCE_SERVICE} is ready"
             return 0
         fi
         sleep $HEALTH_CHECK_INTERVAL
@@ -139,23 +182,18 @@ wait_for_vllm() {
     done
     
     echo ""
-    error "vLLM health check timed out after ${timeout}s"
+    error "${INFERENCE_SERVICE} health check timed out after ${timeout}s"
     return 1
 }
 
 test_inference() {
+    resolve_inference_runtime
     log "Testing inference..."
     
     local response
-    response=$(curl -s -X POST "http://${VLLM_HOST}:${VLLM_PORT}/v1/completions" \
-        -H "Content-Type: application/json" \
-        -d '{
-            "model": "default",
-            "prompt": "Hello, I am",
-            "max_tokens": 10
-        }' 2>/dev/null || echo "")
+    response=$(curl -s "http://${LLM_HOST:-localhost}:${INFERENCE_PORT}/v1/models" 2>/dev/null || echo "")
     
-    if echo "$response" | grep -q '"text"'; then
+    if echo "$response" | grep -q '"data"'; then
         success "Inference test passed"
         return 0
     else
@@ -165,50 +203,55 @@ test_inference() {
     fi
 }
 
-stop_vllm() {
-    log "Stopping vLLM..."
+stop_llm() {
+    resolve_inference_runtime
+    log "Stopping ${INFERENCE_SERVICE}..."
     
     if command -v docker &> /dev/null; then
-        docker stop "$VLLM_CONTAINER" 2>/dev/null || true
-        docker wait "$VLLM_CONTAINER" 2>/dev/null || true
+        if [[ ${#COMPOSE_FILE_ARGS[@]} -gt 0 ]]; then
+            docker compose "${COMPOSE_FILE_ARGS[@]}" stop "$INFERENCE_SERVICE" 2>/dev/null || true
+        else
+            docker stop "$INFERENCE_CONTAINER" 2>/dev/null || true
+            docker wait "$INFERENCE_CONTAINER" 2>/dev/null || true
+        fi
     elif command -v dream &> /dev/null; then
-        dream stop vllm 2>/dev/null || true
+        dream stop llama-server 2>/dev/null || true
     else
-        warn "Cannot stop vLLM: no docker or dream CLI found"
+        warn "Cannot stop llama-server: no docker or dream CLI found"
         return 1
     fi
     
-    success "vLLM stopped"
+    success "${INFERENCE_SERVICE} stopped"
 }
 
-start_vllm() {
+start_llm() {
     local model="$1"
+    resolve_inference_runtime
     
-    log "Starting vLLM with model: $model"
+    log "Starting ${INFERENCE_SERVICE} with model: $model"
     
     # Update environment or compose file
     local env_file="$DREAM_DIR/.env"
     if [[ -f "$env_file" ]]; then
-        # Update MODEL_PATH in .env
-        if grep -q "^MODEL_PATH=" "$env_file"; then
-            sed -i "s|^MODEL_PATH=.*|MODEL_PATH=$model|" "$env_file"
+        # Update active model env key for detected inference backend.
+        if grep -q "^${MODEL_ENV_KEY}=" "$env_file"; then
+            sed -i "s|^${MODEL_ENV_KEY}=.*|${MODEL_ENV_KEY}=$model|" "$env_file"
         else
-            echo "MODEL_PATH=$model" >> "$env_file"
+            echo "${MODEL_ENV_KEY}=$model" >> "$env_file"
         fi
     fi
     
     if command -v docker &> /dev/null; then
-        # Start via docker-compose
-        local compose_file="$DREAM_DIR/docker-compose.yml"
-        if [[ -f "$compose_file" ]]; then
-            docker compose -f "$compose_file" up -d vllm
+        # Start via docker compose (supports canonical base+overlay and legacy files)
+        if [[ ${#COMPOSE_FILE_ARGS[@]} -gt 0 ]]; then
+            docker compose "${COMPOSE_FILE_ARGS[@]}" up -d "$INFERENCE_SERVICE"
         else
-            docker start "$VLLM_CONTAINER"
+            docker start "$INFERENCE_CONTAINER"
         fi
     elif command -v dream &> /dev/null; then
-        dream start vllm
+        dream start llama-server
     else
-        error "Cannot start vLLM: no docker or dream CLI found"
+        error "Cannot start llama-server: no docker or dream CLI found"
         return 1
     fi
 }
@@ -244,16 +287,17 @@ cmd_list() {
 }
 
 cmd_current() {
+    resolve_inference_runtime
     local current
     current=$(get_current_model)
     
     if [[ -n "$current" ]]; then
         echo -e "${CYAN}Current model:${NC} $current"
         
-        if check_vllm_health; then
-            echo -e "${GREEN}Status:${NC} Running"
+        if check_llm_health; then
+            echo -e "${GREEN}Status:${NC} Running (${INFERENCE_SERVICE} on :${INFERENCE_PORT})"
         else
-            echo -e "${RED}Status:${NC} Not responding"
+            echo -e "${RED}Status:${NC} Not responding (${INFERENCE_SERVICE} on :${INFERENCE_PORT})"
         fi
     else
         echo "No model currently configured"
@@ -290,23 +334,23 @@ cmd_upgrade() {
     
     log "Upgrading model: $current_model → $new_model"
     
-    # Phase 1: Stop vLLM
+    # Phase 1: Stop llama-server
     echo ""
-    echo -e "${CYAN}Phase 1/4:${NC} Stopping vLLM..."
-    stop_vllm || {
-        error "Failed to stop vLLM"
+    echo -e "${CYAN}Phase 1/4:${NC} Stopping llama-server..."
+    stop_llm || {
+        error "Failed to stop llama-server"
         return 1
     }
-    
+
     # Phase 2: Update configuration
     echo -e "${CYAN}Phase 2/4:${NC} Updating configuration..."
     save_state "$new_model" "$current_model"
     success "Configuration updated"
-    
-    # Phase 3: Start vLLM with new model
-    echo -e "${CYAN}Phase 3/4:${NC} Starting vLLM with new model..."
-    start_vllm "$model_path" || {
-        error "Failed to start vLLM"
+
+    # Phase 3: Start llama-server with new model
+    echo -e "${CYAN}Phase 3/4:${NC} Starting llama-server with new model..."
+    start_llm "$model_path" || {
+        error "Failed to start llama-server"
         warn "Attempting rollback..."
         cmd_rollback
         return 1
@@ -314,7 +358,7 @@ cmd_upgrade() {
     
     # Phase 4: Health check
     echo -e "${CYAN}Phase 4/4:${NC} Verifying health..."
-    if wait_for_vllm $HEALTH_CHECK_TIMEOUT && test_inference; then
+    if wait_for_llm $HEALTH_CHECK_TIMEOUT && test_inference; then
         echo ""
         success "Model upgrade complete!"
         echo -e "  Previous: ${YELLOW}$current_model${NC}"
@@ -350,10 +394,10 @@ cmd_rollback() {
     
     local model_path="$MODELS_DIR/$previous_model"
     
-    stop_vllm || true
-    start_vllm "$model_path"
+    stop_llm || true
+    start_llm "$model_path"
     
-    if wait_for_vllm $HEALTH_CHECK_TIMEOUT && test_inference; then
+    if wait_for_llm $HEALTH_CHECK_TIMEOUT && test_inference; then
         success "Rollback complete"
         save_state "$previous_model" "$current_model"
     else
@@ -396,9 +440,8 @@ Examples:
 
 Environment Variables:
   MODELS_DIR             Models directory (default: $MODELS_DIR)
-  VLLM_HOST              vLLM hostname (default: localhost)
-  VLLM_PORT              vLLM port (default: 8000)
-  VLLM_CONTAINER         Docker container name (default: dream-server-vllm-1)
+  LLAMA_SERVER_PORT      llama-server port (default: 8080)
+  LLAMA_SERVER_CONTAINER Docker container name (default: dream-llama-server)
 
 EOF
             ;;

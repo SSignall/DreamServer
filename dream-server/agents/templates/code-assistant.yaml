@@ -1,13 +1,13 @@
 # Code Assistant Agent Template
 # Mission: M7 (OpenClaw Frontier Pushing)
-# Validated on: Qwen2.5-32B-Instruct-AWQ
+# Validated on: Qwen3-14B
 # Purpose: Programming help, debugging, code review
 
 agent:
   name: code-assistant
   description: "Programming assistant for code generation, debugging, and review"
   
-  model: local-vllm/Qwen/Qwen2.5-32B-Instruct-AWQ
+  model: local-llama/qwen3-14b
   # Qwen Coder excels at programming tasks - no fallback needed
   
   system_prompt: |
@@ -59,7 +59,7 @@ agent:
     # /agent load code-assistant
     
   notes:
-    - Optimized for Qwen2.5-Coder - works reliably on local hardware
+    - Optimized for Qwen3 - works reliably on local hardware
     - Handles Python, JavaScript, Go, Rust, and most common languages
     - For very large codebases, consider splitting into smaller chunks
     - Tested on RTX 3090 (24GB) with ~500ms response time

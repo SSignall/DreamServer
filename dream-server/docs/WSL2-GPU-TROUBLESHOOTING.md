@@ -119,7 +119,7 @@ sudo systemctl restart docker
 ### Issue 3: "CUDA out of memory" immediately
 
 **Symptoms:**
-- GPU detected but vLLM crashes with OOM
+- GPU detected but llama-server crashes with OOM
 - Works for small models, fails for large ones
 
 **Solutions:**
@@ -145,7 +145,7 @@ LLM_MODEL=Qwen/Qwen2.5-7B-Instruct  # Instead of 32B
 
 **D. Enable GPU memory fraction limit**
 ```bash
-# In docker-compose.yml, add to vllm service:
+# In docker-compose.base.yml, add to llama-server service:
 environment:
   - PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:512
 ```
@@ -220,7 +220,7 @@ nvidia-smi -q | grep -A3 "PCIe"
 
 **C. Verify using correct GPU**
 ```bash
-# If multiple GPUs, set in docker-compose.yml:
+# If multiple GPUs, set in docker-compose.nvidia.yml:
 deploy:
   resources:
     reservations:
@@ -246,8 +246,8 @@ wsl -e nvidia-smi
 # 3. Docker GPU access
 docker run --rm --gpus all nvidia/cuda:12.0-base nvidia-smi
 
-# 4. vLLM health (after Dream Server starts)
-curl http://localhost:8000/health
+# 4. llama-server health (after Dream Server starts)
+curl http://localhost:8080/health
 ```
 
 ---
@@ -259,7 +259,7 @@ If you're still stuck:
 1. **Check logs:**
    ```powershell
    cd $env:USERPROFILE\dream-server
-   docker compose logs vllm
+   docker compose logs llama-server
    ```
 
 2. **Post in GitHub Issues** with:

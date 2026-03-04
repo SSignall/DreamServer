@@ -37,7 +37,7 @@ What to buy for local AI at different budgets.
 ### Buy Used
 Look for:
 - Dell Precision/HP Z workstations with RTX 3060
-- Avoid: GTX cards (no FP16), AMD (CUDA issues)
+- Avoid: GTX cards (no FP16)
 
 ---
 
@@ -189,10 +189,10 @@ Rule: 2x your model size minimum
 
 ## What NOT to Buy
 
-❌ **GTX 16xx/10xx** — No FP16 tensor cores  
-❌ **AMD GPUs** — CUDA issues, ROCm limited  
-❌ **Intel Arc** — Driver problems, limited support  
-❌ **Cloud GPUs (H100/A100)** — Can't buy, rental only  
+❌ **GTX 16xx/10xx** — No FP16 tensor cores
+❌ **AMD discrete GPUs (RX 7900 etc.)** — ROCm support limited; AMD Strix Halo APUs are fully supported (see README)
+❌ **Intel Arc** — Driver problems, limited support
+❌ **Cloud GPUs (H100/A100)** — Can't buy, rental only
 ❌ **8GB cards** — Too limited for serious use  
 
 ---

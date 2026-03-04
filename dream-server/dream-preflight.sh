@@ -1,6 +1,7 @@
 #!/bin/bash
 # Dream Server Pre-flight Check
 # Validates all services start correctly before user interaction
+# Backend-aware: detects AMD vs NVIDIA (both use llama-server)
 # Usage: ./dream-preflight.sh
 
 set -e
@@ -9,12 +10,34 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DREAM_DIR="$SCRIPT_DIR"
 LOG_FILE="$DREAM_DIR/preflight-$(date +%Y%m%d-%H%M%S).log"
 
-# Load SERVICE_HOST from .env if available, default to localhost
+# Load config from .env if available
 if [ -f "$DREAM_DIR/.env" ]; then
     # shellcheck source=/dev/null
     source "$DREAM_DIR/.env" 2>/dev/null || true
 fi
 SERVICE_HOST="${SERVICE_HOST:-localhost}"
+
+# Auto-detect backend from .env or running containers
+detect_backend() {
+    # Check .env first
+    if [[ "${GPU_BACKEND:-}" == "amd" ]]; then
+        echo "amd"
+        return
+    fi
+    # Check if llama-server container is running
+    if docker ps --format '{{.Names}}' 2>/dev/null | grep -q 'llama-server'; then
+        echo "amd"
+        return
+    fi
+    # Fall back to hardware detection
+    if [[ -d /sys/class/drm/card1/device ]] && [[ "$(cat /sys/class/drm/card1/device/vendor 2>/dev/null)" == "0x1002" ]]; then
+        echo "amd"
+        return
+    fi
+    echo "nvidia"
+}
+
+BACKEND=$(detect_backend)
 
 # Colors
 RED='\033[0;31m'
@@ -38,6 +61,7 @@ echo "" > "$LOG_FILE"
 log "========================================"
 log "Dream Server Pre-flight Check"
 log "Started: $(date)"
+log "Backend: $BACKEND"
 log "========================================"
 log ""
 
@@ -46,7 +70,7 @@ log "[1/8] Checking Docker..."
 if command -v docker &> /dev/null; then
     DOCKER_VERSION=$(docker --version | awk '{print $3}' | tr -d ',')
     pass "Docker installed: $DOCKER_VERSION"
-    
+
     if docker info &> /dev/null; then
         pass "Docker daemon running"
     else
@@ -67,56 +91,103 @@ else
 fi
 log ""
 
-# 3. GPU check
+# 3. GPU check — backend-aware
 log "[3/8] Checking GPU..."
-if command -v nvidia-smi &> /dev/null; then
-    GPU_INFO=""
-    if raw_gpu=$(nvidia-smi --query-gpu=name,memory.total --format=csv,noheader 2>/dev/null); then
-        GPU_INFO=$(echo "$raw_gpu" | head -1)
-    fi
-    if [ -n "$GPU_INFO" ]; then
-        pass "NVIDIA GPU detected: $GPU_INFO"
-        
-        # Check if nvidia-docker runtime is available
-        if docker info 2>/dev/null | grep -q "nvidia"; then
-            pass "NVIDIA Docker runtime available"
-        else
-            warn "NVIDIA Docker runtime not configured — GPU containers may fail"
+if [[ "$BACKEND" == "amd" ]]; then
+    # AMD: check sysfs for GPU and driver
+    GPU_FOUND=false
+    for card_dir in /sys/class/drm/card*/device; do
+        [[ -d "$card_dir" ]] || continue
+        vendor=$(cat "$card_dir/vendor" 2>/dev/null) || continue
+        if [[ "$vendor" == "0x1002" ]]; then
+            device_id=$(cat "$card_dir/device" 2>/dev/null || echo "unknown")
+            gtt_bytes=$(cat "$card_dir/mem_info_gtt_total" 2>/dev/null || echo "0")
+            gtt_gb=$(( gtt_bytes / 1073741824 ))
+            if lsmod 2>/dev/null | grep -q amdgpu; then
+                pass "AMD GPU detected ($device_id) — ${gtt_gb}GB GTT, amdgpu driver loaded"
+            else
+                warn "AMD GPU detected ($device_id) but amdgpu driver not loaded"
+            fi
+            # Check ROCm device access
+            if [[ -c /dev/kfd ]]; then
+                pass "ROCm device /dev/kfd accessible"
+            else
+                warn "/dev/kfd not found — ROCm containers may fail"
+            fi
+            GPU_FOUND=true
+            break
         fi
-    else
-        warn "nvidia-smi found but no GPU detected"
+    done
+    if [[ "$GPU_FOUND" == "false" ]]; then
+        warn "No AMD GPU detected via sysfs"
     fi
 else
-    warn "nvidia-smi not found — GPU features will be unavailable"
+    # NVIDIA: check nvidia-smi
+    if command -v nvidia-smi &> /dev/null; then
+        GPU_INFO=""
+        if raw_gpu=$(nvidia-smi --query-gpu=name,memory.total --format=csv,noheader 2>/dev/null); then
+            GPU_INFO=$(echo "$raw_gpu" | head -1)
+        fi
+        if [ -n "$GPU_INFO" ]; then
+            pass "NVIDIA GPU detected: $GPU_INFO"
+            if docker info 2>/dev/null | grep -q "nvidia"; then
+                pass "NVIDIA Docker runtime available"
+            else
+                warn "NVIDIA Docker runtime not configured — GPU containers may fail"
+            fi
+        else
+            warn "nvidia-smi found but no GPU detected"
+        fi
+    else
+        warn "nvidia-smi not found — NVIDIA GPU features unavailable"
+    fi
 fi
 log ""
 
-# 4. LLM Endpoint check
+# 4. LLM Endpoint check — backend-aware
 log "[4/8] Checking LLM endpoint..."
-LLM_ENDPOINTS=("http://${SERVICE_HOST}:8000" "http://localhost:8000" "http://127.0.0.1:8000")
-LLM_FOUND=false
+if [[ "$BACKEND" == "amd" ]]; then
+    LLM_PORT="${LLAMA_SERVER_PORT:-8080}"
+    # llama-server may be mapped to a different external port
+    EXTERNAL_PORT=$(docker port dream-llama-server 8080/tcp 2>/dev/null | head -1 | cut -d: -f2 || echo "$LLM_PORT")
+    LLM_ENDPOINTS=("http://${SERVICE_HOST}:${EXTERNAL_PORT}" "http://localhost:${EXTERNAL_PORT}" "http://localhost:${LLM_PORT}")
+    LLM_SERVICE_NAME="llama-server"
+    LLM_START_CMD="docker compose up -d llama-server"
+else
+    LLM_PORT="${LLAMA_SERVER_PORT:-8080}"
+    EXTERNAL_PORT=$(docker port dream-llama-server 8080/tcp 2>/dev/null | head -1 | cut -d: -f2 || echo "$LLM_PORT")
+    LLM_ENDPOINTS=("http://${SERVICE_HOST}:${EXTERNAL_PORT}" "http://localhost:${EXTERNAL_PORT}" "http://localhost:${LLM_PORT}")
+    LLM_SERVICE_NAME="llama-server"
+    LLM_START_CMD="docker compose up -d llama-server"
+fi
 
+LLM_FOUND=false
 for ENDPOINT in "${LLM_ENDPOINTS[@]}"; do
-    if curl -s "$ENDPOINT/health" &> /dev/null || curl -s "$ENDPOINT/v1/models" &> /dev/null; then
-        pass "LLM endpoint responding at $ENDPOINT"
+    if curl -sf "$ENDPOINT/health" &> /dev/null || curl -sf "$ENDPOINT/v1/models" &> /dev/null; then
+        pass "LLM endpoint ($LLM_SERVICE_NAME) responding at $ENDPOINT"
         LLM_FOUND=true
         break
     fi
 done
 
 if [ "$LLM_FOUND" = false ]; then
-    fail "No LLM endpoint found — checked: ${LLM_ENDPOINTS[*]}"
-    warn "Start vLLM with: docker compose up -d vllm"
+    # Check if container is running but model still loading
+    if docker ps --format '{{.Names}}' 2>/dev/null | grep -qi "${LLM_SERVICE_NAME}"; then
+        warn "$LLM_SERVICE_NAME container running but not responding yet (model may still be loading)"
+    else
+        fail "No LLM endpoint found — checked: ${LLM_ENDPOINTS[*]}"
+        warn "Start $LLM_SERVICE_NAME with: $LLM_START_CMD"
+    fi
 fi
 log ""
 
 # 5. Whisper STT check
 log "[5/8] Checking Whisper STT..."
-WHISPER_ENDPOINTS=("http://${SERVICE_HOST}:9000" "http://localhost:9000" "http://127.0.0.1:9000")
+WHISPER_ENDPOINTS=("http://${SERVICE_HOST}:9000" "http://localhost:9000")
 WHISPER_FOUND=false
 
 for ENDPOINT in "${WHISPER_ENDPOINTS[@]}"; do
-    if curl -s "$ENDPOINT/health" &> /dev/null || curl -s -X POST "$ENDPOINT/transcribe" -H "Content-Type: application/json" -d '{"audio":""}' &> /dev/null; then
+    if curl -sf "$ENDPOINT/health" &> /dev/null; then
         pass "Whisper STT responding at $ENDPOINT"
         WHISPER_FOUND=true
         break
@@ -130,11 +201,11 @@ log ""
 
 # 6. TTS check
 log "[6/8] Checking TTS (Kokoro)..."
-TTS_ENDPOINTS=("http://${SERVICE_HOST}:8880" "http://localhost:8880" "http://127.0.0.1:8880")
+TTS_ENDPOINTS=("http://${SERVICE_HOST}:8880" "http://localhost:8880")
 TTS_FOUND=false
 
 for ENDPOINT in "${TTS_ENDPOINTS[@]}"; do
-    if curl -s "$ENDPOINT/health" &> /dev/null; then
+    if curl -sf "$ENDPOINT/health" &> /dev/null; then
         pass "TTS endpoint responding at $ENDPOINT"
         TTS_FOUND=true
         break
@@ -148,11 +219,11 @@ log ""
 
 # 7. Embeddings check
 log "[7/8] Checking Embeddings..."
-EMBEDDING_ENDPOINTS=("http://${SERVICE_HOST}:8090" "http://localhost:8090" "http://127.0.0.1:8090")
+EMBEDDING_ENDPOINTS=("http://${SERVICE_HOST}:8090" "http://localhost:8090")
 EMBEDDING_FOUND=false
 
 for ENDPOINT in "${EMBEDDING_ENDPOINTS[@]}"; do
-    if curl -s "$ENDPOINT/health" &> /dev/null; then
+    if curl -sf "$ENDPOINT/health" &> /dev/null; then
         pass "Embeddings endpoint responding at $ENDPOINT"
         EMBEDDING_FOUND=true
         break
@@ -164,21 +235,21 @@ if [ "$EMBEDDING_FOUND" = false ]; then
 fi
 log ""
 
-# 8. LiveKit check
-log "[8/8] Checking LiveKit..."
-LIVEKIT_ENDPOINTS=("http://${SERVICE_HOST}:7880" "http://localhost:7880" "http://127.0.0.1:7880")
-LIVEKIT_FOUND=false
+# 8. Dashboard check (replaces LiveKit — more useful for all backends)
+log "[8/8] Checking Dashboard..."
+DASHBOARD_ENDPOINTS=("http://${SERVICE_HOST}:3001" "http://localhost:3001")
+DASHBOARD_FOUND=false
 
-for ENDPOINT in "${LIVEKIT_ENDPOINTS[@]}"; do
-    if curl -s "$ENDPOINT" &> /dev/null; then
-        pass "LiveKit responding at $ENDPOINT"
-        LIVEKIT_FOUND=true
+for ENDPOINT in "${DASHBOARD_ENDPOINTS[@]}"; do
+    if curl -sf "$ENDPOINT" &> /dev/null; then
+        pass "Dashboard responding at $ENDPOINT"
+        DASHBOARD_FOUND=true
         break
     fi
 done
 
-if [ "$LIVEKIT_FOUND" = false ]; then
-    warn "LiveKit not found — voice agent features will be unavailable"
+if [ "$DASHBOARD_FOUND" = false ]; then
+    warn "Dashboard not found at port 3001"
 fi
 log ""
 

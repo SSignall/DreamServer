@@ -36,7 +36,7 @@ Quick answers to common questions.
 | Pro | RTX 4090 24GB | $4,000-6,000 | Fast, voice agents, 5-10 users |
 | Enterprise | 2x RTX 4090 | $12,000-18,000 | 20-40 concurrent users |
 
-See `docs/PRICING-TIERS.md` for full breakdown.
+See [HARDWARE-GUIDE.md](HARDWARE-GUIDE.md) for full breakdown.
 
 ### What about electricity costs?
 
@@ -169,7 +169,7 @@ Yes. Common use cases:
 **With install wizard:** Under 1 hour for someone comfortable with terminal.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Light-Heart-Labs/Lighthouse-AI/main/dream-server/get-dream-server.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Light-Heart-Labs/DreamServer/main/get-dream-server.sh | bash
 ```
 
 The wizard:
@@ -198,7 +198,7 @@ That's it. Updates are optional — you control when to apply them.
 
 1. This documentation
 2. `TROUBLESHOOTING.md` for common issues
-3. GitHub Issues: https://github.com/Light-Heart-Labs/Lighthouse-AI/issues
+3. GitHub Issues: https://github.com/Light-Heart-Labs/DreamServer/issues
 4. Discord community (link in README)
 
 ---
@@ -214,7 +214,7 @@ That's it. Updates are optional — you control when to apply them.
 | RAG | ✅ Built-in | ❌ Not included |
 | n8n workflows | ✅ Included | ❌ Not included |
 | One-command setup | ✅ Yes | ⚠️ Partial |
-| Performance | ✅ vLLM (faster) | ⚠️ llama.cpp |
+| Performance | ✅ llama-server (faster) | ⚠️ Ollama |
 
 **Ollama is great for quick experiments.** Dream Server is a complete production stack.
 

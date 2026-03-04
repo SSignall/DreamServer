@@ -22,12 +22,13 @@ echo ""
 
 MISSING=()
 
-# Check vLLM model
-if [ -d "models/Qwen/Qwen2.5-32B-Instruct-AWQ" ]; then
-    echo -e "${GREEN}✓${NC} Qwen 2.5 32B AWQ (Primary LLM)"
+# Check LLM model (GGUF)
+if ls data/models/*.gguf &>/dev/null; then
+    MODEL_FILE=$(ls -1 data/models/*.gguf | head -1)
+    echo -e "${GREEN}✓${NC} LLM model: $(basename "$MODEL_FILE")"
 else
-    echo -e "${RED}✗${NC} Qwen 2.5 32B AWQ - MISSING"
-    MISSING+=("Qwen2.5-32B-Instruct-AWQ")
+    echo -e "${RED}✗${NC} LLM model (GGUF) - MISSING"
+    MISSING+=("gguf-model")
 fi
 
 # Check Whisper model

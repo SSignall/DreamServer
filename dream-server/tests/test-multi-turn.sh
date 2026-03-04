@@ -2,14 +2,14 @@
 # M8 Missing Test: Multi-Turn Conversation Test
 # Tests context preservation across multiple exchanges
 
-VLLM_URL="http://localhost:8000"
-MODEL="Qwen/Qwen2.5-32B-Instruct-AWQ"
+LLAMA_SERVER_URL="http://localhost:8080"
+MODEL="qwen2.5-32b-instruct"
 
 echo "=== M8 Test: Multi-Turn Conversation ==="
 
 # Turn 1: Set context
 echo "  Turn 1: Setting context..."
-RESPONSE1=$(curl -s -X POST "$VLLM_URL/v1/chat/completions" \
+RESPONSE1=$(curl -s -X POST "$LLAMA_SERVER_URL/v1/chat/completions" \
   -H "Content-Type: application/json" \
   -d "{
     \"model\": \"$MODEL\",
@@ -23,7 +23,7 @@ echo "    Assistant: ${ASSISTANT1:0:50}..."
 
 # Turn 2: Test recall
 echo "  Turn 2: Testing recall..."
-RESPONSE2=$(curl -s -X POST "$VLLM_URL/v1/chat/completions" \
+RESPONSE2=$(curl -s -X POST "$LLAMA_SERVER_URL/v1/chat/completions" \
   -H "Content-Type: application/json" \
   -d "{
     \"model\": \"$MODEL\",

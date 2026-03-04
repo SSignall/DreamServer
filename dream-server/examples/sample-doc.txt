@@ -4,8 +4,8 @@ Dream Server is a turnkey local AI stack designed to bring powerful AI capabilit
 
 ## Core Components
 
-### vLLM - High Performance Inference
-vLLM serves as the backbone of Dream Server, providing OpenAI-compatible API endpoints for language model inference. It supports models like Qwen 2.5, Llama 3, and Mistral, automatically selecting the best model for your hardware tier.
+### llama-server - High Performance Inference
+llama-server (from llama.cpp) serves as the backbone of Dream Server, providing OpenAI-compatible API endpoints for language model inference. It supports GGUF models including Qwen 3, Llama 3, and Mistral, automatically selecting the best model for your hardware tier.
 
 ### Open WebUI - Chat Interface
 A beautiful, responsive chat interface that works with any OpenAI-compatible backend. Features include conversation history, model selection, and user management.

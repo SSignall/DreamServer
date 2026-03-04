@@ -3,9 +3,27 @@
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](../LICENSE)
 [![Docker](https://img.shields.io/badge/Docker-Required-2496ED?logo=docker)](https://docs.docker.com/get-docker/)
 [![NVIDIA](https://img.shields.io/badge/NVIDIA-GPU%20Accelerated-76B900?logo=nvidia)](https://developer.nvidia.com/cuda-toolkit)
+[![AMD](https://img.shields.io/badge/AMD-Strix%20Halo%20ROCm-ED1C24?logo=amd)](https://rocm.docs.amd.com/)
 [![n8n](https://img.shields.io/badge/n8n-Workflows-FF6D5A?logo=n8n)](https://n8n.io)
 
 **Your turnkey local AI stack.** Buy hardware. Run installer. AI running.
+
+---
+
+## Platform Support
+
+See [`docs/SUPPORT-MATRIX.md`](docs/SUPPORT-MATRIX.md) for current support tiers and platform status.
+Launch-claim guardrails: [`docs/PLATFORM-TRUTH-TABLE.md`](docs/PLATFORM-TRUTH-TABLE.md)  
+Known-good version baselines: [`docs/KNOWN-GOOD-VERSIONS.md`](docs/KNOWN-GOOD-VERSIONS.md)
+
+## Installer Evidence
+
+- Run simulation suite: `bash scripts/simulate-installers.sh`
+- Output artifacts:
+  - `artifacts/installer-sim/summary.json`
+  - `artifacts/installer-sim/SUMMARY.md`
+- CI uploads these artifacts on each PR via `.github/workflows/test-linux.yml`
+- One-command maintainer gate: `bash scripts/release-gate.sh`
 
 ---
 
@@ -13,14 +31,14 @@
 
 ```bash
 # One-line install (Linux/WSL)
-curl -fsSL https://raw.githubusercontent.com/Light-Heart-Labs/Lighthouse-AI/main/dream-server/get-dream-server.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Light-Heart-Labs/DreamServer/main/get-dream-server.sh | bash
 ```
 
 Or manually:
 
 ```bash
-git clone https://github.com/Light-Heart-Labs/Lighthouse-AI.git
-cd Lighthouse-AI/dream-server
+git clone https://github.com/Light-Heart-Labs/DreamServer.git
+cd DreamServer
 ./install.sh
 ```
 
@@ -42,41 +60,58 @@ To skip bootstrap and wait for the full model: `./install.sh --no-bootstrap`
 ### Windows
 
 ```powershell
-Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Light-Heart-Labs/Lighthouse-AI/main/dream-server/install.ps1" -OutFile install.ps1
-.\install.ps1
+.\installers\windows.ps1
 ```
 
-The Windows installer handles WSL2 setup, Docker Desktop, and NVIDIA drivers automatically.
-
-**Requirements:** Windows 10 21H2+ or Windows 11, NVIDIA GPU, Docker Desktop
+Windows installer performs prerequisite checks, emits a preflight report, and delegates to WSL2 install path. See [`docs/SUPPORT-MATRIX.md`](docs/SUPPORT-MATRIX.md) for exact support level.
 
 ---
 
 ## What's Included
 
-| Component | Purpose | Port |
-|-----------|---------|------|
-| **vLLM** | High-performance LLM inference | 8000 |
-| **Open WebUI** | Beautiful chat interface | 3000 |
-| **Dashboard** | System status, GPU metrics, service health | 3001 |
-| **Privacy Shield** | PII redaction for external API calls | 8085 |
-| **Whisper** | Speech-to-text (optional) | 9000 |
-| **Kokoro** | Text-to-speech (optional) | 8880 |
-| **LiveKit** | Real-time WebRTC voice chat (optional) | 7880 |
-| **n8n** | Workflow automation (optional) | 5678 |
-| **Qdrant** | Vector database for RAG (optional) | 6333 |
-| **LiteLLM** | Multi-model API gateway (optional) | 4000 |
+| Component | Purpose | Port | Backend |
+|-----------|---------|------|---------|
+| **llama-server** | LLM inference engine | 8080 | Both |
+| **Open WebUI** | Beautiful chat interface | 3000 | Both |
+| **Dashboard** | System status, GPU metrics, service health | 3001 | Both |
+| **Dashboard API** | Backend API for dashboard | 3002 | Both |
+| **LiteLLM** | Multi-model API gateway | 4000 | Both |
+| **OpenClaw** | Autonomous AI agent framework | 7860 | Both |
+| **SearXNG** | Self-hosted web search | 8888 | Both |
+| **Perplexica** | Deep research engine | 3004 | Both |
+| **n8n** | Workflow automation | 5678 | Both |
+| **Qdrant** | Vector database for RAG | 6333 | Both |
+| **Embeddings** | Text embeddings for RAG | 8090 | Both |
+| **Whisper** | Speech-to-text | 9000 | Both |
+| **Kokoro** | Text-to-speech | 8880 | Both |
+| **Privacy Shield** | PII protection for API calls | 8085 | Both |
+| **Memory Shepherd** | Agent memory lifecycle management | — | AMD |
+| **ComfyUI** | Image generation | 8188 | Both |
 
 ## Hardware Tiers
 
 The installer **automatically detects your GPU** and selects the right configuration:
 
-| Tier | VRAM | Model | Context | Example GPUs |
-|------|------|-------|---------|--------------|
-| 1 (Entry) | <12GB | Qwen2.5-7B | 8K | RTX 3080, RTX 4070 |
-| 2 (Prosumer) | 12-20GB | Qwen2.5-14B-AWQ | 16K | RTX 3090, RTX 4080 |
-| 3 (Pro) | 20-40GB | Qwen2.5-32B-AWQ | 32K | RTX 4090, A6000 |
-| 4 (Enterprise) | 40GB+ | Qwen2.5-72B-AWQ | 32K | A100, H100, multi-GPU |
+### AMD Strix Halo (Unified Memory)
+
+| Tier | Unified VRAM | Model | Context | Example Hardware |
+|------|-------------|-------|---------|-----------------|
+| SH_LARGE | 90GB+ | qwen3-coder-next (80B MoE, 3B active) | 128K | Ryzen AI MAX+ 395 (96GB VRAM config) |
+| SH_COMPACT | 64-89GB | qwen3-30b-a3b (30B MoE, 3B active) | 128K | Ryzen AI MAX+ 395 (64GB VRAM config) |
+
+Both tiers use `qwen2.5:7b` as a bootstrap model for instant startup. The full model downloads in the background via GGUF from HuggingFace.
+
+**Inference backend:** llama-server via ROCm 7.2 (Docker image: `kyuz0/amd-strix-halo-toolboxes:rocm-7.2`)
+
+### NVIDIA (Discrete GPU)
+
+| Tier | VRAM | Model | Quant | Context | Example GPUs |
+|------|------|-------|-------|---------|--------------|
+| NV_ULTRA | 90GB+ | qwen3-coder-next | GGUF Q4_K_M | 128K | Multi-GPU A100/H100 |
+| 1 (Entry) | <12GB | qwen2.5-7b-instruct | GGUF Q4_K_M | 16K | RTX 3080, RTX 4070 |
+| 2 (Prosumer) | 12-20GB | qwen2.5-14b-instruct | GGUF Q4_K_M | 16K | RTX 3090, RTX 4080 |
+| 3 (Pro) | 20-40GB | qwen2.5-32b-instruct | GGUF Q4_K_M | 32K | RTX 4090, A6000 |
+| 4 (Enterprise) | 40GB+ | qwen2.5-72b-instruct | GGUF Q4_K_M | 32K | A100, H100, multi-GPU |
 
 Override with: `./install.sh --tier 3`
 
@@ -86,6 +121,8 @@ See [docs/HARDWARE-GUIDE.md](docs/HARDWARE-GUIDE.md) for buying recommendations.
 
 ## Architecture
 
+### AMD Strix Halo (llama-server + ROCm)
+
 ```
 ┌─────────────────────────────────────────────────┐
 │                   Open WebUI                    │
@@ -93,9 +130,34 @@ See [docs/HARDWARE-GUIDE.md](docs/HARDWARE-GUIDE.md) for buying recommendations.
 └─────────────────────┬───────────────────────────┘
                       │
 ┌─────────────────────▼───────────────────────────┐
-│                     vLLM                        │
-│           (localhost:8000/v1/...)               │
-│         Qwen2.5-32B-Instruct-AWQ               │
+│               llama-server (ROCm 7.2)           │
+│            (localhost:8080/v1/...)               │
+│        qwen3-coder-next / qwen3-30b-a3b         │
+└─────────────────────────────────────────────────┘
+         │                              │
+┌────────▼────────┐            ┌───────▼────────┐
+│   OpenClaw      │            │    Dashboard    │
+│ (Agent :7860)   │            │ (Status :3001)  │
+└─────────────────┘            └────────────────┘
+
+┌─────────────┐  ┌─────────────┐  ┌─────────────┐
+│ n8n (:5678) │  │Qdrant(:6333)│  │LiteLLM(:4000)│
+│  Workflows  │  │  Vector DB  │  │ API Gateway │
+└─────────────┘  └─────────────┘  └─────────────┘
+```
+
+### NVIDIA (llama-server + CUDA)
+
+```
+┌─────────────────────────────────────────────────┐
+│                   Open WebUI                    │
+│               (localhost:3000)                  │
+└─────────────────────┬───────────────────────────┘
+                      │
+┌─────────────────────▼───────────────────────────┐
+│               llama-server (CUDA)               │
+│            (localhost:8080/v1/...)               │
+│            qwen2.5-32b-instruct                 │
 └─────────────────────────────────────────────────┘
          │                              │
 ┌────────▼────────┐            ┌───────▼────────┐
@@ -104,56 +166,97 @@ See [docs/HARDWARE-GUIDE.md](docs/HARDWARE-GUIDE.md) for buying recommendations.
 └─────────────────┘            └────────────────┘
 
 ┌─────────────┐  ┌─────────────┐  ┌─────────────┐
-│ n8n (:5678) │  │Qdrant(:6333)│  │LiteLLM(:4K) │
+│ n8n (:5678) │  │Qdrant(:6333)│  │LiteLLM(:4000)│
 │  Workflows  │  │  Vector DB  │  │ API Gateway │
 └─────────────┘  └─────────────┘  └─────────────┘
 ```
 
-## Optional Profiles
+## Modding & Customization
 
-Enable components with Docker Compose profiles:
+### Extension Services
 
-```bash
-# Voice (STT + TTS)
-docker compose --profile voice up -d
+Each service under `extensions/services/` IS the mod. Drop in a directory, run `dream enable <service>`, and it appears in compose, CLI, dashboard, and health checks.
 
-# Workflows (n8n)
-docker compose --profile workflows up -d
-
-# RAG (Qdrant + embeddings)
-docker compose --profile rag up -d
-
-# LiveKit Voice Chat (real-time WebRTC voice)
-docker compose --profile livekit --profile voice up -d
-
-# Everything
-docker compose --profile voice --profile workflows --profile rag --profile livekit up -d
+```
+extensions/services/
+  my-service/
+    manifest.yaml      # Service metadata, aliases, category
+    compose.yaml       # Docker Compose fragment (auto-merged)
 ```
 
-### LiveKit Voice Chat
+```bash
+dream enable my-service    # Enable an extension
+dream disable my-service   # Disable it
+dream list                 # See all services and status
+```
 
-Real-time voice conversation with your local AI:
+Full guide: [docs/EXTENSIONS.md](docs/EXTENSIONS.md)
 
-1. Enable the profile: `docker compose --profile livekit --profile voice up -d`
-2. Open http://localhost:7880 for LiveKit playground
-3. Or integrate with any LiveKit-compatible client
+### Installer Architecture
 
-**What it does:**
-- WebRTC voice streaming (low latency)
-- Whisper STT → Local LLM → Kokoro TTS pipeline
-- Works with browser, mobile apps, or custom clients
+The installer is modular — 6 libraries and 13 phases, each in its own file.
+Want to add a hardware tier, swap the theme, or skip a phase? Edit one file.
 
-See `agents/voice/` for the agent implementation.
+```
+installers/lib/       # Pure function libraries (colors, GPU detection, tier mapping)
+installers/phases/    # Sequential install steps (01-preflight through 13-summary)
+install-core.sh       # Thin orchestrator (~150 lines)
+```
+
+Every file has a standardized header: Purpose, Expects, Provides, Modder notes.
+
+Full guide with copy-paste recipes: [docs/INSTALLER-ARCHITECTURE.md](docs/INSTALLER-ARCHITECTURE.md)
 
 ## Configuration
 
-Copy `.env.example` to `.env` and customize:
+The installer generates `.env` automatically. Key settings:
 
 ```bash
-LLM_MODEL=Qwen/Qwen2.5-32B-Instruct-AWQ  # Model (auto-set by installer)
-MAX_CONTEXT=8192                          # Context window
-GPU_UTIL=0.9                              # VRAM allocation (0.0-1.0)
+# NVIDIA
+LLM_MODEL=qwen2.5-32b-instruct            # Model (auto-set by installer)
+CTX_SIZE=32768                             # Context window
+
+# AMD Strix Halo
+LLM_MODEL=qwen3-coder-next                # or qwen3-30b-a3b for compact tier
+CTX_SIZE=131072                            # Context window
+GPU_BACKEND=amd                            # Set automatically by installer
 ```
+
+## dream-cli
+
+The `dream` CLI is the primary management tool. It's installed automatically at `~/dream-server/dream-cli` and can be symlinked to your PATH.
+
+```bash
+# Service management
+dream status              # Health checks + GPU status
+dream list                # Show all services and their state
+dream logs <service>      # Tail logs (accepts aliases: llm, stt, tts)
+dream restart [service]   # Restart one or all services
+dream start / stop        # Start or stop the stack
+
+# LLM mode switching
+dream mode                # Show current mode (local/cloud/hybrid)
+dream mode cloud          # Switch to cloud APIs via LiteLLM
+dream mode local          # Switch to local llama-server
+dream mode hybrid         # Local primary, cloud fallback
+
+# Model management (local mode)
+dream model current       # Show active model
+dream model list          # List available tiers
+dream model swap T3       # Switch to a different tier
+
+# Extensions
+dream enable n8n          # Enable an extension
+dream disable whisper     # Disable an extension
+
+# Configuration
+dream config show         # View .env (secrets masked)
+dream config edit         # Open .env in editor
+dream preset save <name>  # Snapshot current config
+dream preset load <name>  # Restore a saved preset
+```
+
+Full mode-switching documentation: [docs/MODE-SWITCH.md](docs/MODE-SWITCH.md)
 
 ## Showcase & Demos
 
@@ -171,41 +274,50 @@ GPU_UTIL=0.9                              # VRAM allocation (0.0-1.0)
 ## Useful Commands
 
 ```bash
-cd ~/dream-server
-docker compose ps                # Check status
-docker compose logs -f vllm      # Watch vLLM logs
-docker compose restart           # Restart services
-docker compose down              # Stop everything
-./status.sh                      # Health check all services
+# dream-cli handles compose flags automatically (works on AMD and NVIDIA)
+dream status                     # Check all services
+dream list                       # See available services and status
+dream logs llm                   # Watch llama-server logs (alias: llm)
+dream logs stt                   # Watch Whisper logs (alias: stt)
+dream restart whisper            # Restart a service
+dream enable n8n                 # Enable an extension
+dream disable comfyui            # Disable an extension
+dream stop                       # Stop everything
+dream start                      # Start everything
+
+# Management scripts
+./scripts/session-cleanup.sh             # Clean up bloated agent sessions
+./scripts/llm-cold-storage.sh --status   # Check model hot/cold storage
+dream mode status                        # Show current mode
 ```
 
 ## Comparison
 
 | Feature | Dream Server | Ollama + WebUI | LocalAI |
 |---------|:---:|:---:|:---:|
-| Full-stack one-command install | **LLM + voice + workflows + RAG + privacy** | LLM + chat only | LLM only |
-| Hardware auto-detect + model selection | **Yes** | No | No |
-| Voice agents (STT + TTS + WebRTC) | **Built in** | No | Limited |
-| Inference engine | **vLLM** (continuous batching) | llama.cpp | llama.cpp |
+| Full-stack one-command install | **LLM + agent + workflows + RAG** | LLM + chat only | LLM only |
+| Hardware auto-detect + model selection | **NVIDIA + AMD Strix Halo** | No | No |
+| AMD APU / unified memory support | **ROCm + llama-server** | Partial (Vulkan) | No |
+| Inference engine | **llama-server** (all GPUs) | llama.cpp | llama.cpp |
+| Autonomous AI agent | **OpenClaw** | No | No |
 | Workflow automation | **n8n (400+ integrations)** | No | No |
-| PII redaction / privacy tools | **Built in** | No | No |
-| Multi-GPU | **Yes** | Partial | Partial |
+| LLM usage monitoring | **Open WebUI built-in** | No | No |
+| Multi-GPU | **Yes** (NVIDIA) | Partial | Partial |
 
 ---
 
 ## Troubleshooting FAQ
 
-**vLLM won't start / OOM errors**
-- Reduce `MAX_CONTEXT` in `.env` (try 4096)
-- Lower `GPU_UTIL` to 0.85
+**llama-server won't start / OOM errors**
+- Reduce `CTX_SIZE` in `.env` (try 4096)
 - Use a smaller model: `./install.sh --tier 1`
 
 **"Model not found" on first boot**
 - First launch downloads the model (10-30 min depending on size)
-- Watch progress: `docker compose logs -f vllm`
+- Watch progress: `dream logs llm`
 
 **Open WebUI shows "Connection error"**
-- vLLM is still loading. Wait for health check to pass: `curl localhost:8000/health`
+- llama-server is still loading. Wait for health check to pass: `curl localhost:8080/health`
 
 **Port already in use**
 - Change ports in `.env` (e.g., `WEBUI_PORT=3001`)
@@ -220,16 +332,29 @@ docker compose down              # Stop everything
 - Verify with `nvidia-smi` inside WSL
 - Ensure Docker Desktop has WSL integration enabled
 
+**AMD Strix Halo: llama-server won't start**
+- Check GGUF model exists: `ls -lh data/models/*.gguf`
+- Watch logs: `docker compose -f docker-compose.base.yml -f docker-compose.amd.yml logs -f llama-server`
+- Verify GPU devices: `ls /dev/kfd /dev/dri/renderD128`
+- Ensure ROCm env: `HSA_OVERRIDE_GFX_VERSION=11.5.1` must be set
+
+**AMD: "missing tensor" errors**
+- Use upstream llama.cpp GGUF files (from `unsloth/` on HuggingFace)
+- Ollama's GGUF format has incompatible tensor naming for qwen3next architecture
+- Do NOT use Ollama blob files with llama-server
+
 ---
 
 ## Documentation
 
+- [docs/README.md](docs/README.md) — **Full documentation index** (start here)
 - [QUICKSTART.md](QUICKSTART.md) — Detailed setup guide
 - [HARDWARE-GUIDE.md](docs/HARDWARE-GUIDE.md) — What to buy
-- [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) — Extended troubleshooting
+- [EXTENSIONS.md](docs/EXTENSIONS.md) — Add services, manifests, dashboard plugins
+- [INSTALLER-ARCHITECTURE.md](docs/INSTALLER-ARCHITECTURE.md) — Modding the installer
+- [INTEGRATION-GUIDE.md](docs/INTEGRATION-GUIDE.md) — Connect your apps
 - [SECURITY.md](SECURITY.md) — Security best practices
-- [OPENCLAW-INTEGRATION.md](docs/OPENCLAW-INTEGRATION.md) — Connect OpenClaw agents
-- [Workflows README](workflows/README.md) — Pre-built n8n workflows
+- [CHANGELOG.md](CHANGELOG.md) — Version history
 
 ## License
 
@@ -237,4 +362,4 @@ Apache 2.0 — Use it, modify it, sell it. Just don't blame us.
 
 ---
 
-*Built by [The Collective](https://github.com/Light-Heart-Labs/Lighthouse-AI) — Android-17, Todd, and friends*
+*Built by [The Collective](https://github.com/Light-Heart-Labs/DreamServer) — Android-17, Todd, and friends*

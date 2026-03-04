@@ -61,7 +61,7 @@ For access from other devices on your network:
 ```bash
 # Allow specific ports from local network
 sudo ufw allow from 192.168.0.0/24 to any port 3000  # WebUI
-sudo ufw allow from 192.168.0.0/24 to any port 8000  # LLM API
+sudo ufw allow from 192.168.0.0/24 to any port 8080  # LLM API
 ```
 
 ### Exposing to Internet (Not Recommended)
@@ -92,7 +92,7 @@ server {
     
     location / {
         limit_req zone=ai burst=5;
-        proxy_pass http://127.0.0.1:8000;
+        proxy_pass http://127.0.0.1:8080;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
     }
@@ -111,7 +111,7 @@ Prevent runaway containers:
 
 ```yaml
 services:
-  vllm:
+  llama-server:
     deploy:
       resources:
         limits:
@@ -122,7 +122,7 @@ services:
 
 ### Principle of Least Privilege
 
-The docker-compose.yml uses:
+The docker-compose files use:
 - Non-root users where possible
 - Read-only volumes where appropriate
 - GPU access only for services that need it
@@ -166,10 +166,10 @@ gpg -d dream-backup-YYYYMMDD.tar.gz.gpg | tar -xz
 ### Recommended Architecture
 
 ```
-Client → LiteLLM (with API key) → vLLM (localhost only)
+Client → LiteLLM (with API key) → llama-server (localhost only)
 ```
 
-vLLM has no authentication by default. Use LiteLLM as your authenticated gateway for remote access.
+llama-server has no authentication by default. Use LiteLLM as your authenticated gateway for remote access.
 
 ### Service-Specific
 
@@ -177,7 +177,7 @@ vLLM has no authentication by default. Use LiteLLM as your authenticated gateway
 |---------|------|-------|
 | Open WebUI | Built-in | Change admin password, disable signups |
 | n8n | Basic auth | Use strong password, enable 2FA |
-| vLLM | None | Keep localhost-only, use LiteLLM for remote |
+| llama-server | None | Keep localhost-only, use LiteLLM for remote |
 | LiteLLM | API key | Set `LITELLM_KEY` in .env |
 
 ---
@@ -186,7 +186,7 @@ vLLM has no authentication by default. Use LiteLLM as your authenticated gateway
 
 ```bash
 # Watch for errors
-docker compose logs -f vllm | grep -i error
+docker compose logs -f llama-server | grep -i error
 
 # Monitor resource usage
 watch -n 5 'nvidia-smi; docker stats --no-stream'
@@ -209,7 +209,7 @@ docker compose pull
 docker compose up -d
 ```
 
-Watch for security updates to: vLLM, Open WebUI, n8n, base images.
+Watch for security updates to: llama-server, Open WebUI, n8n, base images.
 
 ---
 

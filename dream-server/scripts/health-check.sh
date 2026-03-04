@@ -2,7 +2,7 @@
 # Dream Server Comprehensive Health Check
 # Tests each component with actual API calls, not just connectivity
 # Exit codes: 0=healthy, 1=degraded (some services down), 2=critical (core services down)
-# 
+#
 # Usage: ./health-check.sh [--json] [--quiet]
 
 set -euo pipefail
@@ -19,21 +19,28 @@ done
 
 # Config
 INSTALL_DIR="${INSTALL_DIR:-$HOME/dream-server}"
-VLLM_HOST="${VLLM_HOST:-localhost}"
-VLLM_PORT="${VLLM_PORT:-8000}"
+LLM_HOST="${LLM_HOST:-localhost}"
+LLM_PORT="${LLM_PORT:-${SERVICE_PORTS[llama-server]:-8080}}"
 TIMEOUT="${TIMEOUT:-5}"
 
-# Load ports from .env if available
+# Source service registry
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+. "$SCRIPT_DIR/lib/service-registry.sh"
+sr_load
+
+# Load env for port overrides
 ENV_FILE="${INSTALL_DIR}/.env"
 if [[ -f "$ENV_FILE" ]]; then
-    # Source only PORT variable lines to avoid executing malicious content
-    WHISPER_PORT=$(grep "^WHISPER_PORT=" "$ENV_FILE" | cut -d= -f2 | tr -d ' "' || echo "9000")
-    TTS_PORT=$(grep "^TTS_PORT=" "$ENV_FILE" | cut -d= -f2 | tr -d ' "' || echo "8880")
-    EMBEDDINGS_PORT=$(grep "^EMBEDDINGS_PORT=" "$ENV_FILE" | cut -d= -f2 | tr -d ' "' || echo "8090")
-else
-    WHISPER_PORT="${WHISPER_PORT:-9000}"
-    TTS_PORT="${TTS_PORT:-8880}"
-    EMBEDDINGS_PORT="${EMBEDDINGS_PORT:-8090}"
+    set -a
+    while IFS='=' read -r key value; do
+        [[ "$key" =~ ^[[:space:]]*# ]] && continue
+        [[ -z "$key" ]] && continue
+        [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
+        value="${value%\"}"
+        value="${value#\"}"
+        export "$key=$value"
+    done < "$ENV_FILE"
+    set +a
 fi
 
 # Colors (disabled for JSON/quiet)
@@ -50,95 +57,51 @@ ANY_FAIL=false
 
 log() { $QUIET || echo -e "$1"; }
 
-# Test functions
-test_vllm() {
+# ── Test functions ──────────────────────────────────────────────────────────
+
+# llama-server: critical path — performs an actual inference test
+test_llm() {
     local start=$(date +%s%3N)
-    # Test actual inference with simple completion
     local response=$(curl -sf --max-time $TIMEOUT \
         -H "Content-Type: application/json" \
         -d '{"model":"default","prompt":"Hi","max_tokens":1}' \
-        "http://${VLLM_HOST}:${VLLM_PORT}/v1/completions" 2>/dev/null)
+        "http://${LLM_HOST}:${LLM_PORT}/v1/completions" 2>/dev/null)
     local end=$(date +%s%3N)
-    
+
     if echo "$response" | grep -q '"text"'; then
-        RESULTS[vllm]="ok"
-        RESULTS[vllm_latency]=$((end - start))
+        RESULTS[llm]="ok"
+        RESULTS[llm_latency]=$((end - start))
         return 0
     fi
-    RESULTS[vllm]="fail"
+    RESULTS[llm]="fail"
     CRITICAL_FAIL=true
     ANY_FAIL=true
     return 1
 }
 
-test_embeddings() {
-    local response=$(curl -sf --max-time $TIMEOUT \
-        -H "Content-Type: application/json" \
-        -d '{"input":"test"}' \
-        "http://localhost:${EMBEDDINGS_PORT}/embed" 2>/dev/null)
+# Generic registry-driven service health check
+test_service() {
+    local sid="$1"
+    local port_env="${SERVICE_PORT_ENVS[$sid]}"
+    local default_port="${SERVICE_PORTS[$sid]}"
+    local health="${SERVICE_HEALTH[$sid]}"
 
-    if echo "$response" | grep -q '\['; then
-        RESULTS[embeddings]="ok"
+    # Resolve port
+    local port="$default_port"
+    [[ -n "$port_env" ]] && port="${!port_env:-$default_port}"
+
+    [[ -z "$health" || "$port" == "0" ]] && return 1
+
+    if curl -sf --max-time $TIMEOUT "http://localhost:${port}${health}" >/dev/null 2>&1; then
+        RESULTS[$sid]="ok"
         return 0
     fi
-    RESULTS[embeddings]="fail"
+    RESULTS[$sid]="fail"
     ANY_FAIL=true
     return 1
 }
 
-test_whisper() {
-    # Just check health endpoint - actual transcription needs audio
-    if curl -sf --max-time $TIMEOUT "http://localhost:${WHISPER_PORT}/health" >/dev/null 2>&1; then
-        RESULTS[whisper]="ok"
-        return 0
-    fi
-    RESULTS[whisper]="fail"
-    ANY_FAIL=true
-    return 1
-}
-
-test_tts() {
-    # Check TTS endpoint health
-    if curl -sf --max-time $TIMEOUT "http://localhost:${TTS_PORT}/health" >/dev/null 2>&1; then
-        RESULTS[tts]="ok"
-        return 0
-    fi
-    RESULTS[tts]="fail"
-    ANY_FAIL=true
-    return 1
-}
-
-test_qdrant() {
-    local response=$(curl -sf --max-time $TIMEOUT "http://localhost:6333/collections" 2>/dev/null)
-    if echo "$response" | grep -q '"result"'; then
-        RESULTS[qdrant]="ok"
-        return 0
-    fi
-    RESULTS[qdrant]="fail"
-    ANY_FAIL=true
-    return 1
-}
-
-test_open_webui() {
-    if curl -sf --max-time $TIMEOUT "http://localhost:3000" >/dev/null 2>&1; then
-        RESULTS[open_webui]="ok"
-        return 0
-    fi
-    RESULTS[open_webui]="fail"
-    ANY_FAIL=true
-    return 1
-}
-
-test_n8n() {
-    if curl -sf --max-time $TIMEOUT "http://localhost:5678/healthz" >/dev/null 2>&1; then
-        RESULTS[n8n]="ok"
-        return 0
-    fi
-    RESULTS[n8n]="fail"
-    ANY_FAIL=true
-    return 1
-}
-
+# System-level: GPU
 test_gpu() {
     if command -v nvidia-smi &>/dev/null; then
         local gpu_info=$(nvidia-smi --query-gpu=memory.used,memory.total,utilization.gpu,temperature.gpu --format=csv,noheader,nounits 2>/dev/null | head -1)
@@ -149,7 +112,7 @@ test_gpu() {
             RESULTS[gpu_mem_total]="${mem_total// /}"
             RESULTS[gpu_util]="${gpu_util// /}"
             RESULTS[gpu_temp]="${temp// /}"
-            
+
             # Warn if GPU memory > 95% or temp > 80C
             if [ "${RESULTS[gpu_util]}" -gt 95 ] 2>/dev/null; then
                 RESULTS[gpu]="warn"
@@ -164,6 +127,7 @@ test_gpu() {
     return 1
 }
 
+# System-level: Disk
 test_disk() {
     local usage=$(df -h "$INSTALL_DIR" 2>/dev/null | tail -1 | awk '{print $5}' | tr -d '%')
     if [ -n "$usage" ]; then
@@ -178,7 +142,19 @@ test_disk() {
     return 1
 }
 
-# Run tests
+# Helper: run test_service for a service ID and log the result
+check_service() {
+    local sid="$1"
+    local name="${SERVICE_NAMES[$sid]:-$sid}"
+    if test_service "$sid" 2>/dev/null; then
+        log "  ${GREEN}✓${NC} $name - healthy"
+    else
+        log "  ${YELLOW}!${NC} $name - not responding"
+    fi
+}
+
+# ── Run tests ───────────────────────────────────────────────────────────────
+
 log "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 log "${CYAN}  Dream Server Health Check${NC}"
 log "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -186,64 +162,35 @@ log ""
 
 log "${CYAN}Core Services:${NC}"
 
-# vLLM (critical)
-if test_vllm 2>/dev/null; then
-    log "  ${GREEN}✓${NC} vLLM - inference working (${RESULTS[vllm_latency]}ms)"
+# llama-server (critical — does inference test, not just health)
+if test_llm 2>/dev/null; then
+    log "  ${GREEN}✓${NC} llama-server - inference working (${RESULTS[llm_latency]}ms)"
 else
-    log "  ${RED}✗${NC} vLLM - CRITICAL: inference failed"
+    log "  ${RED}✗${NC} llama-server - CRITICAL: inference failed"
 fi
 
-# Embeddings
-if test_embeddings 2>/dev/null; then
-    log "  ${GREEN}✓${NC} Embeddings - working"
-else
-    log "  ${YELLOW}!${NC} Embeddings - not responding"
-fi
-
-# Whisper
-if test_whisper 2>/dev/null; then
-    log "  ${GREEN}✓${NC} Whisper STT - healthy"
-else
-    log "  ${YELLOW}!${NC} Whisper STT - not responding"
-fi
-
-# TTS
-if test_tts 2>/dev/null; then
-    log "  ${GREEN}✓${NC} TTS - healthy"
-else
-    log "  ${YELLOW}!${NC} TTS - not responding"
-fi
+# All other core services
+for sid in "${SERVICE_IDS[@]}"; do
+    [[ "$sid" == "llama-server" ]] && continue
+    [[ "${SERVICE_CATEGORIES[$sid]}" != "core" ]] && continue
+    check_service "$sid"
+done
 
 log ""
-log "${CYAN}Support Services:${NC}"
+log "${CYAN}Extension Services:${NC}"
 
-# Qdrant
-if test_qdrant 2>/dev/null; then
-    log "  ${GREEN}✓${NC} Qdrant - responding"
-else
-    log "  ${YELLOW}!${NC} Qdrant - not responding"
-fi
-
-# Open WebUI
-if test_open_webui 2>/dev/null; then
-    log "  ${GREEN}✓${NC} Open WebUI - accessible"
-else
-    log "  ${YELLOW}!${NC} Open WebUI - not responding"
-fi
-
-# n8n
-if test_n8n 2>/dev/null; then
-    log "  ${GREEN}✓${NC} n8n - healthy"
-else
-    log "  ${YELLOW}!${NC} n8n - not responding"
-fi
+# All non-core services
+for sid in "${SERVICE_IDS[@]}"; do
+    [[ "${SERVICE_CATEGORIES[$sid]}" == "core" ]] && continue
+    check_service "$sid"
+done
 
 log ""
 log "${CYAN}System Resources:${NC}"
 
 # GPU
 if test_gpu 2>/dev/null; then
-    local status_icon="${GREEN}✓${NC}"
+    status_icon="${GREEN}✓${NC}"
     [ "${RESULTS[gpu]}" = "warn" ] && status_icon="${YELLOW}!${NC}"
     log "  ${status_icon} GPU - ${RESULTS[gpu_mem_used]}/${RESULTS[gpu_mem_total]} MiB, ${RESULTS[gpu_util]}% util, ${RESULTS[gpu_temp]}°C"
 else
@@ -252,7 +199,7 @@ fi
 
 # Disk
 if test_disk 2>/dev/null; then
-    local status_icon="${GREEN}✓${NC}"
+    status_icon="${GREEN}✓${NC}"
     [ "${RESULTS[disk]}" = "warn" ] && status_icon="${YELLOW}!${NC}"
     log "  ${status_icon} Disk - ${RESULTS[disk_usage]}% used"
 else

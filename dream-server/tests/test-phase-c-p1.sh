@@ -155,19 +155,18 @@ else
 fi
 
 # ==============================================================═
-# C6. status.sh port validation
-echo -e "${CYAN}-- C6. status.sh Port Verification --------------------------"
+# C6. dream-cli status (replaced status.sh)
+echo -e "${CYAN}-- C6. dream-cli status command ------------------------------"
 
-STATUS_SCRIPT="${SCRIPT_DIR}/../status.sh"
-if [ -f "$STATUS_SCRIPT" ]; then
-    # Check for incorrect port references
-    if grep -q "Portainer.*9000\|Whisper 9000\|Kokoro 8002" "$STATUS_SCRIPT" 2>/dev/null; then
-        log_fail "status.sh checks wrong ports (Portainer:9000, Whisper 9000, Kokoro 8002)"
+DREAM_CLI="${SCRIPT_DIR}/../dream-cli"
+if [ -f "$DREAM_CLI" ]; then
+    if grep -q "cmd_status" "$DREAM_CLI" 2>/dev/null; then
+        log_pass "dream-cli has cmd_status function"
     else
-        log_pass "status.sh uses correct ports"
+        log_fail "dream-cli missing cmd_status function"
     fi
 else
-    log_warn "status.sh not found"
+    log_warn "dream-cli not found"
 fi
 
 # ==============================================================═
@@ -206,10 +205,10 @@ echo -e "${CYAN}-- C9. dream-update.sh GitHub Repo --------------------------"
 
 UPDATE_SCRIPT="${SCRIPT_DIR}/../dream-update.sh"
 if [ -f "$UPDATE_SCRIPT" ]; then
-    if grep -q "GITHUB_REPO.*Light-Heart-Labs/Lighthouse-AI" "$UPDATE_SCRIPT" 2>/dev/null; then
-        log_fail "dream-update.sh hardcodes wrong GitHub repo (Android-Labs instead of Dream Server)"
+    if grep -q "GITHUB_REPO.*Light-Heart-Labs/DreamServer" "$UPDATE_SCRIPT" 2>/dev/null; then
+        log_pass "dream-update.sh GitHub repo configuration is correct (DreamServer)"
     else
-        log_pass "dream-update.sh GitHub repo configuration appears correct"
+        log_fail "dream-update.sh missing correct GitHub repo (should be Light-Heart-Labs/DreamServer)"
     fi
 else
     log_warn "dream-update.sh not found"
@@ -236,15 +235,18 @@ fi
 # C11. Container UID/GID configuration
 echo -e "${CYAN}-- C11. Container UID/GID Configuration ---------------------"
 
-COMPOSE_FILE="${SCRIPT_DIR}/../docker-compose.yml"
+COMPOSE_FILE="${SCRIPT_DIR}/../docker-compose.base.yml"
+if [ ! -f "$COMPOSE_FILE" ] && [ -f "${SCRIPT_DIR}/../docker-compose.yml" ]; then
+    COMPOSE_FILE="${SCRIPT_DIR}/../docker-compose.yml"
+fi
 if [ -f "$COMPOSE_FILE" ]; then
-    if grep -qE 'user:\s*["\']?1000:1000["\']?' "$COMPOSE_FILE" 2>/dev/null; then
-        log_fail "docker-compose.yml hardcodes UID/GID 1000:1000"
+    if grep -qE "user:[[:space:]]*['\"]?1000:1000['\"]?" "$COMPOSE_FILE" 2>/dev/null; then
+        log_fail "$(basename "$COMPOSE_FILE") hardcodes UID/GID 1000:1000"
     else
-        log_pass "docker-compose.yml uses dynamic UID/GID"
+        log_pass "$(basename "$COMPOSE_FILE") uses dynamic UID/GID"
     fi
 else
-    log_warn "docker-compose.yml not found"
+    log_warn "compose file not found"
 fi
 
 # ==============================================================═
@@ -253,12 +255,12 @@ echo -e "${CYAN}-- C12. Docker Compose Profiles Auto-Start ------------------"
 
 if [ -f "$COMPOSE_FILE" ]; then
     if grep -q 'profiles:\s*\[default' "$COMPOSE_FILE" 2>/dev/null; then
-        log_fail "docker-compose.yml uses 'profiles: [default]' which doesn't auto-start"
+        log_fail "$(basename "$COMPOSE_FILE") uses 'profiles: [default]' which doesn't auto-start"
     else
-        log_pass "docker-compose.yml doesn't use problematic default profile"
+        log_pass "$(basename "$COMPOSE_FILE") doesn't use problematic default profile"
     fi
 else
-    log_warn "docker-compose.yml not found"
+    log_warn "compose file not found"
 fi
 
 # SUMMARY

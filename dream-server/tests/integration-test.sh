@@ -11,6 +11,23 @@ export TERM="${TERM:-xterm}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+cd "$PROJECT_DIR"
+COMPOSE_FILE=""
+COMPOSE_FLAGS=""
+if [[ -f "docker-compose.base.yml" && -f "docker-compose.amd.yml" ]]; then
+    COMPOSE_FILE="docker-compose.amd.yml"
+    COMPOSE_FLAGS="-f docker-compose.base.yml -f docker-compose.amd.yml"
+    # Append enabled extension compose fragments
+    if [[ -d "extensions/services" ]]; then
+        for ext_dir in extensions/services/*/; do
+            [[ -f "${ext_dir}compose.yaml" ]] && COMPOSE_FLAGS="$COMPOSE_FLAGS -f ${ext_dir}compose.yaml"
+            [[ -f "${ext_dir}compose.amd.yaml" ]] && COMPOSE_FLAGS="$COMPOSE_FLAGS -f ${ext_dir}compose.amd.yaml"
+        done
+    fi
+elif [[ -f "docker-compose.yml" ]]; then
+    COMPOSE_FILE="docker-compose.yml"
+    COMPOSE_FLAGS="-f docker-compose.yml"
+fi
 
 # Colors
 RED='\033[0;31m'
@@ -89,36 +106,42 @@ fi
 # ============================================
 header "2/6" "Docker Compose Validation"
 
-if [[ ! -f "$PROJECT_DIR/docker-compose.yml" ]]; then
-    fail "docker-compose.yml not found"
+if [[ -z "$COMPOSE_FILE" ]]; then
+    fail "No compose file found (expected base+overlay or docker-compose.yml)"
 else
-    pass "docker-compose.yml exists"
+    pass "Compose file exists: $(basename "$COMPOSE_FILE")"
+    [[ -n "$COMPOSE_FLAGS" ]] && pass "Compose flags: $COMPOSE_FLAGS"
 
     # Syntax check with docker compose
     if command -v docker &> /dev/null; then
-        if docker compose -f "$PROJECT_DIR/docker-compose.yml" config > /dev/null 2>&1; then
-            pass "docker-compose.yml passes syntax validation"
+        if docker compose $COMPOSE_FLAGS config > /dev/null 2>&1; then
+            pass "Compose selection passes syntax validation"
         else
             # Try with env file fallback
-            if docker compose -f "$PROJECT_DIR/docker-compose.yml" --env-file "$PROJECT_DIR/.env.example" config > /dev/null 2>&1; then
-                pass "docker-compose.yml passes syntax validation (with .env.example)"
+            if [[ -f "$PROJECT_DIR/.env.example" ]] && docker compose $COMPOSE_FLAGS --env-file "$PROJECT_DIR/.env.example" config > /dev/null 2>&1; then
+                pass "Compose selection passes syntax validation (with .env.example)"
             else
-                fail "docker-compose.yml has syntax errors" "$(docker compose -f "$PROJECT_DIR/docker-compose.yml" config 2>&1 | head -3)"
+                fail "Compose selection has syntax errors" "$(docker compose $COMPOSE_FLAGS config 2>&1 | head -3)"
             fi
         fi
 
         # Verify core services are defined
-        compose_config=$(docker compose -f "$PROJECT_DIR/docker-compose.yml" --env-file "$PROJECT_DIR/.env.example" config 2>/dev/null || true)
-        for service in vllm webui; do
-            if echo "$compose_config" | grep -q "container_name:.*dream-${service}" 2>/dev/null || \
-               grep -q "container_name:.*dream-${service}" "$PROJECT_DIR/docker-compose.yml" 2>/dev/null; then
+        compose_config=$(docker compose $COMPOSE_FLAGS --env-file "$PROJECT_DIR/.env.example" config 2>/dev/null || docker compose $COMPOSE_FLAGS config 2>/dev/null || true)
+        if [[ "$(basename "$COMPOSE_FILE")" == "docker-compose.amd.yml" ]]; then
+            core_services=("llama-server" "open-webui")
+        else
+            core_services=("llama-server" "webui")
+        fi
+        for service in "${core_services[@]}"; do
+            if echo "$compose_config" | grep -qE "^\\s{2}${service}:$" 2>/dev/null || \
+               grep -qE "^[[:space:]]*${service}:" "$COMPOSE_FILE" 2>/dev/null; then
                 pass "Core service defined: $service"
             else
                 fail "Core service missing: $service"
             fi
         done
     else
-        skip "Docker not installed — cannot validate docker-compose.yml syntax"
+        skip "Docker not installed — cannot validate compose syntax"
     fi
 fi
 
@@ -129,7 +152,7 @@ header "3/6" "Profile Configs"
 
 PROFILES_DIR="$PROJECT_DIR/config/profiles"
 if [[ ! -d "$PROFILES_DIR" ]]; then
-    fail "config/profiles/ directory not found"
+    skip "config/profiles/ directory not found (not required in Strix layout)"
 else
     pass "config/profiles/ directory exists"
 
@@ -152,11 +175,11 @@ with open('$profile') as f:
             fail "Invalid YAML: $basename_profile"
         fi
 
-        # Check that profile defines a vllm service override
-        if grep -q "vllm" "$profile" 2>/dev/null; then
-            pass "Profile defines vllm config: $basename_profile"
+        # Check that profile defines a llama-server service override
+        if grep -q "llama-server" "$profile" 2>/dev/null; then
+            pass "Profile defines llama-server config: $basename_profile"
         else
-            fail "Profile missing vllm config: $basename_profile"
+            fail "Profile missing llama-server config: $basename_profile"
         fi
     done
 
@@ -226,9 +249,12 @@ header "5/6" "Workflow JSON Files"
 
 WORKFLOWS_DIR="$PROJECT_DIR/workflows"
 if [[ ! -d "$WORKFLOWS_DIR" ]]; then
-    fail "workflows/ directory not found"
+    WORKFLOWS_DIR="$PROJECT_DIR/config/n8n"
+fi
+if [[ ! -d "$WORKFLOWS_DIR" ]]; then
+    fail "workflow directory not found (checked workflows/ and config/n8n/)"
 else
-    pass "workflows/ directory exists"
+    pass "Workflow directory exists: ${WORKFLOWS_DIR#$PROJECT_DIR/}"
 
     json_count=0
     for wf in "$WORKFLOWS_DIR"/*.json; do
@@ -243,7 +269,8 @@ else
             fail "Invalid JSON: $basename_wf"
         fi
 
-        # Check for n8n workflow structure (should have "nodes" key)
+        # Check for n8n workflow structure.
+        # Some JSON files (like catalog.json) are metadata manifests, not workflow exports.
         if python3 -c "
 import json, sys
 with open('$wf') as f:
@@ -251,6 +278,13 @@ with open('$wf') as f:
 assert 'nodes' in d, 'missing nodes key'
 " 2>/dev/null; then
             pass "Has n8n structure (nodes): $basename_wf"
+        elif python3 -c "
+import json, sys
+with open('$wf') as f:
+    d = json.load(f)
+assert 'workflows' in d or 'categories' in d, 'not a metadata manifest'
+" 2>/dev/null; then
+            skip "Metadata manifest (not workflow export): $basename_wf"
         else
             fail "Missing n8n structure (nodes): $basename_wf"
         fi
@@ -297,13 +331,18 @@ fi
 if [[ -f "$PROJECT_DIR/.env.example" ]]; then
     pass ".env.example exists"
     # Check it contains essential vars
-    for var in LLM_MODEL VLLM_PORT WEBUI_PORT; do
+    for var in LLM_MODEL WEBUI_PORT; do
         if grep -q "^${var}=" "$PROJECT_DIR/.env.example"; then
             pass ".env.example defines $var"
         else
             fail ".env.example missing $var"
         fi
     done
+    if grep -qE "^(LLAMA_SERVER_PORT|OLLAMA_PORT)=" "$PROJECT_DIR/.env.example"; then
+        pass ".env.example defines an inference port variable"
+    else
+        fail ".env.example missing inference port variable (LLAMA_SERVER_PORT/OLLAMA_PORT)"
+    fi
 else
     fail ".env.example not found"
 fi

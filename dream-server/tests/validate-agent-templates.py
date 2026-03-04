@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 M7 Agent Template Validation
-Tests that agent templates work reliably on local Qwen2.5-32B.
+Tests that agent templates work reliably on local qwen2.5-32b-instruct via llama-server.
 """
 
 import requests
@@ -10,8 +10,8 @@ import time
 import sys
 from pathlib import Path
 
-VLLM_URL = "http://localhost:8000"
-MODEL = "Qwen/Qwen2.5-32B-Instruct-AWQ"
+LLAMA_SERVER_URL = "http://localhost:8080"
+MODEL = "qwen2.5-32b-instruct"
 
 TEMPLATES = {
     "code-assistant": {
@@ -77,7 +77,7 @@ def test_template(name: str, config: dict) -> dict:
         try:
             start = time.time()
             response = requests.post(
-                f"{VLLM_URL}/v1/chat/completions",
+                f"{LLAMA_SERVER_URL}/v1/chat/completions",
                 json=payload,
                 timeout=30
             )
@@ -127,7 +127,7 @@ def test_template(name: str, config: dict) -> dict:
 def main():
     print("=" * 60)
     print("M7 Agent Template Validation")
-    print("Testing on Qwen2.5-32B-Instruct-AWQ")
+    print("Testing on qwen2.5-32b-instruct")
     print("=" * 60)
     
     all_results = []

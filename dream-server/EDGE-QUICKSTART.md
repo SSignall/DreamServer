@@ -1,5 +1,14 @@
 # Dream Server — Edge Quickstart
 
+> **Status: Planned — Not Yet Available.**
+>
+> This guide describes a future edge deployment mode. The referenced `docker-compose.edge.yml` does not exist yet. **Do not follow these instructions** — they will not work.
+>
+> For CPU-only machines without a GPU, use `--cloud` mode instead:
+> ```bash
+> ./install-core.sh --cloud
+> ```
+
 *For Raspberry Pi 5, Mac Mini, or any 8GB+ system without a dedicated GPU.*
 
 ---
@@ -26,8 +35,8 @@
 
 ```bash
 # 1. Clone and enter
-git clone https://github.com/Light-Heart-Labs/Lighthouse-AI.git
-cd Lighthouse-AI/dream-server
+git clone https://github.com/Light-Heart-Labs/DreamServer.git
+cd DreamServer
 
 # 2. Start core services
 docker compose -f docker-compose.edge.yml up -d
@@ -174,9 +183,9 @@ docker compose -f docker-compose.edge.yml up -d
 
 ## Next Steps
 
-- Configure voice assistant: See `docs/VOICE-SETUP.md`
 - Add OpenClaw agent: See `docs/OPENCLAW-INTEGRATION.md`
 - Create automations: Use n8n at http://localhost:5678
+- Full documentation index: See `docs/README.md`
 
 ---
 

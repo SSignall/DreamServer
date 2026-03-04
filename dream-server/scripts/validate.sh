@@ -10,11 +10,26 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR/.."
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+cd "$PROJECT_DIR"
+
+# Source service registry
+export SCRIPT_DIR="$PROJECT_DIR"
+. "$PROJECT_DIR/lib/service-registry.sh"
+sr_load
+
+# Source .env for port overrides
+[[ -f "$PROJECT_DIR/.env" ]] && set -a && . "$PROJECT_DIR/.env" && set +a
+
+# Resolve core ports from registry
+LLM_PORT="${SERVICE_PORTS[llama-server]:-8080}"
+LLM_HEALTH="${SERVICE_HEALTH[llama-server]:-/health}"
+WEBUI_PORT="${SERVICE_PORTS[open-webui]:-3000}"
+WEBUI_HEALTH="${SERVICE_HEALTH[open-webui]:-/}"
 
 echo ""
 echo "╔═══════════════════════════════════════════╗"
-echo "║     🧪 Dream Server Validation Test       ║"
+echo "║     Dream Server Validation Test          ║"
 echo "╚═══════════════════════════════════════════╝"
 echo ""
 
@@ -36,24 +51,24 @@ check() {
 
 echo "1. Container Status"
 echo "───────────────────"
-check "vLLM running" "docker compose ps vllm 2>/dev/null | grep -q 'Up\|running'"
+check "llama-server running" "docker compose ps llama-server 2>/dev/null | grep -q 'Up\|running'"
 check "Open WebUI running" "docker compose ps open-webui 2>/dev/null | grep -q 'Up\|running'"
 
 echo ""
 echo "2. Health Endpoints"
 echo "───────────────────"
-check "vLLM health" "curl -sf http://localhost:8000/health"
-check "vLLM models" "curl -sf http://localhost:8000/v1/models | grep -q model"
-check "WebUI reachable" "curl -sf http://localhost:3000 -o /dev/null"
+check "llama-server health" "curl -sf http://localhost:${LLM_PORT}${LLM_HEALTH}"
+check "llama-server models" "curl -sf http://localhost:${LLM_PORT}/v1/models | grep -q model"
+check "WebUI reachable" "curl -sf http://localhost:${WEBUI_PORT}${WEBUI_HEALTH} -o /dev/null"
 
 echo ""
 echo "3. Inference Test"
 echo "─────────────────"
 printf "  %-30s " "Chat completion..."
-RESPONSE=$(curl -sf http://localhost:8000/v1/chat/completions \
+RESPONSE=$(curl -sf "http://localhost:${LLM_PORT}/v1/chat/completions" \
     -H "Content-Type: application/json" \
     -d '{
-        "model": "'"$(curl -sf http://localhost:8000/v1/models | jq -r '.data[0].id // "Qwen/Qwen2.5-32B-Instruct-AWQ"')"'",
+        "model": "'"$(curl -sf "http://localhost:${LLM_PORT}/v1/models" | jq -r '.data[0].id // "local"')"'",
         "messages": [{"role": "user", "content": "Say OK"}],
         "max_tokens": 10
     }' 2>/dev/null)
@@ -71,29 +86,34 @@ echo ""
 echo "4. Optional Services (if enabled)"
 echo "──────────────────────────────────"
 
-if docker compose ps whisper 2>/dev/null | grep -q "Up\|running"; then
-    check "Whisper STT" "curl -sf http://localhost:9000/"
-else
-    printf "  %-30s ${YELLOW}○ SKIP (not enabled)${NC}\n" "Whisper STT..."
-fi
+SCRIPT_DIR_REG="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+. "$SCRIPT_DIR_REG/lib/service-registry.sh"
+sr_load
 
-if docker compose ps tts 2>/dev/null | grep -q "Up\|running"; then
-    check "OpenTTS" "curl -sf http://localhost:8880/api/voices"
-else
-    printf "  %-30s ${YELLOW}○ SKIP (not enabled)${NC}\n" "OpenTTS..."
-fi
+for sid in "${SERVICE_IDS[@]}"; do
+    _cat="${SERVICE_CATEGORIES[$sid]}"
+    [[ "$_cat" == "core" ]] && continue  # Core already checked above
 
-if docker compose ps n8n 2>/dev/null | grep -q "Up\|running"; then
-    check "n8n workflows" "curl -sf http://localhost:5678/"
-else
-    printf "  %-30s ${YELLOW}○ SKIP (not enabled)${NC}\n" "n8n workflows..."
-fi
+    _container="${SERVICE_CONTAINERS[$sid]}"
+    _health="${SERVICE_HEALTH[$sid]}"
+    _port_env="${SERVICE_PORT_ENVS[$sid]}"
+    _default_port="${SERVICE_PORTS[$sid]}"
+    _name="${SERVICE_NAMES[$sid]:-$sid}"
 
-if docker compose ps qdrant 2>/dev/null | grep -q "Up\|running"; then
-    check "Qdrant vector DB" "curl -sf http://localhost:6333/"
-else
-    printf "  %-30s ${YELLOW}○ SKIP (not enabled)${NC}\n" "Qdrant vector DB..."
-fi
+    # Resolve port
+    _port="$_default_port"
+    [[ -n "$_port_env" ]] && _port="${!_port_env:-$_default_port}"
+
+    # Skip if no health endpoint or port
+    [[ -z "$_health" || "$_port" == "0" ]] && continue
+
+    # Check if container is running
+    if docker compose ps "$sid" 2>/dev/null | grep -q "Up\|running"; then
+        check "$_name" "curl -sf http://localhost:${_port}${_health}"
+    else
+        printf "  %-30s ${YELLOW}○ SKIP (not enabled)${NC}\n" "$_name..."
+    fi
+done
 
 # Summary
 echo ""
@@ -101,15 +121,15 @@ echo "════════════════════════�
 if [ $FAILED -eq 0 ]; then
     echo -e "${GREEN}✅ Dream Server is ready! ($PASSED tests passed)${NC}"
     echo ""
-    echo "   Open WebUI:  http://localhost:3000"
-    echo "   API:         http://localhost:8000/v1/..."
+    echo "   Open WebUI:  http://localhost:${WEBUI_PORT}"
+    echo "   API:         http://localhost:${LLM_PORT}/v1/..."
     echo ""
 else
     echo -e "${RED}⚠️  $FAILED test(s) failed, $PASSED passed${NC}"
     echo ""
     echo "   Troubleshooting:"
     echo "   - Check logs:  docker compose logs -f"
-    echo "   - vLLM logs:   docker compose logs -f vllm"
+    echo "   - LLM logs:    docker compose logs -f llama-server"
     echo "   - Restart:     docker compose restart"
     echo ""
     exit 1

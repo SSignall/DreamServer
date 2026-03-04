@@ -113,11 +113,11 @@ Ensure you have the latest version of WSL2 installed and that your default Linux
 
 When deploying multiple containers for an AI stack, proper networking is essential for efficient communication between services.
 
-- **Use Docker Compose**: Define your multi-container applications using `docker-compose.yml`. This ensures that all services are linked correctly.
+- **Use Docker Compose**: Define your multi-container applications using compose files. This ensures that all services are linked correctly.
 - **Network Mode**: Use the `bridge` network mode for most scenarios. For better performance, consider using the `host` network mode if your containers need direct access to the host's network interfaces.
 - **Service Discovery**: Use Docker's built-in DNS service discovery to resolve container names to IP addresses.
 
-Example `docker-compose.yml` snippet:
+Example compose snippet:
 ```yaml
 version: '3.8'
 services:

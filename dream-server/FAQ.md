@@ -10,7 +10,7 @@ Frequently asked questions about installing, running, and troubleshooting Dream 
 
 ### What is Dream Server?
 Dream Server is a turnkey local AI stack that runs entirely on your own hardware. It includes:
-- LLM inference via vLLM (Qwen2.5-32B-Instruct-AWQ)
+- LLM inference via llama-server (qwen2.5-32b-instruct)
 - Web dashboard for chat and model management
 - Voice capabilities (STT via Whisper, TTS via Kokoro)
 - Workflow automation via n8n
@@ -115,9 +115,9 @@ sudo systemctl restart docker
 
 ### "CUDA out of memory" errors
 Your GPU doesn't have enough VRAM. Options:
-1. Use a smaller model (Qwen2.5-7B instead of 32B)
-2. Enable quantization (AWQ format uses ~60% less VRAM)
-3. Reduce `max_model_len` in docker-compose.yml
+1. Use a smaller model (qwen2.5-7b-instruct instead of 32b)
+2. All models use GGUF Q4_K_M quantization by default
+3. Reduce `CTX_SIZE` in `.env` (try 4096)
 4. Run on CPU only (slower but works)
 
 ### Windows: WSL2 installation fails
@@ -138,7 +138,7 @@ docker compose ps
 **Check logs:**
 ```bash
 docker compose logs dashboard-api
-docker compose logs vllm
+docker compose logs llama-server
 ```
 
 **Common fixes:**
@@ -250,7 +250,7 @@ docker compose logs -f
 
 **Specific service:**
 ```bash
-docker compose logs -f vllm
+docker compose logs -f llama-server
 docker compose logs -f dashboard-api
 docker compose logs -f voice-agent
 ```
@@ -268,7 +268,7 @@ docker compose up -d
 
 Or restart specific services:
 ```bash
-docker compose restart vllm
+docker compose restart llama-server
 ```
 
 ### "Connection refused" to API
@@ -287,7 +287,7 @@ Models need ~20GB per model. Free up space if needed.
 
 **Check model download:**
 ```bash
-ls -la models/
+ls -la data/models/
 ```
 
 If empty or incomplete, re-download:
@@ -356,9 +356,9 @@ docker compose down -v
 ## Advanced
 
 ### How do I add a custom model?
-1. Download model to `models/` directory
-2. Edit `docker-compose.yml` — change `LLM_MODEL` environment variable
-3. Restart: `docker compose up -d vllm`
+1. Download model to `data/models/` directory
+2. Edit `.env` — change `LLM_MODEL` and `GGUF_FILE` variables
+3. Restart: `docker compose up -d llama-server`
 
 Supported formats: AWQ, GPTQ, EXL2, GGUF (via llama.cpp adapter)
 
@@ -373,11 +373,8 @@ caddy reverse-proxy --from your-domain.com --to localhost:3000
 For local development, browsers accept self-signed certs at `https://localhost`.
 
 ### Can I run on multiple GPUs?
-Yes! Edit `docker-compose.yml`:
+Yes! Edit `docker-compose.nvidia.yml` to expose multiple GPUs:
 ```yaml
-environment:
-  - TENSOR_PARALLEL_SIZE=2  # Use 2 GPUs
-  - GPU_MEMORY_UTILIZATION=0.95
 deploy:
   resources:
     reservations:
@@ -388,9 +385,9 @@ deploy:
 ```
 
 ### How do I backup my data?
-**Configs and workflows:**
+**Configs and data:**
 ```bash
-tar -czf dream-server-backup.tar.gz .env workflows/ n8n-data/
+tar -czf dream-server-backup.tar.gz .env data/
 ```
 
 **Models (large):**
@@ -445,7 +442,7 @@ curl http://localhost:3001/api/metrics
 | 3000 | Open WebUI (chat interface) |
 | 3001 | Dashboard |
 | 3002 | Dashboard API |
-| 8000 | vLLM API |
+| 8080 | llama-server API |
 | 8085 | Privacy Shield |
 | 5678 | n8n workflow editor |
 | 7880 | LiveKit voice server |
@@ -468,11 +465,11 @@ Then restart: `docker compose up -d`
 
 ### Documentation
 - Main README: `dream-server/README.md`
-- Architecture: `docs/ARCHITECTURE.md`
+- Installer Architecture: `docs/INSTALLER-ARCHITECTURE.md`
 - Security: `SECURITY.md`
 
 ### Community
-- GitHub Issues: https://github.com/Light-Heart-Labs/Lighthouse-AI/issues
+- GitHub Issues: https://github.com/Light-Heart-Labs/DreamServer/issues
 - Discord: #general channel
 
 ### Debug info for bug reports

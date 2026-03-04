@@ -23,7 +23,7 @@ BACKUP_DIR="${HOME}/.dream-server/backups"
 MAX_BACKUPS="${MAX_BACKUPS:-10}"
 UPDATE_CHANNEL="${UPDATE_CHANNEL:-stable}"
 HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-120}"
-GITHUB_REPO="${GITHUB_REPO:-Light-Heart-Labs/Dream-Server}"
+GITHUB_REPO="${GITHUB_REPO:-Light-Heart-Labs/DreamServer}"
 
 # Colors
 RED='\033[0;31m'
@@ -479,12 +479,12 @@ cmd_health() {
         log_warn "Dashboard API: not responding on port ${dashboard_port}"
     fi
     
-    # Check vLLM health
-    local vllm_port="${VLLM_PORT:-8000}"
-    if curl -sf "http://localhost:${vllm_port}/v1/models" &>/dev/null; then
-        log_ok "vLLM: healthy"
+    # Check llama-server health
+    local llama_server_port="${LLAMA_SERVER_PORT:-8080}"
+    if curl -sf "http://localhost:${llama_server_port}/v1/models" &>/dev/null; then
+        log_ok "llama-server: healthy"
     else
-        log_warn "vLLM: not responding on port ${vllm_port}"
+        log_warn "llama-server: not responding on port ${llama_server_port}"
     fi
     
     if $all_healthy; then
@@ -521,7 +521,7 @@ Environment Variables:
   MAX_BACKUPS         Number of backups to retain (default: 10)
   HEALTH_TIMEOUT      Seconds to wait for health checks (default: 120)
   DASHBOARD_PORT      Dashboard API port (default: 3002)
-  VLLM_PORT           vLLM port (default: 8000)
+  LLAMA_SERVER_PORT   llama-server port (default: 8080)
 
 Examples:
   dream-update.sh check

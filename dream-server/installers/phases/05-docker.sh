@@ -1,0 +1,109 @@
+#!/bin/bash
+# ============================================================================
+# Dream Server Installer — Phase 05: Docker Setup
+# ============================================================================
+# Part of: installers/phases/
+# Purpose: Install Docker, Docker Compose, and NVIDIA Container Toolkit
+#
+# Expects: SKIP_DOCKER, DRY_RUN, INTERACTIVE, GPU_COUNT, GPU_BACKEND,
+#           LOG_FILE, MIN_DRIVER_VERSION,
+#           show_phase(), ai(), ai_ok(), ai_warn(), log(), warn(), error()
+# Provides: DOCKER_CMD, DOCKER_COMPOSE_CMD
+#
+# Modder notes:
+#   Change Docker installation method or add Podman support here.
+# ============================================================================
+
+show_phase 3 6 "Docker Setup" "~2 minutes"
+ai "Preparing container runtime..."
+
+if [[ "$SKIP_DOCKER" == "true" ]]; then
+    log "Skipping Docker installation (--skip-docker)"
+elif command -v docker &> /dev/null; then
+    ai_ok "Docker already installed: $(docker --version)"
+else
+    ai "Installing Docker..."
+
+    if $DRY_RUN; then
+        log "[DRY RUN] Would install Docker via official script"
+    else
+        if ! curl -fsSL https://get.docker.com | sh; then
+            error "Docker installation failed. Check network connectivity and try again."
+        fi
+        sudo usermod -aG docker $USER
+
+        # Check if we need to use newgrp or restart
+        if ! groups | grep -q docker; then
+            warn "Docker installed! Group membership requires re-login."
+            warn "Option 1: Log out and back in, then re-run this script with --skip-docker"
+            warn "Option 2: Run 'newgrp docker' in a new terminal, then re-run"
+            echo ""
+            read -p "  Try to continue with 'sudo docker' for now? [Y/n] " -r
+            if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+                # Use sudo for remaining docker commands in this session
+                DOCKER_CMD="sudo docker"
+                DOCKER_COMPOSE_CMD="sudo docker compose"
+            else
+                log "Please re-run after logging out and back in."
+                exit 0
+            fi
+        fi
+    fi
+fi
+
+# Set docker command (use sudo if needed)
+DOCKER_CMD="${DOCKER_CMD:-docker}"
+DOCKER_COMPOSE_CMD="${DOCKER_COMPOSE_CMD:-docker compose}"
+
+# Docker Compose check (v2 preferred, v1 fallback)
+if $DOCKER_COMPOSE_CMD version &> /dev/null 2>&1; then
+    ai_ok "Docker Compose v2 available"
+elif command -v docker-compose &> /dev/null; then
+    DOCKER_COMPOSE_CMD="${DOCKER_CMD%-*}-compose"
+    [[ "$DOCKER_CMD" == "sudo docker" ]] && DOCKER_COMPOSE_CMD="sudo docker-compose"
+    ai_ok "Docker Compose v1 available (using docker-compose)"
+else
+    if ! $DRY_RUN; then
+        ai "Installing Docker Compose plugin..."
+        sudo apt-get update && sudo apt-get install -y docker-compose-plugin
+    fi
+fi
+
+# NVIDIA Container Toolkit (skip for AMD — uses /dev/dri + /dev/kfd passthrough)
+if [[ $GPU_COUNT -gt 0 && "$GPU_BACKEND" == "nvidia" ]]; then
+    if command -v nvidia-container-cli &> /dev/null 2>&1; then
+        ai_ok "NVIDIA Container Toolkit installed"
+        # Always regenerate CDI spec — driver version may have changed since last run
+        if command -v nvidia-ctk &>/dev/null && ! $DRY_RUN; then
+            sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml 2>>"$LOG_FILE" || true
+        fi
+    else
+        ai "Installing NVIDIA Container Toolkit..."
+        if ! $DRY_RUN; then
+            # Add NVIDIA GPG key
+            curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg 2>/dev/null || true
+            # Use NVIDIA's current generic deb repo (per-distro URLs were deprecated)
+            curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
+                sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+                sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list > /dev/null
+            # Verify we got a valid repo file, not an HTML 404
+            if grep -q '<html' /etc/apt/sources.list.d/nvidia-container-toolkit.list 2>/dev/null; then
+                warn "Failed to download NVIDIA Container Toolkit repo list. Trying fallback..."
+                echo "deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://nvidia.github.io/libnvidia-container/stable/deb/\$(ARCH) /" | \
+                    sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list > /dev/null
+            fi
+            sudo apt-get update
+            if ! sudo apt-get install -y nvidia-container-toolkit; then
+                error "Failed to install NVIDIA Container Toolkit. Check network connectivity and GPU drivers."
+            fi
+            sudo nvidia-ctk runtime configure --runtime=docker
+            sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml 2>>"$LOG_FILE" || true
+            sudo systemctl restart docker
+        fi
+        if command -v nvidia-container-cli &> /dev/null 2>&1; then
+            ai_ok "NVIDIA Container Toolkit installed"
+        else
+            $DRY_RUN && ai_ok "[DRY RUN] Would install NVIDIA Container Toolkit" || error "NVIDIA Container Toolkit installation failed — nvidia-container-cli not found after install."
+        fi
+    fi
+fi

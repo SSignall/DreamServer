@@ -1,0 +1,44 @@
+#!/bin/bash
+# ============================================================================
+# Dream Server Installer — Constants
+# ============================================================================
+# Part of: installers/lib/
+# Purpose: Colors, paths, version string, timezone detection
+#
+# Expects: (nothing — first file sourced)
+# Provides: VERSION, SCRIPT_DIR, INSTALL_DIR, LOG_FILE, color codes,
+#           SYSTEM_TZ, CAPABILITY_PROFILE_FILE, PREFLIGHT_REPORT_FILE,
+#           INSTALL_START_EPOCH
+#
+# Modder notes:
+#   Change VERSION for custom builds. Add new color codes here.
+# ============================================================================
+
+VERSION="2.1.0-strix-halo"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+INSTALL_DIR="${INSTALL_DIR:-$HOME/dream-server}"
+LOG_FILE="${LOG_FILE:-/tmp/dream-server-install.log}"
+CAPABILITY_PROFILE_FILE="${CAPABILITY_PROFILE_FILE:-/tmp/dream-server-capabilities.json}"
+PREFLIGHT_REPORT_FILE="${PREFLIGHT_REPORT_FILE:-/tmp/dream-server-preflight-report.json}"
+INSTALL_START_EPOCH=$(date +%s)
+
+# Auto-detect system timezone (fallback to UTC)
+if [[ -f /etc/timezone ]]; then
+    SYSTEM_TZ="$(cat /etc/timezone)"
+elif [[ -L /etc/localtime ]]; then
+    SYSTEM_TZ="$(readlink /etc/localtime | sed 's|.*/zoneinfo/||')"
+else
+    SYSTEM_TZ="UTC"
+fi
+
+#=============================================================================
+# Colors — green phosphor CRT theme
+#=============================================================================
+RED='\033[0;31m'
+GRN='\033[0;32m'         # Standard green — body text
+BGRN='\033[1;32m'        # Bright green — emphasis, success, headings
+DGRN='\033[2;32m'        # Dim green — secondary text, lore
+AMB='\033[0;33m'         # Amber — warnings, ETA labels
+WHT='\033[1;37m'         # White — key URLs
+NC='\033[0m'             # Reset
+CURSOR='█'               # Block cursor for typing

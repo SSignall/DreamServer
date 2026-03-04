@@ -243,6 +243,23 @@ cmd_migrate() {
     fi
 }
 
+# Validate .env against schema
+cmd_validate() {
+    local validator="${SCRIPT_DIR}/validate-env.sh"
+    local env_file="${INSTALL_DIR}/.env"
+    local schema_file="${INSTALL_DIR}/.env.schema.json"
+
+    if [[ ! -f "$validator" ]]; then
+        log_error "Validator script missing: $validator"
+        return 1
+    fi
+    if [[ ! -f "$schema_file" ]]; then
+        log_error "Schema missing: $schema_file"
+        return 1
+    fi
+    bash "$validator" "$env_file" "$schema_file"
+}
+
 # Show help
 cmd_help() {
     cat << 'EOF'
@@ -255,12 +272,14 @@ Commands:
   migrate     Run pending migrations (with backup)
   diff        Show configuration differences
   backup      Backup current configuration
+  validate    Validate .env against .env.schema.json
   help        Show this help message
 
 Examples:
   ./migrate-config.sh check
   ./migrate-config.sh migrate
   ./migrate-config.sh diff
+  ./migrate-config.sh validate
 
 Migration scripts should be placed in the migrations/ directory
 and named: migrate-vX.Y.Z.sh
@@ -281,6 +300,9 @@ case "${1:-help}" in
         ;;
     backup)
         cmd_backup
+        ;;
+    validate)
+        cmd_validate
         ;;
     help|--help|-h)
         cmd_help

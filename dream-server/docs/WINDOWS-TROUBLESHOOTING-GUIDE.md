@@ -109,7 +109,7 @@
    - Hold Shift + Right-click in the folder → "Open PowerShell window here"
 3. Run these commands:
    ```powershell
-   Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Light-Heart-Labs/Lighthouse-AI/main/dream-server/install.ps1" -OutFile install.ps1
+   Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Light-Heart-Labs/DreamServer/main/install.ps1" -OutFile install.ps1
    ```
 4. Then run:
    ```powershell
@@ -119,7 +119,7 @@
 **If PowerShell gives an error about execution policy:**
 - Use the batch file method instead:
   ```powershell
-  Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Light-Heart-Labs/Lighthouse-AI/main/dream-server/install-windows.bat" -OutFile install-windows.bat
+  Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Light-Heart-Labs/DreamServer/main/install-windows.bat" -OutFile install-windows.bat
   ```
 - Then double-click `install-windows.bat` (or right-click → Run as administrator)
 
@@ -134,7 +134,7 @@ The installer will:
 
 To watch progress:
 ```powershell
-docker compose logs -f vllm
+docker compose logs -f llama-server
 ```
 
 When you see "Application startup complete" — it's ready!
@@ -257,14 +257,14 @@ nvidia-container-cli: initialization error: driver rpc error
 ### Problem: "Installation seems to hang"
 
 **Symptoms:**
-- Installer stops at "Pulling vllm..." or similar
+- Installer stops at "Pulling llama-server..." or similar
 - No progress for a long time
 
 **Solutions:**
 
 **1. Check if it's actually downloading:**
 ```powershell
-docker compose logs -f vllm
+docker compose logs -f llama-server
 ```
 - If you see download progress, just wait (can take 20-40 min)
 - Press Ctrl+C to exit log view when done
@@ -373,15 +373,15 @@ If automatic download keeps failing, you can download the model manually using h
 
 **Solutions:**
 
-**1. Check if vLLM is running:**
+**1. Check if llama-server is running:**
 ```powershell
 docker compose ps
 ```
-- You should see vllm, webui, and other services "Up"
+- You should see llama-server, webui, and other services "Up"
 
-**2. Check vLLM logs:**
+**2. Check llama-server logs:**
 ```powershell
-docker compose logs vllm
+docker compose logs llama-server
 ```
 - Look for error messages
 - If you see "CUDA out of memory", your GPU doesn't have enough VRAM
@@ -458,11 +458,11 @@ docker run --rm --gpus all nvidia/cuda:12.0-base nvidia-smi
 cd C:\DreamServer  # or wherever you installed
 docker compose ps
 ```
-✅ Should show vllm, webui, and other services as "Up"
+✅ Should show llama-server, webui, and other services as "Up"
 
 ### 7. Test the AI
 ```powershell
-curl http://localhost:8000/v1/models
+curl http://localhost:8080/v1/models
 ```
 ✅ Should return a JSON response with model information
 
@@ -487,7 +487,7 @@ docker info
 ### Where to Get Help
 
 1. **Dream Server Discord:** https://discord.gg/clawd
-2. **GitHub Issues:** https://github.com/Light-Heart-Labs/Lighthouse-AI/issues
+2. **GitHub Issues:** https://github.com/Light-Heart-Labs/DreamServer/issues
 
 ### What to Include When Asking for Help
 
@@ -511,7 +511,7 @@ docker info
 
 **Container** — A packaged application that includes everything it needs to run.
 
-**vLLM** — The AI inference engine that runs the language model.
+**llama-server** — The AI inference engine that runs the language model.
 
 **Open WebUI** — The chat interface you see in your browser.
 
@@ -530,7 +530,7 @@ docker compose down
 docker compose up -d
 
 # View AI model logs (see what's happening)
-docker compose logs -f vllm
+docker compose logs -f llama-server
 
 # View all service logs
 docker compose logs -f

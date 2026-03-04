@@ -1,8 +1,6 @@
 # Dream Server Mode Switch
 
-*Part of M1 Zero-Cloud Initiative — Phase 3*
-
-One-command switching between cloud, local, and hybrid modes.
+One-command switching between local, cloud, and hybrid LLM modes.
 
 ---
 
@@ -10,34 +8,62 @@ One-command switching between cloud, local, and hybrid modes.
 
 ```bash
 # Check current mode
-dream mode status
+dream mode
 
-# Switch to local mode (100% offline)
+# Switch to local mode (llama-server, requires GPU)
 dream mode local
 
-# Switch to cloud mode (full API access)
+# Switch to cloud mode (LiteLLM + API keys, no GPU needed)
 dream mode cloud
 
-# Switch to hybrid mode (local-first + cloud fallback)
+# Switch to hybrid mode (local primary, cloud fallback)
 dream mode hybrid
+
+# Restart to apply
+dream restart
 ```
+
+---
+
+## How It Works
+
+One env var (`LLM_API_URL`) controls where all services send LLM requests. Three modes set this automatically:
+
+| Mode | `LLM_API_URL` | `DREAM_MODE` | LiteLLM config |
+|------|---------------|--------------|-----------------|
+| **local** | `http://llama-server:8080` | `local` | `config/litellm/local.yaml` |
+| **cloud** | `http://litellm:4000` | `cloud` | `config/litellm/cloud.yaml` |
+| **hybrid** | `http://litellm:4000` | `hybrid` | `config/litellm/hybrid.yaml` |
+
+All compose files reference `${LLM_API_URL:-http://llama-server:8080}`, so existing installs work without changes.
 
 ---
 
 ## Modes
 
-### Cloud Mode
-Full access to cloud AI providers through LiteLLM gateway.
+### Local Mode (default)
+All inference runs on your hardware via llama-server.
 
 | Aspect | Details |
 |--------|---------|
-| **LLM** | Claude, GPT-4, Llama via Together AI |
-| **Quality** | Best-in-class |
+| **LLM** | llama-server (GGUF models) |
+| **Cost** | $0 (electricity only) |
+| **Requires** | GPU or CPU with sufficient RAM |
+| **Web Search** | via SearXNG |
+
+```bash
+dream mode local
+```
+
+### Cloud Mode
+LLM requests routed through LiteLLM to cloud APIs.
+
+| Aspect | Details |
+|--------|---------|
+| **LLM** | Claude, GPT-4o via LiteLLM |
 | **Cost** | ~$0.003-0.06/1K tokens |
 | **Requires** | Internet, API keys |
-| **Web Search** | ✅ Enabled |
-
-**Best for:** Maximum quality, complex tasks, when cost isn't a concern.
+| **GPU** | Not needed |
 
 ```bash
 dream mode cloud
@@ -47,92 +73,81 @@ dream mode cloud
 ```bash
 ANTHROPIC_API_KEY=sk-ant-...
 OPENAI_API_KEY=sk-...
-# Or Together AI for open source models:
-TOGETHER_API_KEY=...
 ```
-
----
-
-### Local Mode
-100% offline operation. All inference runs on your hardware.
-
-| Aspect | Details |
-|--------|---------|
-| **LLM** | Qwen 32B via vLLM |
-| **Quality** | Very good |
-| **Speed** | 10-15 tok/s (GPU) |
-| **Cost** | $0 (electricity only) |
-| **Requires** | GPU (24GB+ VRAM), pre-downloaded models |
-| **Web Search** | ❌ Disabled |
-
-**Best for:** Privacy-critical workloads, offline environments, cost savings.
-
-```bash
-dream mode local
-```
-
-**Pre-requisites:**
-```bash
-# Download models before switching
-huggingface-cli download Qwen/Qwen2.5-32B-Instruct-AWQ --local-dir ./models/
-
-# Download Whisper model
-# (happens automatically on first use, but better to do while online)
-```
-
----
 
 ### Hybrid Mode
-Local-first with automatic cloud fallback. Best of both worlds.
+Local llama-server as primary, cloud APIs as fallback via LiteLLM.
 
 | Aspect | Details |
 |--------|---------|
-| **LLM** | Local Qwen → Cloud fallback |
-| **Quality** | Local quality + cloud reliability |
+| **LLM** | Local first, cloud on failure |
 | **Cost** | $0 normally, cloud rates on fallback |
-| **Requires** | GPU + API keys (optional) |
-| **Web Search** | ✅ Enabled |
-
-**Best for:** Daily use — get privacy/speed benefits of local with cloud as safety net.
+| **Requires** | GPU + API keys (recommended) |
 
 ```bash
 dream mode hybrid
 ```
 
-**Fallback triggers:**
-- Local model timeout (default: 30s)
-- Local model error (5xx, connection refused)
-- Empty/invalid response from local
+---
 
-**Configure fallback in .env:**
+## .env Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DREAM_MODE` | `local` | Active mode: `local`, `cloud`, or `hybrid` |
+| `LLM_API_URL` | `http://llama-server:8080` | Where services send LLM requests |
+| `ANTHROPIC_API_KEY` | *(empty)* | Anthropic API key (cloud/hybrid) |
+| `OPENAI_API_KEY` | *(empty)* | OpenAI API key (cloud/hybrid) |
+| `TOGETHER_API_KEY` | *(empty)* | Together AI API key (optional) |
+
+---
+
+## Installer: `--cloud` Flag
+
+Install in cloud mode (skips GPU detection and model download):
+
 ```bash
-HYBRID_FALLBACK_TIMEOUT=30      # Seconds before fallback
-HYBRID_FALLBACK_ENABLED=true    # Enable/disable fallback
+./install-core.sh --cloud
+```
+
+This sets `DREAM_MODE=cloud`, `LLM_API_URL=http://litellm:4000`, and auto-enables the LiteLLM extension.
+
+---
+
+## Model Management
+
+```bash
+# Show current model
+dream model current
+
+# List available tiers
+dream model list
+
+# Swap to a different tier
+dream model swap T3
 ```
 
 ---
 
 ## Architecture
 
-### Cloud Mode
-```
-User → Open WebUI → LiteLLM → Cloud APIs (Claude/GPT-4/etc.)
-```
-
 ### Local Mode
 ```
-User → Open WebUI → vLLM (local) → Response
-                    ↑
-                    No network required
+User -> Open WebUI -> llama-server (local) -> Response
+```
+
+### Cloud Mode
+```
+User -> Open WebUI -> LiteLLM -> Cloud APIs (Claude/GPT-4o)
 ```
 
 ### Hybrid Mode
 ```
-User → Open WebUI → LiteLLM → vLLM (local) → Response
-                         ↓
-                    [On timeout/error]
-                         ↓
-                    Cloud APIs (fallback)
+User -> Open WebUI -> LiteLLM -> llama-server (local) -> Response
+                                      |
+                                 [On timeout/error]
+                                      |
+                                 Cloud APIs (fallback)
 ```
 
 ---
@@ -141,78 +156,35 @@ User → Open WebUI → LiteLLM → vLLM (local) → Response
 
 | File | Purpose |
 |------|---------|
-| `docker-compose.cloud.yml` | Cloud mode configuration |
-| `docker-compose.local.yml` | Local mode configuration |
-| `docker-compose.hybrid.yml` | Hybrid mode configuration |
-| `config/litellm/cloud-config.yaml` | LiteLLM cloud routing |
-| `config/litellm/hybrid-config.yaml` | LiteLLM hybrid routing |
-| `config/litellm/offline-config.yaml` | LiteLLM local-only routing |
-| `.current-mode` | Stores current mode |
+| `config/litellm/local.yaml` | LiteLLM config for local mode |
+| `config/litellm/cloud.yaml` | LiteLLM config for cloud mode |
+| `config/litellm/hybrid.yaml` | LiteLLM config for hybrid mode |
+| `scripts/mode-switch.sh` | Backend script for mode switching |
+| `.env` | Stores `DREAM_MODE`, `LLM_API_URL`, API keys |
 
 ---
 
 ## Data Safety
 
 **All modes share the same data volumes:**
-- `./data/open-webui/` — Conversations, users
-- `./data/qdrant/` — Vector database
-- `./data/whisper/` — STT cache
-- `./models/` — Downloaded models
+- `./data/open-webui/` -- Conversations, users
+- `./data/qdrant/` -- Vector database
+- `./data/models/` -- Downloaded GGUF models
 
-**Switching modes preserves all data.** Only the services and routing change.
+**Switching modes preserves all data.** Only the LLM routing changes.
 
 ---
 
 ## Mode Comparison
 
-| Feature | Cloud | Local | Hybrid |
+| Feature | Local | Cloud | Hybrid |
 |---------|-------|-------|--------|
-| Internet required | ✅ | ❌ | ✅ (for fallback) |
-| API keys required | ✅ | ❌ | Optional |
-| GPU required | ❌ | ✅ | ✅ |
-| Response quality | Best | Very good | Best of both |
-| Response speed | 50-100 tok/s | 10-15 tok/s | Local speed or cloud |
-| Cost | $$$  | $0 | $0 or $$$ |
-| Privacy | Data to cloud | 100% local | Local unless fallback |
-| Web search | ✅ | ❌ | ✅ |
-| Reliability | High | GPU-dependent | Highest |
-
----
-
-## Troubleshooting
-
-### Local mode won't start
-```bash
-# Check GPU status
-nvidia-smi
-
-# Check models are downloaded
-ls -la ./models/
-
-# Check vLLM logs
-dream logs vllm
-```
-
-### Hybrid fallback not working
-```bash
-# Check API keys are set
-grep -E "ANTHROPIC|OPENAI|TOGETHER" .env
-
-# Check LiteLLM logs
-dream logs litellm
-```
-
-### Mode switch fails
-```bash
-# Manual stop all containers
-docker compose down
-
-# Check mode file
-cat .current-mode
-
-# Manual start with specific compose file
-docker compose -f docker-compose.local.yml up -d
-```
+| Internet required | No | Yes | Yes (for fallback) |
+| API keys required | No | Yes | Recommended |
+| GPU required | Yes | No | Yes |
+| Response quality | Good | Best | Best of both |
+| Cost | $0 | $$$ | $0 or $$$ |
+| Privacy | 100% local | Data to cloud | Local unless fallback |
 
 ---
 
@@ -220,24 +192,63 @@ docker compose -f docker-compose.local.yml up -d
 
 ```bash
 # Mode commands
-dream mode              # Show current mode (same as status)
-dream mode status       # Show current mode
-dream mode cloud        # Switch to cloud mode
+dream mode              # Show current mode
 dream mode local        # Switch to local mode
+dream mode cloud        # Switch to cloud mode
 dream mode hybrid       # Switch to hybrid mode
 
+# Model commands
+dream model current     # Show current model
+dream model list        # List available tiers
+dream model swap T2     # Switch model tier
+
 # Shorthand
-dream m cloud           # Shorthand for mode cloud
+dream m local           # Shorthand for mode local
 ```
 
 ---
 
-## Related Documentation
+## Troubleshooting
 
-- `docs/M1-ZERO-CLOUD-CONFIG-GUIDE.md` — Detailed zero-cloud configuration
-- `QUICKSTART.md` — Getting started with Dream Server
-- `FAQ.md` — Frequently asked questions
+### Cloud mode: "No API keys found"
+```bash
+# Add your API keys to .env
+dream config edit
+# Add: ANTHROPIC_API_KEY=sk-ant-...
+dream restart
+```
+
+### Local mode: llama-server won't start
+```bash
+# Check GPU status
+nvidia-smi
+# Check model is downloaded
+ls -la data/models/*.gguf
+# Check logs
+dream logs llama-server
+```
+
+### Mode switch not taking effect
+```bash
+# Verify .env
+grep DREAM_MODE .env
+grep LLM_API_URL .env
+# Restart all services
+dream restart
+```
 
 ---
 
-*M1 Zero-Cloud Initiative — Democratizing AI access*
+## Rollback
+
+If anything breaks, restore default behavior:
+```bash
+dream mode local
+dream restart
+```
+
+Or manually edit `.env`:
+```bash
+DREAM_MODE=local
+LLM_API_URL=http://llama-server:8080
+```
