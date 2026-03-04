@@ -33,6 +33,9 @@ jobs:
 
   api:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: extensions/services/dashboard-api
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -43,5 +46,12 @@ jobs:
           python-version: "3.11"
 
       - name: API Syntax Check
-        run: python -m py_compile dashboard-api/main.py dashboard-api/agent_monitor.py
+        run: python -m py_compile main.py agent_monitor.py
 
+      - name: Install Dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -r tests/requirements-test.txt
+
+      - name: Run Unit Tests
+        run: pytest tests/ -v
