@@ -299,7 +299,7 @@ async def api_status(api_key: str = Depends(verify_api_key)):
 
 # --- Settings ---
 
-@app.get("/api/service-tokens")
+@app.get("/api/service-tokens", dependencies=[Depends(verify_api_key)])
 async def service_tokens():
     """Return connection tokens for services that need browser-side auth."""
     tokens = {}

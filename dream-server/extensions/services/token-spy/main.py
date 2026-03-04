@@ -1132,7 +1132,7 @@ def _get_remote_session_status(agent: str) -> dict:
     )
     try:
         result = subprocess.run(
-            ["ssh", "-o", "ConnectTimeout=3", "-o", "StrictHostKeyChecking=no",
+            ["ssh", "-o", "ConnectTimeout=3", "-o", "StrictHostKeyChecking=accept-new",
              ssh_target, "python3", "-"],
             input=script, capture_output=True, text=True, timeout=10,
         )
@@ -1212,7 +1212,7 @@ def _kill_remote_session(agent: str, reason: str = "dashboard") -> dict:
     )
     try:
         result = subprocess.run(
-            ["ssh", "-o", "ConnectTimeout=3", "-o", "StrictHostKeyChecking=no",
+            ["ssh", "-o", "ConnectTimeout=3", "-o", "StrictHostKeyChecking=accept-new",
              ssh_target, "python3", "-"],
             input=script, capture_output=True, text=True, timeout=10,
         )
