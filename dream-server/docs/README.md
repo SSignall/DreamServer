@@ -4,6 +4,7 @@
 
 | Doc | Audience | Description |
 |-----|----------|-------------|
+| [HOW-DREAM-SERVER-WORKS.md](HOW-DREAM-SERVER-WORKS.md) | **Everyone** | **Complete system guide — what every piece does, how they connect, and where to find things** |
 | [../README.md](../README.md) | Everyone | Project overview, quickstart, architecture |
 | [../QUICKSTART.md](../QUICKSTART.md) | Operators | Step-by-step first install |
 | [../EDGE-QUICKSTART.md](../EDGE-QUICKSTART.md) | Operators | Pi 5 / Mac Mini / edge devices (planned) |
