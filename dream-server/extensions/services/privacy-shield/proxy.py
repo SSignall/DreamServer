@@ -27,17 +27,11 @@ if not SHIELD_API_KEY:
     logging.warning("SHIELD_API_KEY not set. Generated temporary key (not logging for security). "
                    "Set SHIELD_API_KEY in .env for production.")
 
-security_scheme = HTTPBearer(auto_error=False)
+security_scheme = HTTPBearer()
 
 async def verify_api_key(credentials: HTTPAuthorizationCredentials = Security(security_scheme)):
     """Verify API key for protected endpoints."""
-    if not credentials:
-        raise HTTPException(
-            status_code=401,
-            detail="Authentication required. Provide Bearer token in Authorization header.",
-            headers={"WWW-Authenticate": "Bearer"}
-        )
-    if credentials.credentials != SHIELD_API_KEY:
+    if not secrets.compare_digest(credentials.credentials, SHIELD_API_KEY):
         raise HTTPException(status_code=403, detail="Invalid API key.")
     return credentials.credentials
 
