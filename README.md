@@ -18,6 +18,20 @@
 
 ---
 
+> **Platform Support — March 2026**
+>
+> | Platform | Status |
+> |----------|--------|
+> | **Linux** (NVIDIA + AMD) | **Supported** — install and run today |
+> | **macOS** (Apple Silicon) | **Coming soon** — target mid-March 2026 |
+> | **Windows** | **Coming soon** — target end of March 2026 |
+>
+> macOS and Windows installers currently provide system diagnostics and preflight checks only.
+> Full runtime support for both platforms is in active development.
+> For a working setup today, use Linux. See the [Support Matrix](dream-server/docs/SUPPORT-MATRIX.md) for details.
+
+---
+
 ## Why Dream Server?
 
 Setting up local AI usually means stitching together a dozen projects, debugging CUDA drivers, writing Docker configs, and hoping everything talks to each other. Dream Server replaces all of that with a single installer.
@@ -42,22 +56,35 @@ Open **http://localhost:3000** and start chatting.
 </div>
 
 <details>
-<summary><b>Manual install / Windows</b></summary>
+<summary><b>Manual install (Linux)</b></summary>
 
-**Linux / WSL:**
 ```bash
 git clone https://github.com/Light-Heart-Labs/DreamServer.git
 cd DreamServer/dream-server
 ./install.sh
 ```
 
-**Windows (PowerShell):**
-```powershell
-Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Light-Heart-Labs/DreamServer/main/install.ps1" -OutFile install.ps1
-.\install.ps1
+</details>
+
+<details>
+<summary><b>macOS / Windows (coming soon — not yet functional)</b></summary>
+
+Full runtime support for macOS and Windows is on the roadmap (see platform table above). The installers below currently run **preflight diagnostics only** — they will check your system but will not produce a working AI stack yet.
+
+**macOS (Apple Silicon) — target mid-March 2026:**
+```bash
+git clone https://github.com/Light-Heart-Labs/DreamServer.git
+cd DreamServer/dream-server
+./install.sh    # Runs preflight checks; full runtime coming soon
 ```
 
-Windows installer checks prerequisites (WSL2, Docker, NVIDIA drivers), then delegates to the Linux install path.
+**Windows (PowerShell) — target end of March 2026:**
+```powershell
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Light-Heart-Labs/DreamServer/main/install.ps1" -OutFile install.ps1
+.\install.ps1    # Runs WSL2/Docker/GPU preflight checks; full runtime coming soon
+```
+
+For a working setup today, use Linux.
 
 </details>
 

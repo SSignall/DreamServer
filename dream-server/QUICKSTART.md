@@ -2,7 +2,7 @@
 
 One command to a fully running local AI stack. No manual config, no dependency hell.
 
-See [`docs/SUPPORT-MATRIX.md`](docs/SUPPORT-MATRIX.md) before installing to confirm current platform support.
+> **This quickstart is for Linux (NVIDIA + AMD).** macOS and Windows support is coming soon — see [Platform Support](README.md#platform-support) for the roadmap and current status.
 
 ## Prerequisites
 
@@ -18,14 +18,6 @@ See [`docs/SUPPORT-MATRIX.md`](docs/SUPPORT-MATRIX.md) before installing to conf
 - ROCm-compatible kernel (6.17+ recommended, 6.18.4+ ideal)
 - `/dev/kfd` and `/dev/dri` accessible (user in `video` + `render` groups)
 - 60GB+ disk space (for GGUF model files)
-
-**Windows:**
-- Windows 10 21H2+ or Windows 11
-- NVIDIA GPU with drivers
-- Docker Desktop (installer will prompt if missing)
-- WSL2 (installer will enable if needed)
-
-For Windows and macOS status, see [README.md](README.md#platform-support) and [`docs/SUPPORT-MATRIX.md`](docs/SUPPORT-MATRIX.md).
 
 ## Step 1: Run the Installer
 

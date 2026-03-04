@@ -12,8 +12,16 @@
 
 ## Platform Support
 
+> | Platform | Status |
+> |----------|--------|
+> | **Linux** (NVIDIA + AMD) | **Supported** — install and run today |
+> | **macOS** (Apple Silicon) | **Coming soon** — target mid-March 2026 |
+> | **Windows** | **Coming soon** — target end of March 2026 |
+>
+> macOS and Windows installers currently provide system diagnostics and preflight checks only — they will not produce a running AI stack yet. Full runtime support for both platforms is in active development. **For a working setup today, use Linux.**
+
 See [`docs/SUPPORT-MATRIX.md`](docs/SUPPORT-MATRIX.md) for current support tiers and platform status.
-Launch-claim guardrails: [`docs/PLATFORM-TRUTH-TABLE.md`](docs/PLATFORM-TRUTH-TABLE.md)  
+Launch-claim guardrails: [`docs/PLATFORM-TRUTH-TABLE.md`](docs/PLATFORM-TRUTH-TABLE.md)
 Known-good version baselines: [`docs/KNOWN-GOOD-VERSIONS.md`](docs/KNOWN-GOOD-VERSIONS.md)
 
 ## Installer Evidence
@@ -27,10 +35,10 @@ Known-good version baselines: [`docs/KNOWN-GOOD-VERSIONS.md`](docs/KNOWN-GOOD-VE
 
 ---
 
-## 5-Minute Quickstart
+## 5-Minute Quickstart (Linux)
 
 ```bash
-# One-line install (Linux/WSL)
+# One-line install (Linux — NVIDIA or AMD)
 curl -fsSL https://raw.githubusercontent.com/Light-Heart-Labs/DreamServer/main/get-dream-server.sh | bash
 ```
 
@@ -44,7 +52,7 @@ cd DreamServer
 
 The installer auto-detects your GPU, picks the right model, generates secure passwords, and starts everything. Open **http://localhost:3000** and start chatting.
 
-### 🚀 Instant Start (Bootstrap Mode)
+### Instant Start (Bootstrap Mode)
 
 By default, Dream Server uses **bootstrap mode** for instant gratification:
 
@@ -57,13 +65,21 @@ No more staring at download bars. Start playing immediately.
 
 To skip bootstrap and wait for the full model: `./install.sh --no-bootstrap`
 
-### Windows
+### macOS and Windows (coming soon)
 
-```powershell
-.\installers\windows.ps1
+> **These platforms are not yet functional.** The installers below run preflight diagnostics only — they will check your system readiness but will not produce a running AI stack. Full runtime support is in active development (macOS: target mid-March 2026, Windows: target end of March 2026).
+
+**macOS (Apple Silicon):**
+```bash
+./install.sh    # Runs preflight checks and diagnostics only
 ```
 
-Windows installer performs prerequisite checks, emits a preflight report, and delegates to WSL2 install path. See [`docs/SUPPORT-MATRIX.md`](docs/SUPPORT-MATRIX.md) for exact support level.
+**Windows (PowerShell):**
+```powershell
+.\installers\windows.ps1    # Runs WSL2/Docker/GPU preflight checks only
+```
+
+See [`docs/SUPPORT-MATRIX.md`](docs/SUPPORT-MATRIX.md) for current support levels.
 
 ---
 

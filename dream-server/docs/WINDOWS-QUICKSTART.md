@@ -1,10 +1,16 @@
 # Dream Server Windows Quickstart
 
-Get Dream Server running on Windows in 5 minutes (after downloads).
+> **Status: Coming Soon — Preflight Checks Only (target: end of March 2026)**
+>
+> The Windows installer currently runs **system diagnostics and preflight checks only** — it verifies WSL2, Docker Desktop, and GPU readiness but **does not yet produce a running AI stack.** Full Windows runtime support is in active development.
+>
+> **For a working setup today, use Linux.** See the [Support Matrix](SUPPORT-MATRIX.md) for current platform status.
 
 ---
 
-## One-Line Install (PowerShell)
+## What Works Today
+
+The Windows installer (`install.ps1`) checks your system readiness and generates a preflight report:
 
 ```powershell
 Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Light-Heart-Labs/DreamServer/main/install.ps1" -OutFile install.ps1; .\install.ps1
@@ -12,22 +18,33 @@ Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Light-Heart-Labs/Dream
 
 **Prerequisites:** Windows 10 2004+ or Windows 11, NVIDIA GPU, 16GB+ RAM.
 
----
+This will verify:
+- WSL2 is installed and set to version 2
+- Docker Desktop is running with WSL2 backend
+- Docker CLI is available inside your WSL distro
+- NVIDIA GPU is visible from both Windows and WSL
 
-## What's Happening
-
-1. **Downloads installer** (~50KB)
-2. **Checks your system** — WSL2, Docker Desktop, NVIDIA GPU
-3. **Auto-fixes issues** — enables WSL2, prompts for Docker install
-4. **Detects GPU** — picks right model tier automatically
-5. **Downloads model** — 7B to 72B based on your VRAM (~10-40GB)
-6. **Starts services** — llama-server, Open WebUI, search, database
-
-**Total time:** 10-30 minutes depending on download speed.
+The preflight report is saved to `%TEMP%\dream-server-windows-preflight.json`.
 
 ---
 
-## Quick Commands
+## What's Coming
+
+When full Windows support ships (target: end of March 2026), the installer will:
+
+1. **Check your system** — WSL2, Docker Desktop, NVIDIA GPU
+2. **Auto-fix issues** — enable WSL2, prompt for Docker install
+3. **Detect GPU** — pick right model tier automatically
+4. **Download model** — 7B to 72B based on your VRAM (~10-40GB)
+5. **Start services** — llama-server, Open WebUI, search, database
+
+**Estimated time (when available):** 10-30 minutes depending on download speed.
+
+---
+
+## Planned: Quick Commands (not yet functional)
+
+The following commands describe the intended Windows experience once full support ships:
 
 ```powershell
 # Start after install
@@ -49,15 +66,15 @@ docker compose pull && docker compose up -d
 
 ---
 
-## Open the UI
+## Planned: Open the UI
 
-Visit **http://localhost:3000**
+Visit **http://localhost:3000** (once full runtime support is available).
 
 First user becomes admin. Start chatting immediately.
 
 ---
 
-## Bootstrap Mode (Faster Start)
+## Planned: Bootstrap Mode (Faster Start)
 
 Start with a tiny 1.5B model, upgrade later:
 
@@ -69,7 +86,9 @@ Chat in 2 minutes while full model downloads in background.
 
 ---
 
-## Common Flags
+## Planned: Installer Flags
+
+These flags describe the intended installer interface once full support ships:
 
 | Flag | What It Does |
 |------|--------------|
@@ -159,4 +178,4 @@ docker compose up -d
 
 ---
 
-*Last updated: 2026-02-13*
+*Last updated: 2026-03-04*
