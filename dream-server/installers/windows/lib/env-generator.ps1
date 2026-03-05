@@ -402,3 +402,67 @@ function New-OpenClawConfig {
     $workspaceDir = Join-Path (Join-Path (Join-Path (Join-Path $InstallDir "config") "openclaw") "workspace") "memory"
     New-Item -ItemType Directory -Path $workspaceDir -Force | Out-Null
 }
+
+function Set-PerplexicaConfig {
+    <#
+    .SYNOPSIS
+        Auto-configure Perplexica to use the local llama-server on first boot.
+        Seeds the chat model and embedding model, then marks setup complete
+        so the wizard is bypassed. Mirrors installers/phases/12-health.sh logic.
+    .PARAMETER PerplexicaPort
+        Port where Perplexica is running (default 3004).
+    .PARAMETER LlmModel
+        Model name to configure as the default chat model.
+    #>
+    param(
+        [int]$PerplexicaPort = 3004,
+        [string]$LlmModel
+    )
+
+    $baseUrl = "http://localhost:$PerplexicaPort"
+
+    # Helper: POST a key/value pair to the config API
+    function Post-ConfigValue {
+        param([string]$Key, $Value)
+        $body = @{ key = $Key; value = $Value } | ConvertTo-Json -Depth 10 -Compress
+        $utf8Bytes = [System.Text.Encoding]::UTF8.GetBytes($body)
+        Invoke-WebRequest -Uri "$baseUrl/api/config" -Method POST `
+            -ContentType "application/json" -Body $utf8Bytes `
+            -UseBasicParsing -ErrorAction Stop | Out-Null
+    }
+
+    try {
+        $resp = Invoke-WebRequest -Uri "$baseUrl/api/config" `
+            -UseBasicParsing -TimeoutSec 5 -ErrorAction Stop
+        $config = ($resp.Content | ConvertFrom-Json).values
+
+        # Already configured -- skip
+        if ($config.setupComplete) { return $true }
+
+        $providers = @($config.modelProviders)
+        $openaiProv = $providers | Where-Object { $_.type -eq "openai" } | Select-Object -First 1
+        $transformersProv = $providers | Where-Object { $_.type -eq "transformers" } | Select-Object -First 1
+
+        if (-not $openaiProv) { return $false }
+
+        # Seed the chat model into the OpenAI provider
+        $openaiProv.chatModels = @(@{ key = $LlmModel; name = $LlmModel })
+        Post-ConfigValue -Key "modelProviders" -Value $providers
+
+        # Set default providers and models
+        $embeddingId = $(if ($transformersProv) { $transformersProv.id } else { $openaiProv.id })
+        Post-ConfigValue -Key "preferences" -Value @{
+            defaultChatProvider      = $openaiProv.id
+            defaultChatModel         = $LlmModel
+            defaultEmbeddingProvider = $embeddingId
+            defaultEmbeddingModel    = "Xenova/all-MiniLM-L6-v2"
+        }
+
+        # Mark setup complete to bypass wizard
+        Post-ConfigValue -Key "setupComplete" -Value $true
+
+        return $true
+    } catch {
+        return $false
+    }
+}
