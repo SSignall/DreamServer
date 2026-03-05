@@ -725,6 +725,7 @@ Write-Phase -Phase 6 -Total 6 -Name "VERIFICATION" -Estimate "30 seconds"
 
 if ($DryRun) {
     Write-AI "[DRY RUN] Would health-check all services"
+    Write-AI "[DRY RUN] Would auto-configure Perplexica for $($tierConfig.LlmModel)"
     Write-AI "[DRY RUN] Install validation complete"
     Write-AISuccess "Dry run finished -- no changes made"
     exit 0
@@ -774,6 +775,15 @@ foreach ($check in $healthChecks) {
         Write-AIWarn "$($check.Name): not responding after $maxAttempts attempts"
         $allHealthy = $false
     }
+}
+
+# ── Auto-configure Perplexica (seed chat model, bypass wizard) ──
+Write-AI "Configuring Perplexica..."
+$perplexicaOk = Set-PerplexicaConfig -PerplexicaPort 3004 -LlmModel $tierConfig.LlmModel
+if ($perplexicaOk) {
+    Write-AISuccess "Perplexica configured (model: $($tierConfig.LlmModel))"
+} else {
+    Write-AIWarn "Perplexica auto-config skipped -- complete setup at http://localhost:3004"
 }
 
 # ── Success card ──
