@@ -1,5 +1,5 @@
 # ============================================================================
-# Dream Server Windows Installer — Constants
+# Dream Server Windows Installer -- Constants
 # ============================================================================
 # Part of: installers/windows/lib/
 # Purpose: Version, paths, colors, configuration defaults
@@ -41,7 +41,7 @@ $script:MIN_NVIDIA_DRIVER = 570
 $script:INSTALL_START = Get-Date
 
 # ============================================================================
-# Colors — green phosphor CRT theme (PowerShell console colors)
+# Colors -- green phosphor CRT theme (PowerShell console colors)
 # ============================================================================
 $script:C = @{
     Red       = "Red"

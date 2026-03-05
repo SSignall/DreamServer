@@ -1,5 +1,5 @@
 # ============================================================================
-# Dream Server Windows CLI — dream.ps1
+# Dream Server Windows CLI -- dream.ps1
 # ============================================================================
 # Day-to-day management of a Dream Server installation on Windows.
 # Mirrors the Linux dream-cli command structure.
@@ -31,7 +31,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 # ── Locate libraries ──
-# NOTE: Nested Join-Path required — PS 5.1 only accepts 2 arguments
+# NOTE: Nested Join-Path required -- PS 5.1 only accepts 2 arguments
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $LibDir = Join-Path $ScriptDir "lib"
 . (Join-Path $LibDir "constants.ps1")
