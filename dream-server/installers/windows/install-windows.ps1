@@ -101,6 +101,53 @@ if (-not $disk.Sufficient) {
 }
 Write-AISuccess "Disk space OK"
 
+# Ollama conflict detection
+# Ollama Desktop defaults to port 11434 which conflicts with llama-server's
+# host port mapping on NVIDIA. If both run, 127.0.0.1 traffic hits Ollama
+# while Docker-internal traffic hits llama-server, causing model-not-found
+# errors in host-side tools (OpenCode, browsers).
+$ollamaProc = Get-Process -Name "ollama" -ErrorAction SilentlyContinue
+if ($ollamaProc) {
+    Write-AIWarn "Ollama is running (PID $($ollamaProc.Id)) and may conflict with Dream Server."
+    Write-AI "  Both use port 11434. Ollama on 127.0.0.1 will shadow llama-server,"
+    Write-AI "  causing 'model not found' errors in OpenCode and other host tools."
+    Write-Host ""
+    if (-not $NonInteractive) {
+        $ollamaChoice = Read-Host "  Stop Ollama for this session? [Y/n]"
+        if ($ollamaChoice -notmatch "^[nN]") {
+            Stop-Process -Name "ollama" -Force -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 2
+            # Check if it respawned (Windows Startup shortcut)
+            $ollamaStill = Get-Process -Name "ollama" -ErrorAction SilentlyContinue
+            if ($ollamaStill) {
+                Write-AIWarn "Ollama restarted automatically (likely in Windows Startup)."
+                Write-AI "  To permanently fix: remove Ollama from Startup apps, or uninstall it."
+                Write-AI "  Settings > Apps > Startup, or delete the shortcut from:"
+                Write-AI "  $env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\Ollama.lnk"
+                # Try removing the startup shortcut
+                $ollamaLnk = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\Startup\Ollama.lnk"
+                if (Test-Path $ollamaLnk) {
+                    Remove-Item $ollamaLnk -Force -ErrorAction SilentlyContinue
+                    Stop-Process -Name "ollama" -Force -ErrorAction SilentlyContinue
+                    Start-Sleep -Seconds 2
+                    $ollamaFinal = Get-Process -Name "ollama" -ErrorAction SilentlyContinue
+                    if (-not $ollamaFinal) {
+                        Write-AISuccess "Ollama stopped and removed from Startup"
+                    } else {
+                        Write-AIWarn "Could not stop Ollama. Port 11434 may have conflicts."
+                    }
+                }
+            } else {
+                Write-AISuccess "Ollama stopped"
+            }
+        } else {
+            Write-AIWarn "Ollama left running. Port 11434 may have conflicts."
+        }
+    } else {
+        Write-AIWarn "Ollama detected. Run without --NonInteractive to resolve, or stop Ollama manually."
+    }
+}
+
 # ============================================================================
 # STEP 2 -- GPU DETECTION & TIER SELECTION
 # ============================================================================
