@@ -1,5 +1,5 @@
 # ============================================================================
-# Dream Server Windows Installer — UI Helpers
+# Dream Server Windows Installer -- UI Helpers
 # ============================================================================
 # Part of: installers/windows/lib/
 # Purpose: Colored output, phase headers, progress, banners
@@ -108,7 +108,7 @@ function Write-SuccessCard {
         [string]$WebUIPort = "3000",
         [string]$DashboardPort = "3001"
     )
-    # Detect local IP for network access (DHCP, static, or manual — exclude loopback + APIPA)
+    # Detect local IP for network access (DHCP, static, or manual -- exclude loopback + APIPA)
     $localIP = (Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
         Where-Object {
             $_.InterfaceAlias -notlike "*Loopback*" -and

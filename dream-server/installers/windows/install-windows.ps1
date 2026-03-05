@@ -1,5 +1,5 @@
 # ============================================================================
-# Dream Server Windows Installer — Main Orchestrator
+# Dream Server Windows Installer -- Main Orchestrator
 # ============================================================================
 # Standalone Windows installer. Does not modify any Linux installer files.
 #
@@ -39,7 +39,7 @@ $ErrorActionPreference = "Stop"
 
 # ── Locate script directory and source tree root ──
 $ScriptDir   = Split-Path -Parent $MyInvocation.MyCommand.Path
-# NOTE: Nested Join-Path required — PS 5.1 only accepts 2 arguments
+# NOTE: Nested Join-Path required -- PS 5.1 only accepts 2 arguments
 $SourceRoot  = (Resolve-Path (Join-Path (Join-Path $ScriptDir "..") "..")).Path
 
 # ── Source libraries ──
@@ -54,7 +54,7 @@ $LibDir = Join-Path $ScriptDir "lib"
 $InstallDir = $script:DS_INSTALL_DIR
 
 # ============================================================================
-# STEP 1 — PREFLIGHT
+# STEP 1 -- PREFLIGHT
 # ============================================================================
 Write-DreamBanner
 Write-Phase -Phase 1 -Total 6 -Name "PREFLIGHT CHECKS" -Estimate "30 seconds"
@@ -102,7 +102,7 @@ if (-not $disk.Sufficient) {
 Write-AISuccess "Disk space OK"
 
 # ============================================================================
-# STEP 2 — GPU DETECTION & TIER SELECTION
+# STEP 2 -- GPU DETECTION & TIER SELECTION
 # ============================================================================
 Write-Phase -Phase 2 -Total 6 -Name "HARDWARE DETECTION" -Estimate "10 seconds"
 
@@ -156,7 +156,7 @@ if (-not $disk2.Sufficient) {
 }
 
 # ============================================================================
-# STEP 3 — FEATURE SELECTION
+# STEP 3 -- FEATURE SELECTION
 # ============================================================================
 Write-Phase -Phase 3 -Total 6 -Name "FEATURES" -Estimate "interactive"
 
@@ -170,9 +170,9 @@ if (-not $NonInteractive -and -not $All -and -not $DryRun) {
     Write-Chapter "Select Features"
     Write-AI "Choose your Dream Server configuration:"
     Write-Host ""
-    Write-Host "  [1] Full Stack   — Everything enabled (voice, workflows, RAG, agents)" -ForegroundColor Green
-    Write-Host "  [2] Core Only    — Chat + LLM inference (lean and fast)" -ForegroundColor White
-    Write-Host "  [3] Custom       — Choose individually" -ForegroundColor White
+    Write-Host "  [1] Full Stack   -- Everything enabled (voice, workflows, RAG, agents)" -ForegroundColor Green
+    Write-Host "  [2] Core Only    -- Chat + LLM inference (lean and fast)" -ForegroundColor White
+    Write-Host "  [3] Custom       -- Choose individually" -ForegroundColor White
     Write-Host ""
 
     $choice = Read-Host "  Selection (1/2/3)"
@@ -205,7 +205,7 @@ Write-InfoBox "  RAG:"       $(if ($enableRag)       { "enabled" } else { "disab
 Write-InfoBox "  OpenClaw:"  $(if ($enableOpenClaw)  { "enabled" } else { "disabled" })
 
 # ============================================================================
-# STEP 4 — SETUP (directories, copy source, generate .env)
+# STEP 4 -- SETUP (directories, copy source, generate .env)
 # ============================================================================
 Write-Phase -Phase 4 -Total 6 -Name "SETUP" -Estimate "1-2 minutes"
 
@@ -217,7 +217,7 @@ if ($DryRun) {
     if ($enableOpenClaw) { Write-AI "[DRY RUN] Would configure OpenClaw" }
 } else {
     # Create directory structure
-    # NOTE: Nested Join-Path required — PS 5.1 only accepts 2 arguments
+    # NOTE: Nested Join-Path required -- PS 5.1 only accepts 2 arguments
     $configDir = Join-Path $InstallDir "config"
     $dataDir   = Join-Path $InstallDir "data"
     $dirs = @(
@@ -298,7 +298,7 @@ if ($DryRun) {
         Write-AISuccess "Generated OpenClaw configs"
     }
 
-    # Create llama-server models.ini (empty — populated later)
+    # Create llama-server models.ini (empty -- populated later)
     $modelsIni = Join-Path (Join-Path $InstallDir "config") "llama-server\models.ini"
     if (-not (Test-Path $modelsIni)) {
         Write-Utf8NoBom -Path $modelsIni -Content "# Dream Server model registry"
@@ -306,7 +306,7 @@ if ($DryRun) {
 }
 
 # ============================================================================
-# STEP 5 — LAUNCH (download model, start services)
+# STEP 5 -- LAUNCH (download model, start services)
 # ============================================================================
 Write-Phase -Phase 5 -Total 6 -Name "LAUNCH" -Estimate "2-30 minutes (model download)"
 
@@ -358,7 +358,7 @@ if ($DryRun) {
                 Write-AI "Extracting llama-server..."
                 New-Item -ItemType Directory -Path $script:LLAMA_SERVER_DIR -Force | Out-Null
                 Expand-Archive -Path $llamaZip -DestinationPath $script:LLAMA_SERVER_DIR -Force
-                # The zip may contain a subdirectory — find llama-server.exe
+                # The zip may contain a subdirectory -- find llama-server.exe
                 $exeFound = Get-ChildItem -Path $script:LLAMA_SERVER_DIR -Recurse -Filter "llama-server.exe" |
                     Select-Object -First 1
                 if ($exeFound -and $exeFound.DirectoryName -ne $script:LLAMA_SERVER_DIR) {
@@ -441,7 +441,7 @@ if ($DryRun) {
         if (Test-Path $extDir) {
             $extServices = Get-ChildItem -Path $extDir -Directory | Sort-Object Name
             foreach ($svcDir in $extServices) {
-                # Read manifest (YAML parsed as simple key-value — no YAML lib needed)
+                # Read manifest (YAML parsed as simple key-value -- no YAML lib needed)
                 $manifestPath = Join-Path $svcDir.FullName "manifest.yaml"
                 if (-not (Test-Path $manifestPath)) {
                     $manifestPath = Join-Path $svcDir.FullName "manifest.yml"
@@ -538,14 +538,14 @@ if ($DryRun) {
 }
 
 # ============================================================================
-# STEP 6 — VERIFY
+# STEP 6 -- VERIFY
 # ============================================================================
 Write-Phase -Phase 6 -Total 6 -Name "VERIFICATION" -Estimate "30 seconds"
 
 if ($DryRun) {
     Write-AI "[DRY RUN] Would health-check all services"
     Write-AI "[DRY RUN] Install validation complete"
-    Write-AISuccess "Dry run finished — no changes made"
+    Write-AISuccess "Dry run finished -- no changes made"
     exit 0
 }
 

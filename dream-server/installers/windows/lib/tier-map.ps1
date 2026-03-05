@@ -1,5 +1,5 @@
 # ============================================================================
-# Dream Server Windows Installer — Tier Map
+# Dream Server Windows Installer -- Tier Map
 # ============================================================================
 # Part of: installers/windows/lib/
 # Purpose: Map hardware tier to model name, GGUF file, URL, and context size
@@ -102,19 +102,19 @@ function ConvertTo-TierFromGpu {
     $backend = $GpuInfo.Backend
     $vramMB  = $GpuInfo.VramMB
 
-    # Cloud mode — no GPU
+    # Cloud mode -- no GPU
     if ($backend -eq "none") {
         return "CLOUD"
     }
 
-    # AMD Strix Halo — tier based on system RAM (unified memory)
+    # AMD Strix Halo -- tier based on system RAM (unified memory)
     if ($backend -eq "amd" -and $GpuInfo.MemoryType -eq "unified") {
         if ($SystemRamGB -ge 90) { return "SH_LARGE" }
         if ($SystemRamGB -ge 64) { return "SH_COMPACT" }
         return "1"  # Fallback for small unified memory
     }
 
-    # NVIDIA — tier based on VRAM
+    # NVIDIA -- tier based on VRAM
     $vramGB = [math]::Floor($vramMB / 1024)
 
     if ($vramGB -ge 90) { return "NV_ULTRA" }

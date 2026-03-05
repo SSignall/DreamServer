@@ -1,5 +1,5 @@
 # ============================================================================
-# Dream Server Windows Installer — Hardware Detection
+# Dream Server Windows Installer -- Hardware Detection
 # ============================================================================
 # Part of: installers/windows/lib/
 # Purpose: GPU detection (NVIDIA via nvidia-smi, AMD via WMI), Docker Desktop
@@ -50,7 +50,7 @@ function Get-GpuInfo {
                 }
             }
         } catch {
-            # nvidia-smi exists but failed — fall through to AMD
+            # nvidia-smi exists but failed -- fall through to AMD
         }
     }
 
@@ -109,7 +109,7 @@ function Get-GpuInfo {
             }
         }
     } catch {
-        # WMI query failed — fall through to no GPU
+        # WMI query failed -- fall through to no GPU
     }
 
     # ── No GPU detected ──
@@ -188,7 +188,7 @@ function Test-DockerDesktop {
                 }
                 # Check for GPU support in Docker
                 # On Windows Docker Desktop with WSL2 backend, GPU passthrough is
-                # handled automatically — there is no separate "nvidia" runtime like
+                # handled automatically -- there is no separate "nvidia" runtime like
                 # on Linux. If WSL2 backend is detected + NVIDIA driver is present,
                 # GPU support is available via --gpus flag / compose deploy.resources.
                 if ($result.WSL2Backend) {
