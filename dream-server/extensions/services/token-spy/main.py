@@ -656,7 +656,7 @@ async def _handle_streaming(client, raw_body, headers, model, sys_analysis,
                             )
         except httpx.HTTPStatusError as e:
             log.error(f"Upstream HTTP error: {e.response.status_code}")
-            yield f"data: {json.dumps({'type': 'error', 'error': {'type': 'proxy_error', 'message': str(e)}})}\n\n"
+            yield f"data: {json.dumps({'type': 'error', 'error': {'type': 'proxy_error', 'message': 'Upstream request failed'}})}\n\n"
         except Exception as e:
             log.error(f"Proxy stream error: {e}")
             # Still try to log what we have
@@ -691,7 +691,7 @@ async def _handle_non_streaming(client, raw_body, headers, model, sys_analysis,
         log.error(f"Upstream request error: {e}")
         return JSONResponse(
             status_code=502,
-            content={"error": {"type": "proxy_error", "message": str(e)}},
+            content={"error": {"type": "proxy_error", "message": "Upstream request failed"}},
         )
 
     try:
@@ -887,7 +887,7 @@ async def _handle_openai_streaming(client, raw_body, headers, model, sys_analysi
 
         except httpx.HTTPStatusError as e:
             log.error(f"Upstream HTTP error: {e.response.status_code}")
-            yield f"data: {json.dumps({'error': {'message': str(e), 'type': 'proxy_error'}})}\n\n"
+            yield f"data: {json.dumps({'error': {'message': 'Upstream request failed', 'type': 'proxy_error'}})}\n\n"
         except Exception as e:
             log.error(f"Proxy stream error: {e}")
             if usage["input_tokens"] > 0:
@@ -917,7 +917,7 @@ async def _handle_openai_non_streaming(client, raw_body, headers, model, sys_ana
         log.error(f"Upstream request error: {e}")
         return JSONResponse(
             status_code=502,
-            content={"error": {"message": str(e), "type": "proxy_error"}},
+            content={"error": {"message": "Upstream request failed", "type": "proxy_error"}},
         )
 
     try:
@@ -1262,7 +1262,8 @@ def _kill_remote_session(agent: str, reason: str = "dashboard") -> dict:
             log.warning(f"[RESET] Remote killed session {data.get('session_id')} for {agent} ({data.get('size_bytes')} bytes) — {reason}")
         return data
     except Exception as e:
-        return {"agent": agent, "action": "none", "reason": str(e)}
+        log.error(f"Remote session check failed for {agent}: {e}")
+        return {"agent": agent, "action": "none", "reason": "Remote check failed"}
 
 def _kill_session(agent: str, reason: str = "manual") -> dict:
     """Kill the largest active session for an agent. Returns result dict."""
@@ -2318,7 +2319,7 @@ async def token_events(request: Request):
                 
             except Exception as e:
                 log.error(f"SSE stream error: {e}")
-                yield f"event: error\ndata: {json.dumps({'error': str(e)})}\n\n"
+                yield f"event: error\ndata: {json.dumps({'error': 'Stream error'})}\n\n"
                 await asyncio.sleep(5)
     
     return StreamingResponse(
@@ -2370,4 +2371,5 @@ async def proxy_other(request: Request, path: str):
             headers=dict(resp.headers),
         )
     except Exception as e:
-        return JSONResponse(status_code=502, content={"error": str(e)})
+        log.error(f"Proxy passthrough error: {e}")
+        return JSONResponse(status_code=502, content={"error": "Upstream request failed"})

@@ -1,12 +1,15 @@
 """Privacy Shield management endpoints."""
 
 import asyncio
+import logging
 import os
 
 import aiohttp
 from fastapi import APIRouter, Depends
 
 from config import SERVICES, INSTALL_DIR
+
+logger = logging.getLogger(__name__)
 from models import PrivacyShieldStatus, PrivacyShieldToggle
 from security import verify_api_key
 
@@ -79,7 +82,8 @@ async def toggle_privacy_shield(request: PrivacyShieldToggle, api_key: str = Dep
     except asyncio.TimeoutError:
         return {"success": False, "message": "Operation timed out"}
     except Exception as e:
-        return {"success": False, "message": f"Error: {str(e)}"}
+        logger.exception("Privacy Shield toggle failed")
+        return {"success": False, "message": "Privacy Shield operation failed"}
 
 
 @router.get("/api/privacy-shield/stats")
@@ -97,4 +101,5 @@ async def get_privacy_shield_stats(api_key: str = Depends(verify_api_key)):
                 else:
                     return {"error": "Privacy Shield not responding", "status": resp.status}
     except Exception as e:
-        return {"error": "Cannot reach Privacy Shield", "detail": str(e), "enabled": False}
+        logger.exception("Cannot reach Privacy Shield")
+        return {"error": "Cannot reach Privacy Shield", "enabled": False}
