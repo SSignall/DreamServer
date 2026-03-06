@@ -153,6 +153,7 @@ start_native_llama() {
         --model "$model_path" \
         --ctx-size "$ctx_size" \
         --n-gpu-layers 999 \
+        --metrics \
         > "$LLAMA_SERVER_LOG" 2>&1 &
     local pid=$!
     echo "$pid" > "$LLAMA_SERVER_PID_FILE"

@@ -488,6 +488,7 @@ else
             --model "$MODEL_FULL_PATH" \
             --ctx-size "$MAX_CONTEXT" \
             --n-gpu-layers 999 \
+            --metrics \
             > "$LLAMA_SERVER_LOG" 2>&1 &
         LLAMA_PID=$!
         echo "$LLAMA_PID" > "$LLAMA_SERVER_PID_FILE"
