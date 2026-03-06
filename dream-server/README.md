@@ -133,10 +133,10 @@ Both tiers use `qwen2.5:7b` as a bootstrap model for instant startup. The full m
 
 | Tier | Unified RAM | Model | Quant | Context | Example Hardware |
 |------|-------------|-------|-------|---------|-----------------|
-| 1 (Entry) | 8GB | qwen3-4b | GGUF Q4_K_M | 8K | M1/M2 base (8GB) |
-| 2 (Prosumer) | 16GB | qwen3-8b | GGUF Q4_K_M | 32K | M4 Mac Mini, M3 MacBook Air |
-| 3 (Pro) | 32-48GB | qwen3-14b | GGUF Q4_K_M | 32K | M4 Pro Mac Mini, M2 Max MacBook Pro |
-| 4 (Enterprise) | 64GB+ | qwen3-30b-a3b (30B MoE) | GGUF Q4_K_M | 32K | M2 Ultra Mac Studio, M4 Max MacBook Pro |
+| 1 (Entry) | 8–24GB | qwen3-4b | GGUF Q4_K_M | 16K | M1/M2 base, M4 Mac Mini (16GB) |
+| 2 (Prosumer) | 32GB | qwen3-8b | GGUF Q4_K_M | 32K | M4 Pro Mac Mini, M3 Max MacBook Pro |
+| 3 (Pro) | 48GB | qwen3-30b-a3b (30B MoE) | GGUF Q4_K_M | 32K | M4 Pro (48GB), M2 Max (48GB) |
+| 4 (Enterprise) | 64GB+ | qwen3-30b-a3b (30B MoE) | GGUF Q4_K_M | 131K | M2 Ultra Mac Studio, M4 Max (64GB+) |
 
 Override with: `./install.sh --tier 3`
 

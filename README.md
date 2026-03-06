@@ -170,10 +170,10 @@ The installer detects your GPU and picks the optimal model automatically. No man
 
 | Unified RAM | Model | Example Hardware |
 |-------------|-------|-----------------|
-| 8 GB | Qwen3 4B (Q4_K_M) | M1/M2 base (8GB) |
-| 16 GB | Qwen3 8B (Q4_K_M) | M4 Mac Mini, M3 MacBook Air |
-| 32–48 GB | Qwen3 14B (Q4_K_M) | M4 Pro Mac Mini, M2 Max MacBook Pro |
-| 64+ GB | Qwen3 30B-A3B (30B MoE) | M2 Ultra Mac Studio, M4 Max MacBook Pro |
+| 8–24 GB | Qwen3 4B (Q4_K_M) | M1/M2 base, M4 Mac Mini (16GB) |
+| 32 GB | Qwen3 8B (Q4_K_M) | M4 Pro Mac Mini, M3 Max MacBook Pro |
+| 48 GB | Qwen3 30B-A3B (MoE, Q4_K_M) | M4 Pro (48GB), M2 Max (48GB) |
+| 64+ GB | Qwen3 30B-A3B (MoE, Q4_K_M) | M2 Ultra Mac Studio, M4 Max (64GB+) |
 
 Override tier selection: `./install.sh --tier 3`
 

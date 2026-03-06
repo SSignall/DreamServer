@@ -11,10 +11,10 @@
 #   Add new tiers or change model assignments here.
 #   Each tier maps to a specific GGUF quantization and context window.
 #
-#   Apple Silicon unified memory advantage:
-#   All system RAM is available as "VRAM." An M2 Max with 64GB RAM can
-#   load models that would need a 64GB discrete GPU on other platforms.
-#   Tier mapping is based on total system RAM.
+#   Apple Silicon unified memory:
+#   All system RAM is shared between macOS, Docker, and the LLM.
+#   ~8GB is consumed by system overhead, so tier thresholds are
+#   set conservatively compared to discrete-GPU platforms.
 # ============================================================================
 
 resolve_tier_config() {
@@ -55,10 +55,10 @@ resolve_tier_config() {
             ;;
         1)
             TIER_NAME="Entry Level"
-            LLM_MODEL="qwen3-8b"
-            GGUF_FILE="Qwen3-8B-Q4_K_M.gguf"
-            GGUF_URL="https://huggingface.co/unsloth/Qwen3-8B-GGUF/resolve/main/Qwen3-8B-Q4_K_M.gguf"
-            GGUF_SHA256="120307ba529eb2439d6c430d94104dabd578497bc7bfe7e322b5d9933b449bd4"
+            LLM_MODEL="qwen3-4b"
+            GGUF_FILE="Qwen3-4B-Q4_K_M.gguf"
+            GGUF_URL="https://huggingface.co/unsloth/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf"
+            GGUF_SHA256="f6f851777709861056efcdad3af01da38b31223a3ba26e61a4f8bf3a2195813a"
             MAX_CONTEXT=16384
             ;;
         *)
@@ -68,38 +68,26 @@ resolve_tier_config() {
     esac
 }
 
-# Auto-select tier based on Apple Silicon chip and RAM
-# Apple Silicon unified memory: all system RAM = effective VRAM
+# Auto-select tier based on Apple Silicon unified memory
+#
+# Unlike discrete GPUs, Apple Silicon shares all system RAM between
+# macOS (~4-5GB), Docker + services (~2-3GB), and the LLM model.
+# Effective free memory ≈ total RAM minus ~8GB system overhead.
+#
+# Thresholds are set conservatively so the model + KV cache fit
+# comfortably alongside everything else.
 auto_select_tier() {
     local ram_gb="$1"
     local chip_variant="${2:-base}"
 
-    # Ultra chips (M1/M2/M3/M4 Ultra) with 64GB+ → Tier 4
-    if [[ "$chip_variant" == "Ultra" ]] && [[ "$ram_gb" -ge 64 ]]; then
-        echo "4"
-        return
-    fi
-
-    # Max chips with 32GB+ → Tier 3
-    if [[ "$chip_variant" == "Max" ]] && [[ "$ram_gb" -ge 32 ]]; then
-        echo "3"
-        return
-    fi
-
-    # Pro chips with 16-32GB → Tier 2
-    if [[ "$chip_variant" == "Pro" ]] && [[ "$ram_gb" -ge 16 ]]; then
-        echo "2"
-        return
-    fi
-
-    # RAM-based fallback for any variant
     if [[ "$ram_gb" -ge 64 ]]; then
         echo "4"
-    elif [[ "$ram_gb" -ge 32 ]]; then
+    elif [[ "$ram_gb" -ge 48 ]]; then
         echo "3"
-    elif [[ "$ram_gb" -ge 16 ]]; then
+    elif [[ "$ram_gb" -ge 32 ]]; then
         echo "2"
     else
+        # 8–24 GB unified → lightweight 4B model
         echo "1"
     fi
 }
