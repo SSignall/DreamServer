@@ -265,13 +265,15 @@ export default function Dashboard({ status, loading }) {
               subvalue="utilization"
               percent={status.cpu.percent}
             />
-            <MetricCard
-              icon={Thermometer}
-              label="CPU Temp"
-              value={status.cpu.temp_c != null ? `${status.cpu.temp_c}°C` : '—'}
-              subvalue={status.cpu.temp_c != null ? (status.cpu.temp_c < 70 ? 'Normal' : status.cpu.temp_c < 85 ? 'Warm' : 'Hot') : 'N/A'}
-              alert={status.cpu.temp_c >= 85}
-            />
+            {status.cpu.temp_c != null && (
+              <MetricCard
+                icon={Thermometer}
+                label="CPU Temp"
+                value={`${status.cpu.temp_c}°C`}
+                subvalue={status.cpu.temp_c < 70 ? 'Normal' : status.cpu.temp_c < 85 ? 'Warm' : 'Hot'}
+                alert={status.cpu.temp_c >= 85}
+              />
+            )}
           </>
         )}
         {status?.ram && status?.gpu?.memoryType !== 'unified' && (
