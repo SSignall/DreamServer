@@ -58,9 +58,6 @@ generate_dream_env() {
     openclaw_token=$(new_secure_hex 24)
     local searxng_secret
     searxng_secret=$(new_secure_hex 32)
-    local opencode_password
-    opencode_password=$(new_secure_base64 16)
-
     # macOS: llama-server runs natively, containers reach it via host.docker.internal
     local llm_api_url="http://host.docker.internal:8080"
 
@@ -115,7 +112,7 @@ OPENCLAW_TOKEN=${openclaw_token}
 
 #=== OpenCode Settings ===
 OPENCODE_PORT=3003
-OPENCODE_SERVER_PASSWORD=${opencode_password}
+OPENCODE_SERVER_PASSWORD=
 
 #=== Voice Settings ===
 WHISPER_MODEL=base

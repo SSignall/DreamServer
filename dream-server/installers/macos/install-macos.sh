@@ -672,12 +672,6 @@ OPENCODE_EOF
             ai_ok "OpenCode config already exists"
         fi
 
-        # Read OPENCODE_SERVER_PASSWORD from .env
-        OPENCODE_SERVER_PASSWORD=""
-        if [[ -f "$INSTALL_DIR/.env" ]]; then
-            OPENCODE_SERVER_PASSWORD=$(grep -m1 '^OPENCODE_SERVER_PASSWORD=' "$INSTALL_DIR/.env" | cut -d= -f2- || true)
-        fi
-
         # Install as macOS LaunchAgent (auto-start on login)
         mkdir -p "$HOME/Library/LaunchAgents"
         cat > "$OPENCODE_PLIST" <<PLIST_EOF
@@ -694,7 +688,7 @@ OPENCODE_EOF
         <string>--port</string>
         <string>3003</string>
         <string>--hostname</string>
-        <string>0.0.0.0</string>
+        <string>127.0.0.1</string>
     </array>
     <key>WorkingDirectory</key>
     <string>${HOME}</string>
@@ -704,8 +698,6 @@ OPENCODE_EOF
         <string>${HOME}</string>
         <key>PATH</key>
         <string>${HOME}/.opencode/bin:/usr/local/bin:/usr/bin:/bin</string>
-        <key>OPENCODE_SERVER_PASSWORD</key>
-        <string>${OPENCODE_SERVER_PASSWORD}</string>
     </dict>
     <key>RunAtLoad</key>
     <true/>
