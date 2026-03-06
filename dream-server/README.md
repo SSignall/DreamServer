@@ -15,10 +15,10 @@
 > | Platform | Status |
 > |----------|--------|
 > | **Linux** (NVIDIA + AMD) | **Supported** — install and run today |
-> | **macOS** (Apple Silicon) | **Coming soon** — target mid-March 2026 |
-> | **Windows** | **Coming soon** — target end of March 2026 |
+> | **macOS** (Apple Silicon) | **Supported** — install and run today |
+> | **Windows** (NVIDIA + AMD) | **Supported** — install and run today |
 >
-> macOS and Windows installers currently provide system diagnostics and preflight checks only — they will not produce a running AI stack yet. Full runtime support for both platforms is in active development. **For a working setup today, use Linux.**
+> All three platforms are fully supported with one-command installers. See [`docs/SUPPORT-MATRIX.md`](docs/SUPPORT-MATRIX.md) for detailed tier status.
 
 See [`docs/SUPPORT-MATRIX.md`](docs/SUPPORT-MATRIX.md) for current support tiers and platform status.
 Launch-claim guardrails: [`docs/PLATFORM-TRUTH-TABLE.md`](docs/PLATFORM-TRUTH-TABLE.md)
@@ -65,16 +65,21 @@ No more staring at download bars. Start playing immediately.
 
 To skip bootstrap and wait for the full model: `./install.sh --no-bootstrap`
 
-### macOS and Windows (coming soon)
+### macOS (Apple Silicon)
 
-> **macOS is not yet functional.** The macOS installer runs preflight diagnostics only — it will check your system readiness but will not produce a running AI stack. Full macOS runtime support is in active development (target: mid-March 2026).
-
-**macOS (Apple Silicon):**
 ```bash
-./install.sh    # Runs preflight checks and diagnostics only
+./install.sh    # Auto-detects chip, launches Metal-accelerated inference + Docker services
 ```
 
-See [`docs/SUPPORT-MATRIX.md`](docs/SUPPORT-MATRIX.md) for current support levels.
+llama-server runs natively with Metal GPU acceleration; all other services run in Docker. See [`docs/MACOS-QUICKSTART.md`](docs/MACOS-QUICKSTART.md) for details.
+
+### Windows (NVIDIA + AMD)
+
+```powershell
+.\install.ps1   # Auto-detects GPU, launches all services via Docker Desktop + WSL2
+```
+
+See [`docs/WINDOWS-QUICKSTART.md`](docs/WINDOWS-QUICKSTART.md) for details.
 
 ---
 
@@ -123,6 +128,15 @@ Both tiers use `qwen2.5:7b` as a bootstrap model for instant startup. The full m
 | 2 (Prosumer) | 12-20GB | qwen2.5-14b-instruct | GGUF Q4_K_M | 16K | RTX 3090, RTX 4080 |
 | 3 (Pro) | 20-40GB | qwen2.5-32b-instruct | GGUF Q4_K_M | 32K | RTX 4090, A6000 |
 | 4 (Enterprise) | 40GB+ | qwen2.5-72b-instruct | GGUF Q4_K_M | 32K | A100, H100, multi-GPU |
+
+### Apple Silicon (Unified Memory, Metal)
+
+| Tier | Unified RAM | Model | Quant | Context | Example Hardware |
+|------|-------------|-------|-------|---------|-----------------|
+| 1 (Entry) | 8GB | qwen3-4b | GGUF Q4_K_M | 8K | M1/M2 base (8GB) |
+| 2 (Prosumer) | 16GB | qwen3-8b | GGUF Q4_K_M | 32K | M4 Mac Mini, M3 MacBook Air |
+| 3 (Pro) | 32-48GB | qwen3-14b | GGUF Q4_K_M | 32K | M4 Pro Mac Mini, M2 Max MacBook Pro |
+| 4 (Enterprise) | 64GB+ | qwen3-30b-a3b (30B MoE) | GGUF Q4_K_M | 32K | M2 Ultra Mac Studio, M4 Max MacBook Pro |
 
 Override with: `./install.sh --tier 3`
 
