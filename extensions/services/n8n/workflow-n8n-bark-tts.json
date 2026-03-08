@@ -85,15 +85,15 @@
     },
     {
       "parameters": {
-        "channel": "={{ $input.first().json.channel || '#general' }}",
-        "text": "={{ '*Bark TTS Failed*\n\n**Error:** ' + (($json.message || 'Unknown error') as string) + '\n**Status:** ' + (($json.statusCode || 'N/A') as string) + '\n\nPlease check the Bark service and try again.' }}"
+        "channel": "={{ $('Webhook Trigger').first().json.channel || '#general' }}",
+        "text": "={{ '*Bark TTS Failed*\n\n**Error:** ' + ($json.message || $json.error || $json.description || (typeof $json === 'string' ? $json.substring(0, 200) : 'Unknown error')) + '\n**Status:** ' + ($json.statusCode || $json.code || 'N/A') + '\n\nPlease check the Bark service and try again.' }}"
       },
       "id": "discord-error",
       "name": "Discord Error",
       "type": "n8n-nodes-base.discord",
       "typeVersion": 1,
       "position": [450, 500],
-      "comment": "Sends error notification to the channel specified in the webhook input (or #general if not provided)"
+      "comment": "Sends error notification to the channel specified in the webhook input. Uses $('Webhook Trigger') to access original input since error flow receives error object from failing node, not the original payload."
     }
   ],
   "connections": {
