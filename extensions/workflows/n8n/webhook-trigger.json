@@ -12,7 +12,6 @@
         "path": "process-data",
         "responseMode": "responseNode",
         "options": {
-          "webhookSuffix": "",
           "headerAuth": {
             "name": "X-Webhook-Auth",
             "value": "={{ $env.WEBHOOK_AUTH_TOKEN }}"
@@ -47,6 +46,20 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [650, 300]
+    },
+    {
+      "id": "respond-webhook",
+      "name": "Respond to Webhook",
+      "parameters": {
+        "options": {
+          "responseCode": 200
+        },
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, healthStatus: $json.status || 'unknown' }) }}"
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [850, 300]
     }
   ],
   "connections": {
@@ -66,6 +79,17 @@
         [
           {
             "node": "Health Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Health Check": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
             "type": "main",
             "index": 0
           }
