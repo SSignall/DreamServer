@@ -12,6 +12,8 @@ services:
       - CHROMA_DB_ANSI_COLOR_ENABLED=true
       - LLM_API_URL=${LLM_API_URL:-http://localhost:8000}
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8000/api/v1/heartbeat"]
       interval: 30s

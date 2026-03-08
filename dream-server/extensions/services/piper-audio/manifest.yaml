@@ -1,7 +1,7 @@
 schema_version: dream.services.v1
 
 service:
-  id: piper-tts
+  id: piper-audio
   name: Piper TTS
   aliases: [piper, tts-local]
   container_name: piper-tts
@@ -10,7 +10,7 @@ service:
   port: 10200
   external_port_env: PIPER_PORT
   external_port_default: 10200
-  health: ''
+  health: /
   type: docker
   gpu_backends: []
   compose_file: compose.yaml

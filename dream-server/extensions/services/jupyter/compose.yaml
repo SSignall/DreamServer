@@ -16,6 +16,8 @@ services:
       - NB_PREFIX=/
     command: start.sh jupyter lab --NotebookApp.token=${JUPYTER_TOKEN:-jupyter} --NotebookApp.password='' --NotebookApp.port=8888 --NotebookApp.ip=0.0.0.0 --NotebookApp.open_browser=False
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8888/tree"]
       interval: 30s
