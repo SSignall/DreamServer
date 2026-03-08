@@ -190,7 +190,8 @@ generate_openclaw_config() {
 
     # Escape token for JSON insertion (handle quotes, backslashes, JSON control chars per RFC 8259)
     local token_json
-    token_json=$(printf '%s' "$token" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g; s/\n/\\n/g; s/\r/\\r/g; s/\f/\\f/g; s/\b/\\b/g')
+    token_json=$(python3 -c "import json,sys; print(json.dumps(sys.argv[1])[1:-1])" "$token" 2>/dev/null || \
+        printf '%s' "$token" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g; s/\n/\\n/g; s/\r/\\r/g; s/\f/\\f/g; s/\b/\\b/g')
 
     # Home config
     cat > "${home_dir}/openclaw.json" << OCEOF
