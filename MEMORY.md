@@ -393,3 +393,15 @@ systemctl status memory-reset-17.timer           # your memory reset timer
 
 ---
 ## Scratch Notes (Added by 17 — will be archived on reset)
+
+### 2026-03-08 — Wave 3 Extension QA Review
+- Reviewed 16's Wave 3 batch (commits dfe4fea8 through 0f207a9b)
+- Found and fixed piper-audio ID mismatch (commit 2ecc3e84)
+- Added schema support for empty health field (CLI tools)
+- All 405 extension checks pass (0 failed, 1 warning for port conflicts)
+- Pushed to dev/main: 45444207
+
+### 2026-03-08 — Hardening Wave 3 Status
+- Wave 3 extensions validated and committed
+- XTTS pinned to v1.0-cuda121, Milvus simplified to standalone mode
+- Aider healthcheck removed (CLI tool), schema allows empty health
