@@ -85,9 +85,12 @@ fi
 
 # GPU check (early warning)
 if command -v nvidia-smi &> /dev/null; then
-    GPU_INFO=$(nvidia-smi --query-gpu=name,memory.total --format=csv,noheader 2>/dev/null | head -1)
+    GPU_INFO=$(nvidia-smi --query-gpu=name,memory.total --format=csv,noheader 2>/dev/null)
     if [[ -n "$GPU_INFO" ]]; then
-        success "NVIDIA GPU detected: $GPU_INFO"
+        success "NVIDIA GPU(s) detected:"
+        echo "$GPU_INFO" | while IFS=',' read -r name vram; do
+            echo "  - $name ($vram)"
+        done
     else
         warn "nvidia-smi found but no GPU detected"
     fi
@@ -153,13 +156,16 @@ fi
 if [[ "$OS" == "linux" || "$OS" == "wsl" ]]; then
     log "Checking NVIDIA GPU..."
     if command -v nvidia-smi &> /dev/null; then
-        GPU_INFO=$(nvidia-smi --query-gpu=name,memory.total --format=csv,noheader 2>/dev/null | head -1)
+        GPU_INFO=$(nvidia-smi --query-gpu=name,memory.total --format=csv,noheader 2>/dev/null)
         if [[ -n "$GPU_INFO" ]]; then
-            success "NVIDIA GPU detected: $GPU_INFO"
-            # Extract VRAM in MB and check minimum
-            VRAM_MB=$(echo "$GPU_INFO" | grep -oP '\d+(?= MiB)' || echo "0")
-            if [[ "$VRAM_MB" -lt 8192 ]]; then
-                warn "GPU has less than 8GB VRAM. Some models may not fit."
+            success "NVIDIA GPU(s) detected:"
+            echo "$GPU_INFO" | while IFS=',' read -r name vram; do
+                echo "  - $name ($vram)"
+            done
+            # Calculate total VRAM across all GPUs
+            TOTAL_VRAM_MB=$(echo "$GPU_INFO" | grep -oP '\d+(?= MiB)' | awk '{sum+=$1} END {print sum}' || echo "0")
+            if [[ "$TOTAL_VRAM_MB" -lt 8192 ]]; then
+                warn "Total GPU VRAM ($TOTAL_VRAM_MB MB) is less than 8GB. Some models may not fit."
                 echo "  Consider using a smaller model (7B) or cloud fallback."
             fi
         else

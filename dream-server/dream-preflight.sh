@@ -126,10 +126,13 @@ else
     if command -v nvidia-smi &> /dev/null; then
         GPU_INFO=""
         if raw_gpu=$(nvidia-smi --query-gpu=name,memory.total --format=csv,noheader 2>/dev/null); then
-            GPU_INFO=$(echo "$raw_gpu" | head -1)
+            GPU_INFO="$raw_gpu"
         fi
         if [ -n "$GPU_INFO" ]; then
-            pass "NVIDIA GPU detected: $GPU_INFO"
+            pass "NVIDIA GPU(s) detected:"
+            echo "$GPU_INFO" | while IFS=',' read -r name vram; do
+                pass "  - $name ($vram)"
+            done
             if docker info 2>/dev/null | grep -q "nvidia"; then
                 pass "NVIDIA Docker runtime available"
             else
