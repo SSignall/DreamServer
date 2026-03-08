@@ -9,7 +9,7 @@ service:
   default_host: anythingllm
   port: 3001
   external_port_env: ANYTHINGLLM_PORT
-  external_port_default: 3001
+  external_port_default: 7800
   health: /api/health
   type: docker
   gpu_backends: [nvidia, amd]

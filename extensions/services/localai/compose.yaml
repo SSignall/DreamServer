@@ -5,7 +5,7 @@ services:
     networks:
       - dream-network
     ports:
-      - "${LOCALAI_EXTERNAL_PORT:-8080}:8080"
+      - "${LOCALAI_EXTERNAL_PORT:-7803}:8080"
     volumes:
       - ./data/localai/models:/models
       - ./data/localai/builds:/builds

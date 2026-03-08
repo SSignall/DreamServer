@@ -9,7 +9,7 @@ service:
   default_host: weaviate
   port: 8080
   external_port_env: WEAVIATE_PORT
-  external_port_default: 8080
+  external_port_default: 7811
   health: /v1/.well-known/ready
   type: docker
   gpu_backends: [none]

@@ -6,11 +6,11 @@ services:
     security_opt:
       - no-new-privileges:true
     environment:
-      - SEARXNG_BASE_URL=http://localhost:${SEARXNG_PORT:-8888}/
+      - SEARXNG_BASE_URL=http://localhost:${SEARXNG_PORT:-7810}/
     volumes:
       - ./config/searxng:/etc/searxng:rw
     ports:
-      - "${SEARXNG_PORT:-8888}:8080"
+      - "${SEARXNG_PORT:-7810}:8080"
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/healthz"]
       interval: 30s

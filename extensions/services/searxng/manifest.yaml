@@ -9,7 +9,7 @@ service:
   default_host: searxng
   port: 8080
   external_port_env: SEARXNG_PORT
-  external_port_default: 8888
+  external_port_default: 7810
   health: /healthz
   type: docker
   gpu_backends: [amd, nvidia]

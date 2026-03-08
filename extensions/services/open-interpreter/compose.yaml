@@ -13,7 +13,7 @@ services:
     volumes:
       - ./data/open-interpreter:/app/data:rw
     ports:
-      - "${OPEN_INTERPRETER_PORT:-8090}:8080"
+      - "${OPEN_INTERPRETER_PORT:-7805}:8080"
     working_dir: /app
     command: ["python", "server.py"]
     healthcheck:

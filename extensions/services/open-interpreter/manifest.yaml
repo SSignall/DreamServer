@@ -9,7 +9,7 @@ service:
   default_host: open-interpreter
   port: 8090
   external_port_env: OPEN_INTERPRETER_PORT
-  external_port_default: 8090
+  external_port_default: 7805
   health: /health
   type: docker
   gpu_backends: [none]

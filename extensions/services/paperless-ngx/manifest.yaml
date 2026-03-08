@@ -9,7 +9,7 @@ service:
   default_host: paperless
   port: 8000
   external_port_env: PAPERLESS_PORT
-  external_port_default: 8000
+  external_port_default: 7807
   health: /accounts/login/
   type: docker
   gpu_backends: [none]

@@ -9,7 +9,7 @@ service:
   default_host: openclaw
   port: 18789
   external_port_env: OPENCLAW_PORT
-  external_port_default: 7860
+  external_port_default: 7806
   health: /
   type: docker
   gpu_backends: [amd, nvidia]

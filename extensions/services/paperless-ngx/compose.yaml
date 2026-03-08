@@ -13,13 +13,13 @@ services:
       - PAPERLESS_REDISHOST=${PAPERLESS_REDISHOST:-redis}
       - PAPERLESS_REDISPORT=${PAPERLESS_REDISPORT:-6379}
       - PAPERLESS_SECRET_KEY=${PAPERLESS_SECRET_KEY:-change-me}
-      - PAPERLESS_URL=http://${PAPERLESS_HOST:-paperless}:${PAPERLESS_PORT:-8000}
+      - PAPERLESS_URL=http://${PAPERLESS_HOST:-paperless}:${PAPERLESS_PORT:-7807}
     volumes:
       - ./data/paperless/data:/usr/src/paperless/data
       - ./data/paperless/export:/usr/src/paperless/export
       - ./data/paperless/media:/usr/src/paperless/media
     ports:
-      - "${PAPERLESS_PORT:-8000}:8000"
+      - "${PAPERLESS_PORT:-7807}:8000"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/accounts/login/"]
       interval: 30s
