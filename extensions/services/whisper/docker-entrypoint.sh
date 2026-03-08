@@ -21,10 +21,10 @@ apply_patch() {
         return 0
     fi
 
-    # Check if target pattern exists (robust: allow whitespace variations)
-    grep -qE 'vad_filter\s*=\s*effective_vad_filter' "$STT_FILE" 2>/dev/null || {
-        echo "WARNING: Target pattern not found in $STT_FILE" >&2
-        echo "Patch may not be needed or upstream changed" >&2
+    # Check if target pattern exists and hasn't been patched yet
+    # The pattern must NOT have vad_parameters after it (idempotent check)
+    grep -qE 'vad_filter\s*=\s*effective_vad_filter[[:space:]]*,?[[:space:]]*$' "$STT_FILE" 2>/dev/null || {
+        echo "WARNING: Target pattern not found or already patched in $STT_FILE" >&2
         return 0
     }
 
@@ -58,11 +58,11 @@ check_writable() {
 }
 
 # Main
-# Check file exists, is writable, and has target pattern before patching
-if check_file && check_writable && grep -qE 'vad_filter\s*=\s*effective_vad_filter' "$STT_FILE" 2>/dev/null; then
+# Check file exists, is writable, and has target pattern (unpatched) before patching
+if check_file && check_writable && grep -qE 'vad_filter\s*=\s*effective_vad_filter[[:space:]]*,?[[:space:]]*$' "$STT_FILE" 2>/dev/null; then
     apply_patch
 else
-    echo "WARNING: Patch skipped (file missing, not writable, or pattern not found)" >&2
+    echo "WARNING: Patch skipped (file missing, not writable, already patched, or pattern not found)" >&2
 fi
 
 # Always start uvicorn (patch failure is non-fatal but logged)
