@@ -6,8 +6,6 @@ services:
     container_name: aider
     volumes:
       - ./data/aider:/app
-      - ${HOME}/.gitconfig:/home/aider/.gitconfig:ro
-      - ${HOME}/.ssh:/home/aider/.ssh:ro
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
@@ -29,12 +27,6 @@ services:
     networks:
       - dream-network
     command: ["sh", "-c", "echo 'Run: docker compose run --rm aider <files>'"]
-    healthcheck:
-      test: ["CMD", "aider", "--version"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
 
 # Named volumes removed — using bind mounts only
 
