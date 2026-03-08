@@ -174,14 +174,14 @@ for ext in "${extensions[@]}"; do
     needs_compose=true
     if [[ -f "$manifest" ]]; then
         svc_type=$(python3 -c "
-import yaml
-with open('$manifest') as f:
+import yaml, sys
+with open(sys.argv[1]) as f:
     m = yaml.safe_load(f)
 s = m.get('service', {})
 cat = s.get('category', 'optional')
 stype = s.get('type', 'docker')
 print(f'{cat}:{stype}')
-" 2>/dev/null || echo "optional:docker")
+" "$manifest" 2>/dev/null || echo "optional:docker")
 
         category="${svc_type%%:*}"
         service_type="${svc_type##*:}"
