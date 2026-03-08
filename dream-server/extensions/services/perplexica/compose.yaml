@@ -1,6 +1,6 @@
 services:
   perplexica:
-    image: itzcrazykns1337/perplexica:slim-latest
+    image: itzcrazykns1337/perplexica@sha256:7e11eed65bdcf6f4adc430a21fc3f904468f78e7ec69a861bef5e9da293cf552
     container_name: dream-perplexica
     restart: unless-stopped
     security_opt:

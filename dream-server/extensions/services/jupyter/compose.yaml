@@ -2,7 +2,7 @@ name: jupyter
 
 services:
   jupyter:
-    image: jupyter/scipy-notebook:latest
+    image: jupyter/scipy-notebook:python-3.11
     container_name: jupyter
     ports:
       - "${JUPYTER_PORT:-8888}:8888"

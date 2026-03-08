@@ -1,6 +1,6 @@
 services:
   whisper:
-    image: ghcr.io/speaches-ai/speaches:latest-cpu
+    image: ghcr.io/speaches-ai/speaches:v0.2.0
     container_name: dream-whisper
     restart: unless-stopped
     security_opt:

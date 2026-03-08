@@ -1,6 +1,6 @@
 services:
   fooocus:
-    image: ghcr.io/lllyasviel/fooocus:edge
+    image: ghcr.io/lllyasviel/fooocus:v2.5.5
     container_name: dream-fooocus
     restart: unless-stopped
     security_opt:
