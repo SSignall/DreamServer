@@ -36,6 +36,49 @@ VALID_FORMATS = {"WAV", "MP3", "OGG", "FLAC"}
 # Max text length to prevent DoS via memory exhaustion
 MAX_TEXT_LENGTH = 10000
 
+# Valid Bark voice presets (prefix match: vX/xx_speaker_N)
+VALID_VOICES = {
+    "v2/en_speaker_0", "v2/en_speaker_1", "v2/en_speaker_2", "v2/en_speaker_3",
+    "v2/en_speaker_4", "v2/en_speaker_5", "v2/en_speaker_6", "v2/en_speaker_7",
+    "v2/en_speaker_8", "v2/en_speaker_9",
+    "v2/de_speaker_0", "v2/de_speaker_1", "v2/de_speaker_2", "v2/de_speaker_3",
+    "v2/de_speaker_4", "v2/de_speaker_5", "v2/de_speaker_6", "v2/de_speaker_7",
+    "v2/de_speaker_8", "v2/de_speaker_9",
+    "v2/es_speaker_0", "v2/es_speaker_1", "v2/es_speaker_2", "v2/es_speaker_3",
+    "v2/es_speaker_4", "v2/es_speaker_5", "v2/es_speaker_6", "v2/es_speaker_7",
+    "v2/es_speaker_8", "v2/es_speaker_9",
+    "v2/fr_speaker_0", "v2/fr_speaker_1", "v2/fr_speaker_2", "v2/fr_speaker_3",
+    "v2/fr_speaker_4", "v2/fr_speaker_5", "v2/fr_speaker_6", "v2/fr_speaker_7",
+    "v2/fr_speaker_8", "v2/fr_speaker_9",
+    "v2/hi_speaker_0", "v2/hi_speaker_1", "v2/hi_speaker_2", "v2/hi_speaker_3",
+    "v2/hi_speaker_4", "v2/hi_speaker_5", "v2/hi_speaker_6", "v2/hi_speaker_7",
+    "v2/hi_speaker_8", "v2/hi_speaker_9",
+    "v2/it_speaker_0", "v2/it_speaker_1", "v2/it_speaker_2", "v2/it_speaker_3",
+    "v2/it_speaker_4", "v2/it_speaker_5", "v2/it_speaker_6", "v2/it_speaker_7",
+    "v2/it_speaker_8", "v2/it_speaker_9",
+    "v2/ja_speaker_0", "v2/ja_speaker_1", "v2/ja_speaker_2", "v2/ja_speaker_3",
+    "v2/ja_speaker_4", "v2/ja_speaker_5", "v2/ja_speaker_6", "v2/ja_speaker_7",
+    "v2/ja_speaker_8", "v2/ja_speaker_9",
+    "v2/ko_speaker_0", "v2/ko_speaker_1", "v2/ko_speaker_2", "v2/ko_speaker_3",
+    "v2/ko_speaker_4", "v2/ko_speaker_5", "v2/ko_speaker_6", "v2/ko_speaker_7",
+    "v2/ko_speaker_8", "v2/ko_speaker_9",
+    "v2/pl_speaker_0", "v2/pl_speaker_1", "v2/pl_speaker_2", "v2/pl_speaker_3",
+    "v2/pl_speaker_4", "v2/pl_speaker_5", "v2/pl_speaker_6", "v2/pl_speaker_7",
+    "v2/pl_speaker_8", "v2/pl_speaker_9",
+    "v2/pt_speaker_0", "v2/pt_speaker_1", "v2/pt_speaker_2", "v2/pt_speaker_3",
+    "v2/pt_speaker_4", "v2/pt_speaker_5", "v2/pt_speaker_6", "v2/pt_speaker_7",
+    "v2/pt_speaker_8", "v2/pt_speaker_9",
+    "v2/ru_speaker_0", "v2/ru_speaker_1", "v2/ru_speaker_2", "v2/ru_speaker_3",
+    "v2/ru_speaker_4", "v2/ru_speaker_5", "v2/ru_speaker_6", "v2/ru_speaker_7",
+    "v2/ru_speaker_8", "v2/ru_speaker_9",
+    "v2/tr_speaker_0", "v2/tr_speaker_1", "v2/tr_speaker_2", "v2/tr_speaker_3",
+    "v2/tr_speaker_4", "v2/tr_speaker_5", "v2/tr_speaker_6", "v2/tr_speaker_7",
+    "v2/tr_speaker_8", "v2/tr_speaker_9",
+    "v2/zh_speaker_0", "v2/zh_speaker_1", "v2/zh_speaker_2", "v2/zh_speaker_3",
+    "v2/zh_speaker_4", "v2/zh_speaker_5", "v2/zh_speaker_6", "v2/zh_speaker_7",
+    "v2/zh_speaker_8", "v2/zh_speaker_9",
+}
+
 
 def _load_models():
     global _models_loaded
@@ -62,6 +105,15 @@ class TTSRequest(BaseModel):
         if fmt not in VALID_FORMATS:
             raise ValueError(f"Invalid format '{v}'. Must be one of: {', '.join(VALID_FORMATS)}")
         return fmt
+
+    @field_validator("voice_preset")
+    @classmethod
+    def validate_voice_preset(cls, v: str) -> str:
+        if not v:
+            return v
+        if v not in VALID_VOICES:
+            raise ValueError(f"Invalid voice_preset '{v}'. Use format 'vX/xx_speaker_N' (e.g., v2/en_speaker_6). See /voices for list.")
+        return v
 
 
 class TTSResponse(BaseModel):

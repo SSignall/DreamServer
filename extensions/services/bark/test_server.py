@@ -220,13 +220,13 @@ def test_tts_stream_default_format(mock_bark_generate_audio, mock_soundfile_writ
 
 # Tests for validation
 def test_tts_invalid_voice_preset():
-    """Test TTS with invalid voice preset (not validated by server, but bark might error)."""
-    # Note: bark voice presets aren't validated by our code, so this should pass validation
+    """Test TTS with invalid voice preset (now rejected by server validator)."""
     response = client.post("/tts", json={
         "text": "Hello, world!",
         "voice_preset": "invalid_preset"
     })
-    assert response.status_code == 200  # Validation passes; bark may fail later
+    assert response.status_code == 422
+    assert "voice_preset" in response.json()["detail"].lower()
 
 
 def test_tts_text_max_length_boundary():
