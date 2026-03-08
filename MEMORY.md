@@ -408,6 +408,35 @@ systemctl status memory-reset-17.timer           # your memory reset timer
 ---
 ## Scratch Notes (Added by 17 — will be archived on reset)
 
+### 2026-03-12 — Security Fixes: timingSafeEqual Side-Channel (All Workflows)
+
+Android-18 review identified timing side-channels in multiple n8n workflows. All fixes committed to `dev/main`.
+
+**Commits:** `7eee8461`, `eab78401`, `7fd2149c`, `c44ea259`
+
+**The Vulnerability:**
+- `timingSafeEqual` used `Math.max(a.length, b.length)` for comparison length
+- This leaks length difference via timing side-channel
+
+**Fix Pattern:**
+```javascript
+// BEFORE (vulnerable):
+const len = Math.max(a.length, b.length);
+for (let i = 0; i < len; i++) { ... }
+
+// AFTER (secure):
+if (a.length !== b.length) return false;
+// Then constant-time comparison
+```
+
+**Affected Workflows Fixed:**
+- ✅ RVC Convert (`rvc-convert.json`)
+- ✅ Bark TTS (`bark-tts.json`)
+- ✅ LocalAI (`localai-chat.json`)
+- ✅ Ollama (`ollama-chat.json`)
+
+**Key Learning:** Never use `Math.max()` for timing-safe comparison length. Early return on length mismatch leaks only that lengths differ (acceptable for API keys).
+
 ### 2026-03-08 — n8n Workflow QA Review (Final)
 - **Review trigger**: Android-18 ping for n8n Wave 3 commits review
 - **Commits reviewed**: Last 5 commits (e2967cbd through 9eb284d7)
