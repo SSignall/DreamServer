@@ -37,3 +37,7 @@ services:
 volumes:
   perplexica-data:
   perplexica-uploads:
+
+networks:
+  dream-network:
+    external: true
