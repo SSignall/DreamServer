@@ -28,13 +28,13 @@ if [[ -n "${SCRIPT_DIR:-}" ]]; then
         echo "ERROR: SCRIPT_DIR does not exist: $SCRIPT_DIR" >&2
         exit 1
     fi
-    EXTENSIONS_DIR="$(_safe_cd "${SCRIPT_DIR}/..")/extensions/services"
+    EXTENSIONS_DIR="$(_safe_cd "${SCRIPT_DIR}/..")/extensions/services" || exit 1
 else
     # Try repo root first, then dream-server parent
     if [[ -d "./extensions/services" ]]; then
         EXTENSIONS_DIR="$(pwd)/extensions/services"
     else
-        EXTENSIONS_DIR="$(_safe_cd "$(pwd)/..")/extensions/services"
+        EXTENSIONS_DIR="$(_safe_cd "$(pwd)/..")/extensions/services" || exit 1
     fi
 fi
 
