@@ -1,0 +1,103 @@
+{
+  "name": "Whisper Audio Transcription",
+  "active": true,
+  "settings": {},
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whisper-stt",
+        "options": {}
+      },
+      "id": "whisper-stt-webhook",
+      "name": "STT Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://{{ $env.WHISPER_HOST | default('localhost') }}:{{ $env.WHISPER_PORT | default('9000') }}/inference",
+        "method": "POST",
+        "headers": {
+          "list": [
+            {
+              "name": "Content-Type",
+              "value": "multipart/form-data"
+            }
+          ]
+        },
+        "body": {
+          "file": "={{ $json.file || $json.audio }}"
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "whisper-stt-api",
+      "name": "Whisper STT API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process transcription response\nconst body = $json;\nconst text = body.text || body.transcription || '';\nconst language = body.language || 'unknown';\nconst duration = body.duration || 0;\n\nreturn [{\n  json: {\n    success: text.length > 0,\n    language: language,\n    duration_seconds: duration,\n    character_count: text.length,\n    transcript: text,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "process-stt-response",
+      "name": "Process STT Response",
+      "type": "n8n-nodes-base.functions",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "channel": "={{ $json.channel || '#general' }}",
+        "text": "={{ `*Audio Transcribed*\\n\\n**Language:** ${$json.language}\\n**Duration:** ${$json.duration_seconds.toFixed(1)}s\\n**Characters:** ${$json.character_count}` }}"
+      },
+      "id": "stt-discord-output",
+      "name": "Discord Output",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [850, 300]
+    }
+  ],
+  "connections": {
+    "STT Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Whisper STT API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Whisper STT API": {
+      "main": [
+        [
+          {
+            "node": "Process STT Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process STT Response": {
+      "main": [
+        [
+          {
+            "node": "Discord Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "meta": {
+    "instanceId": "whisper-stt-workflow-v1"
+  }
+}

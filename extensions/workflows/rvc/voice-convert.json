@@ -1,0 +1,106 @@
+{
+  "name": "RVC Voice Conversion",
+  "active": true,
+  "settings": {},
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "rvc-convert",
+        "options": {}
+      },
+      "id": "rvc-webhook",
+      "name": "RVC Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://{{ $env.RVC_HOST | default('localhost') }}:{{ $env.RVC_PORT | default('8001') }}/voice-convert",
+        "method": "POST",
+        "headers": {
+          "list": [
+            {
+              "name": "Content-Type",
+              "value": "multipart/form-data"
+            }
+          ]
+        },
+        "body": {
+          "file": "={{ $json.file || $json.audio }}",
+          "model": "={{ $json.model || 'index.pth' }}",
+          "pitch": "={{ $json.pitch || 0 }}",
+          "f0_method": "={{ $json.f0_method || 'rmvpe' }}"
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "rvc-api",
+      "name": "RVC API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process RVC voice conversion response\nconst body = $json;\nconst audioBase64 = body.audio || body.audio_base64 || '';\nconst duration = body.duration || 0;\nconst model = body.model || 'unknown';\nconst pitch_shift = body.pitch_shift || 0;\n\nreturn [{\n  json: {\n    success: audioBase64.length > 0,\n    model: model,\n    pitch_shift: pitch_shift,\n    duration_seconds: duration,\n    audio_size_bytes: audioBase64.length,\n    timestamp: new Date().toISOString()\n  },\n  binary: {\n    audio: {\n      data: audioBase64,\n      mimeType: 'audio/wav'\n    }\n  }\n}];"
+      },
+      "id": "process-rvc-response",
+      "name": "Process RVC Response",
+      "type": "n8n-nodes-base.functions",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "channel": "={{ $json.channel || '#general' }}",
+        "text": "={{ `*Voice Converted*\\n\\n**Model:** ${$json.model}\\n**Pitch Shift:** ${$json.pitch_shift} semitones\\n**Duration:** ${$json.duration_seconds.toFixed(2)}s\\n**Audio Size:** ${$json.audio_size_bytes} bytes` }}"
+      },
+      "id": "rvc-discord-output",
+      "name": "Discord Output",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [850, 300]
+    }
+  ],
+  "connections": {
+    "RVC Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "RVC API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RVC API": {
+      "main": [
+        [
+          {
+            "node": "Process RVC Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process RVC Response": {
+      "main": [
+        [
+          {
+            "node": "Discord Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "meta": {
+    "instanceId": "rvc-workflow-v1"
+  }
+}
