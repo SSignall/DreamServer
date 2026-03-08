@@ -13,7 +13,7 @@
       },
       "id": "bark-webhook-trigger",
       "name": "Webhook Trigger",
-      "comment": "Accepts JSON: { text, voice_preset (optional), output_format (optional), channel (optional), api_key (optional header) }. Set BARK_API_KEY env var to enable authentication.",
+      "comment": "Accepts JSON: { text, voice_preset (optional), output_format (optional), channel (optional) }. Authentication via X-API-Key header only. Set BARK_API_KEY env var to enable.",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
       "position": [250, 300]
