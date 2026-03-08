@@ -132,6 +132,18 @@ async def get_llama_context_size() -> Optional[int]:
 
 # --- Service Health ---
 
+def _is_dns_error(error_str: str) -> bool:
+    """Check if error is a DNS resolution failure (platform-agnostic)."""
+    e = error_str.lower()
+    return any(x in e for x in [
+        "name or service not known",
+        "nodename nor servname",
+        "getaddrinfo failed",
+        "name resolution",
+        "no address associated with hostname"
+    ])
+
+
 async def check_service_health(service_id: str, config: dict) -> ServiceStatus:
     """Check if a service is healthy by hitting its health endpoint."""
     if config.get("type") == "host-systemd":
@@ -139,47 +151,65 @@ async def check_service_health(service_id: str, config: dict) -> ServiceStatus:
 
     host = config.get('host', 'localhost')
     health_path = config.get('health', '/health')
-    
+
     # Try multiple common health endpoints as fallback
     endpoints = [health_path, '/health', '/api/health', '/status', '/']
-    
+
+    # Build list of hosts to try: configured host + fallbacks for cross-platform support
+    # host.docker.internal works on Docker Desktop but not all Linux distributions
+    hosts_to_try = [host]
+    if host == "host.docker.internal":
+        # On Linux, try the default Docker bridge gateway
+        hosts_to_try.append("172.17.0.1")
+    elif host == "localhost" or host == "127.0.0.1":
+        # For localhost services, also try Docker bridge gateway (container accessing host services)
+        hosts_to_try.append("172.17.0.1")
+
     status = "unknown"
     response_time = None
     last_error = None
+    tried_hosts = []
 
-    # Create session once outside the loop to avoid connection pool overhead
     timeout = aiohttp.ClientTimeout(total=3)
     async with aiohttp.ClientSession(timeout=timeout) as session:
-        for endpoint in endpoints:
-            url = f"http://{host}:{config['port']}{endpoint}"
-            try:
-                start = asyncio.get_running_loop().time()
-                async with session.get(url) as resp:
-                    response_time = (asyncio.get_running_loop().time() - start) * 1000
-                    if resp.status < 500:
-                        # Use this endpoint for future checks
-                        if endpoint != health_path:
-                            logger.debug(f"Service {service_id} health check succeeded at {endpoint} (expected {health_path})")
-                        status = "healthy"
-                        break
+        for try_host in hosts_to_try:
+            tried_hosts.append(try_host)
+            for endpoint in endpoints:
+                url = f"http://{try_host}:{config['port']}{endpoint}"
+                try:
+                    start = asyncio.get_running_loop().time()
+                    async with session.get(url) as resp:
+                        response_time = (asyncio.get_running_loop().time() - start) * 1000
+                        if resp.status < 500:
+                            if endpoint != health_path:
+                                logger.debug(f"Service {service_id} health check succeeded at {endpoint} (expected {health_path})")
+                            status = "healthy"
+                            break
+                        else:
+                            status = "unhealthy"
+                except aiohttp.ClientConnectorError as e:
+                    e_str = str(e)
+                    if _is_dns_error(e_str):
+                        # DNS resolution failed for this host, try next host
+                        logger.debug(f"DNS resolution failed for {try_host}, trying fallback...")
+                        break  # Break to next host
                     else:
-                        status = "unhealthy"
-            except aiohttp.ClientConnectorError as e:
-                # Check for DNS resolution failures (platform-agnostic)
-                e_str = str(e).lower()
-                if any(x in e_str for x in ["name or service not known", "nodename nor servname", "getaddrinfo failed", "name resolution"]):
-                    status = "not_deployed"
-                    break
-                else:
+                        last_error = e_str
+                        continue
+                except Exception as e:
                     last_error = str(e)
+                    logger.debug(f"Health check failed for {service_id} at {url}: {e}")
                     continue
-            except Exception as e:
-                last_error = str(e)
-                logger.debug(f"Health check failed for {service_id} at {url}: {e}")
-                continue
+
+            if status == "healthy":
+                break
+
+    # If we tried multiple hosts and all DNS failed, mark as not_deployed
+    if status == "unknown" and all(_is_dns_error(str(e)) for e in [last_error] if e):
+        status = "not_deployed"
 
     if status == "unknown" and last_error:
-        logger.debug(f"Health check failed for {service_id} (tried {endpoints}): {last_error}")
+        logger.debug(f"Health check failed for {service_id} (tried hosts {tried_hosts}, endpoints {endpoints}): {last_error}")
 
     return ServiceStatus(
         id=service_id, name=config["name"], port=config["port"],
