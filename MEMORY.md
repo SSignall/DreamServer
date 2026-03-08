@@ -484,3 +484,13 @@ systemctl status memory-reset-17.timer           # your memory reset timer
 - **Conclusion**: OpenClaw's `"loopback"` mode correctly resolves to localhost; K2.5 finding is a **false positive**
 - **Action**: `6fb76408` (revert to `"loopback"`) is safe; no security exposure
 - **Note**: `dangerouslyDisableDeviceAuth` is NOT in the main config; only in `pro.json` and `openclaw-strix-halo.json` variants
+
+### 2026-03-08 — Bark TTS Voice Preset Validation Fix (Commit `3a88c534`)
+- **MEDIUM finding (K2.5)**: Missing input validation for `voice_preset` parameter — server did not validate against whitelist
+- **Fix**: Added `VALID_VOICES` set with all Bark v2 voices; server returns 422 for invalid presets
+- **LOW finding (K2.5)**: Test file uses `patch(..., True)` inside tests; better practice is `reset_globals` fixture or `@patch` decorator
+- **LOW finding (K2.5)**: Mock `mock_soundfile_write` writes fake WAV data (`b'\x00' * 100`); tests assume valid base64 — may mask encoding issues
+- **Status**: Validation fix approved; comment fix pushed (`37a9099e`) — corrects documentation ("exact match" not "prefix match")
+- **Hardening impact**: Prevents injection attacks via arbitrary `voice_preset` values; whitelist covers all documented Bark v2 voices
+
+### 2026-03-08 — OpenClaw Bind Mode Schema (Definitive)
