@@ -1,0 +1,175 @@
+{
+  "name": "Langflow Workflow",
+  "meta": {
+    "title": "Langflow Workflow Builder",
+    "description": "Execute visual flows built in Langflow via API",
+    "version": "1.0.0",
+    "type": "workflow"
+  },
+  "nodes": [
+    {
+      "id": "webhook",
+      "type": "n8n-nodes-base.webhook",
+      "name": "Webhook",
+      "position": [400, 300],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "langflow-run",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "outputNodes": [],
+      "notesInFlow": false,
+      "notes": "Trigger Langflow flow via webhook. Expected JSON: { flowId, inputs?, stream?, flowName?, logLevel?, tweaks?, refresh_langchain_cache? }. API key via X-API-Key header only (no body fallback). Set LANGFLOW_API_KEY env var to enable auth."
+    },
+    {
+      "id": "validate_input",
+      "type": "n8n-nodes-base.code",
+      "name": "Validate Input",
+      "position": [550, 300],
+      "parameters": {
+        "jsCode": "// API Key authentication check - timing-safe comparison\nconst headers = $input.first().json.headers || {};\n\n// Case-insensitive header lookup (defense against platform normalization changes)\nconst headerKeys = Object.keys(headers);\nconst apiKeyHeader = headerKeys.find(k => k.toLowerCase() === 'x-api-key');\nconst providedKey = apiKeyHeader ? headers[apiKeyHeader] : '';\nconst expectedKey = $env.LANGFLOW_API_KEY;\n\n// Timing-safe comparison - prevents timing attacks on API key\nfunction timingSafeEqual(a, b) {\n  if (typeof a !== 'string' || typeof b !== 'string') return false;\n  const MAX_LEN = 256;\n  if (a.length > MAX_LEN || b.length > MAX_LEN) return false;\n  \n  // Early length check: prevents null-byte suffix attacks\n  if (a.length !== b.length) return false;\n  \n  let result = 0;\n  // Constant-time comparison: always iterate full length, no early exit\n  for (let i = 0; i < a.length; i++) {\n    result |= a.charCodeAt(i) ^ b.charCodeAt(i);\n  }\n  return result === 0;\n}\n\nif (expectedKey && !timingSafeEqual(providedKey || '', expectedKey)) {\n  return [{ json: { valid: false, error: 'Authentication failed' } }];\n}\n\nconst input = $input.first().json || {};\nconst flowId = input.flowId;\nconst inputs = input.inputs || {};\nconst stream = input.stream || false;\nconst flowName = input.flowName;\nconst logLevel = input.logLevel;\nconst tweaks = input.tweaks || {};\nconst refreshLangchainCache = input.refresh_langchain_cache || false;\n\n// Validate flowId - alphanumeric, underscore, hyphen only (no path traversal)\nconst validFlowIdPattern = /^[a-zA-Z0-9_-]+$/;\nif (!flowId || typeof flowId !== 'string' || !validFlowIdPattern.test(flowId)) {\n  return [{ json: { valid: false, error: 'flowId is required and must be alphanumeric, underscore, or hyphen' } }];\n}\n\n// Validate flowId doesn't contain path traversal\nif (flowId.includes('..') || flowId.includes('/') || flowId.includes('\\\\')) {\n  return [{ json: { valid: false, error: 'Invalid flowId: path traversal detected' } }];\n}\n\n// Validate inputs is an object if provided\nif (inputs && (typeof inputs !== 'object' || Array.isArray(inputs))) {\n  return [{ json: { valid: false, error: 'inputs must be an object if provided' } }];\n}\n\n// Validate stream is a boolean if provided\nif (stream !== undefined && typeof stream !== 'boolean') {\n  return [{ json: { valid: false, error: 'stream must be a boolean if provided' } }];\n}\n\n// Validate flowName is a string if provided\nif (flowName !== undefined && typeof flowName !== 'string') {\n  return [{ json: { valid: false, error: 'flowName must be a string if provided' } }];\n}\n\n// Validate logLevel is one of the allowed values if provided\nconst validLogLevels = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'];\nif (logLevel !== undefined) {\n  if (typeof logLevel !== 'string' || !validLogLevels.includes(logLevel.toUpperCase())) {\n    return [{ json: { valid: false, error: 'logLevel must be one of: ' + validLogLevels.join(', ') } }];\n  }\n}\n\n// Validate tweaks is an object if provided\nif (tweaks && (typeof tweaks !== 'object' || Array.isArray(tweaks))) {\n  return [{ json: { valid: false, error: 'tweaks must be an object if provided' } }];\n}\n\n// Validate refresh_langchain_cache is a boolean if provided\nif (refreshLangchainCache !== undefined && typeof refreshLangchainCache !== 'boolean') {\n  return [{ json: { valid: false, error: 'refresh_langchain_cache must be a boolean if provided' } }];\n}\n\nreturn [{\n  json: {\n    valid: true,\n    flowId: flowId,\n    inputs: inputs,\n    stream: stream,\n    flowName: flowName,\n    logLevel: logLevel,\n    tweaks: tweaks,\n    refresh_langchain_cache: refreshLangchainCache\n  }\n}];"
+      },
+      "outputNodes": [],
+      "notesInFlow": false,
+      "notes": "SECURITY: Input validation with timing-safe API key auth (header only, no body fallback, early length check prevents null-byte attacks). Validates flowId format (no path traversal), inputs/tweaks structure, and optional parameters."
+    },
+    {
+      "id": "check_valid",
+      "type": "n8n-nodes-base.if",
+      "name": "Check Valid",
+      "position": [700, 300],
+      "parameters": {
+        "conditions": [
+          {
+            "id": "cond1",
+            "leftValue": "={{ $json.valid }}",
+            "operator": {
+              "operation": "equals",
+              "type": "boolean"
+            },
+            "rightValue": true
+          }
+        ],
+        "combineOperation": "all",
+        "options": {
+          "caseSensitive": true,
+          "leftValue": "",
+          "typeValidation": "strict"
+        }
+      },
+      "outputNodes": [],
+      "notesInFlow": false,
+      "notes": "Branch based on validation result. True branch continues to Langflow Request, false branch goes to Error Response."
+    },
+    {
+      "id": "error_response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "name": "Error Response",
+      "position": [700, 500],
+      "parameters": {
+        "statusCode": 400,
+        "body": "={{ JSON.stringify({ error: $('Validate Input').item.json.error }) }}",
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      },
+      "outputNodes": [],
+      "notesInFlow": false,
+      "notes": "Return HTTP 400 for validation errors. Configured as response node for webhook responseMode."
+    },
+    {
+      "id": "langflow_request",
+      "type": "n8n-nodes-base.httpRequest",
+      "name": "Langflow Request",
+      "position": [850, 300],
+      "parameters": {
+        "url": "={{ ($env.LANGFLOW_HOST || 'http://langflow:7860').replace(/\\/$/, '') }}/api/v1/run/{{ $('Check Valid').item.json.flowId }}",
+        "method": "POST",
+        "body": {
+          "mimeType": "application/json",
+          "raw": "={{ JSON.stringify({\n    inputs: $('Check Valid').item.json.inputs,\n    stream: $('Check Valid').item.json.stream,\n    flow_name: $('Check Valid').item.json.flowName,\n    log_level: $('Check Valid').item.json.logLevel?.toUpperCase(),\n    tweaks: $('Check Valid').item.json.tweaks,\n    refresh_langchain_cache: $('Check Valid').item.json.refresh_langchain_cache\n  }) }}"
+        },
+        "options": {
+          "timeout": 300000,
+          "maxResponseSize": 104857600
+        }
+      },
+      "outputNodes": [],
+      "notesInFlow": false,
+      "notes": "Forward validated inputs to Langflow API. 5 min timeout, 100MB max response."
+    },
+    {
+      "id": "success_response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "name": "Success Response",
+      "position": [1000, 150],
+      "parameters": {
+        "statusCode": 200,
+        "body": "={{ JSON.stringify($('Langflow Request').item.json) }}",
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      },
+      "outputNodes": [],
+      "notesInFlow": false,
+      "notes": "Return Langflow response. Configured as response node for webhook responseMode."
+    }
+  ],
+  "connections": {
+    "webhook": {
+      "main": [
+        [
+          {
+            "node": "validate_input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "validate_input": {
+      "main": [
+        [
+          {
+            "node": "check_valid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check_valid": {
+      "main": [
+        [
+          {
+            "node": "langflow_request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "error_response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "langflow_request": {
+      "main": [
+        [
+          {
+            "node": "success_response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
