@@ -46,7 +46,7 @@
   },
   "gateway": {
     "port": 7860,
-    "bind": "loopback",
+    "bind": "127.0.0.1",
     "controlUi": {
       "allowInsecureAuth": true,
       "dangerouslyDisableDeviceAuth": true,
