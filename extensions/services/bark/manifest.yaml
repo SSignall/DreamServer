@@ -24,7 +24,7 @@ service:
       description: Offload Bark models to CPU between requests (reduces VRAM usage)
       default: "false"
     - name: BARK_API_KEY
-      description: API key for n8n webhook authentication (optional but recommended)
+      description: API key for Bark TTS service authentication (optional; leave empty to disable auth)
       default: ""
   description: |
     Bark is a transformer-based text-to-audio model by Suno AI. Unlike
