@@ -30,7 +30,7 @@
       "parameters": {
         "url": "={{ ($env.RVC_HOST || 'http://rvc:7865').replace(/\/$/, '') }}",
         "method": "POST",
-        "path": "upload",
+        "path": "/upload",
         "body": {
           "mimeType": "multipart/form-data",
           "form-data": [
@@ -57,7 +57,7 @@
       "parameters": {
         "url": "={{ ($env.RVC_HOST || 'http://rvc:7865').replace(/\/$/, '') }}",
         "method": "POST",
-        "path": "convert",
+        "path": "/convert",
         "body": {
           "mimeType": "application/json",
           "raw": "={{ JSON.stringify({ model: $json.model || 'default', audio_path: $json.audio_path }) }}"
