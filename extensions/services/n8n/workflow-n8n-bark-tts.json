@@ -44,52 +44,17 @@
       "comment": "Requires BARK_HOST and BARK_EXTERNAL_PORT environment variables. Defaults to localhost:9200 if not set.",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 1,
-      "position": [450, 200]
+      "position": [450, 300]
     },
     {
       "parameters": {
-        "options": {
-          "channel": "={{ $json.channel || '#general' }}",
-          "text": "={{ $json.text || '' }}",
-          "voice_preset": "={{ $json.voice_preset || 'v2/en_speaker_6' }}",
-          "output_format": "={{ $json.output_format || 'wav' }}"
-        }
-      },
-      "id": "store-input",
-      "name": "Store Input",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 1,
-      "position": [450, 400]
-    },
-    {
-      "parameters": {
-        "mode": "combine",
-        "mergeByFields": {
-          "values": [
-            {
-              "field1": "",
-              "field2": ""
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "merge-nodes",
-      "name": "Merge",
-      "type": "n8n-nodes-base.merge",
-      "typeVersion": 1,
-      "position": [600, 300],
-      "comment": "Combines Bark API response (Input 1) with Store Input (Input 2)"
-    },
-    {
-      "parameters": {
-        "jsCode": "// Access both merged inputs\n// Input 0 (from Bark API Call): contains audio_base64, sample_rate, format\n// Input 1 (from Store Input): contains channel, text, voice_preset, output_format\nconst allInputs = $input.all();\nconst barkResponse = allInputs[0]?.json || {};\nconst stored = allInputs[1]?.json || {};\n\nconst audio_base64 = barkResponse.audio_base64 || '';\nconst sample_rate = barkResponse.sample_rate || 0;\nconst format = barkResponse.format || 'wav';\n\nreturn [{\n  json: {\n    success: !!audio_base64,\n    format: format,\n    sample_rate: sample_rate,\n    audio_size_bytes: audio_base64.length,\n    timestamp: new Date().toISOString(),\n    channel: stored.channel || '#general',\n    text: stored.text || '',\n    voice_preset: stored.voice_preset || 'v2/en_speaker_6',\n    output_format: stored.output_format || 'wav'\n  }\n}];"
+        "jsCode": "// Process Bark response - merge with original webhook input\n// $input.all() provides both Bark API response and Webhook Trigger payload\nconst allInputs = $input.all();\nconst barkResponse = allInputs[0]?.json || {};\nconst webhookInput = allInputs[1]?.json || {};\n\nconst audio_base64 = barkResponse.audio_base64 || '';\nconst sample_rate = barkResponse.sample_rate || 0;\nconst format = barkResponse.format || 'wav';\n\nreturn [{\n  json: {\n    success: !!audio_base64,\n    format: format,\n    sample_rate: sample_rate,\n    audio_size_bytes: audio_base64.length,\n    timestamp: new Date().toISOString(),\n    channel: webhookInput.channel || '#general',\n    text: webhookInput.text || '',\n    voice_preset: webhookInput.voice_preset || 'v2/en_speaker_6',\n    output_format: webhookInput.output_format || 'wav'\n  }\n}];"
       },
       "id": "process-response",
       "name": "Process Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
-      "position": [750, 300]
+      "position": [650, 300]
     },
     {
       "parameters": {
@@ -100,19 +65,19 @@
       "name": "Discord Output",
       "type": "n8n-nodes-base.discord",
       "typeVersion": 1,
-      "position": [900, 300],
+      "position": [850, 300],
       "comment": "Sends success notification to the channel specified in the webhook input (or #general if not provided)"
     },
     {
       "parameters": {
         "channel": "={{ $('Webhook Trigger').first().json.channel || '#general' }}",
-        "text": "={{ '*Bark TTS Failed*\n\n**Error:** ' + (($json.message || $json.error || $json.description || (typeof $json === 'string' ? $json : 'Unknown error')).toString().slice(0, 200)) + '\n**Status:** ' + ($json.statusCode || $json.code || 'N/A') + '\n\nPlease check the Bark service and try again.' }}"
+        "text": "={{ '*Bark TTS Failed*\n\n**Error:** ' + (($json.message || $json.error || $json.description || (typeof $json === 'string' ? $json : 'Unknown error')).toString().slice(0, 1000)) + '\n**Status:** ' + (($json.statusCode || $json.code || 'N/A').toString().slice(0, 100) || 'N/A') + '\n\nPlease check the Bark service and try again.' }}"
       },
       "id": "discord-error",
       "name": "Discord Error",
       "type": "n8n-nodes-base.discord",
       "typeVersion": 1,
-      "position": [450, 550],
+      "position": [450, 500],
       "comment": "Sends error notification to the channel specified in the webhook input. Uses $('Webhook Trigger') to access original input since error flow receives error object from failing node, not the original payload."
     }
   ],
@@ -126,9 +91,9 @@
             "index": 0
           },
           {
-            "node": "Store Input",
+            "node": "Process Response",
             "type": "main",
-            "index": 0
+            "index": 1
           }
         ]
       ]
@@ -137,7 +102,7 @@
       "main": [
         [
           {
-            "node": "Merge",
+            "node": "Process Response",
             "type": "main",
             "index": 0
           }
@@ -147,28 +112,6 @@
         [
           {
             "node": "Discord Error",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Store Input": {
-      "main": [
-        [
-          {
-            "node": "Merge",
-            "type": "main",
-            "index": 1
-          }
-        ]
-      ]
-    },
-    "Merge": {
-      "main": [
-        [
-          {
-            "node": "Process Response",
             "type": "main",
             "index": 0
           }
