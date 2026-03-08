@@ -7,7 +7,7 @@ service:
   container_name: dream-frigate
   host_env: FRIGATE_HOST
   default_host: frigate
-  port: 8971
+  port: 5000
   external_port_env: FRIGATE_PORT
   external_port_default: 8971
   health: /api/version

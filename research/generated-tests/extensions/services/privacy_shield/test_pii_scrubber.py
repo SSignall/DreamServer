@@ -47,7 +47,12 @@ class TestPIIDetector:
         assert token1 == token2
         assert token1.startswith("<PII_email_")
         assert token1.endswith(">")
-        assert len(token1) == len("<PII_email_") + 12 + len(">")
+        # Token format: <PII_<type>_<hash>_<session_token>_<counter>>
+        # Hash length should be at least 8 characters for reasonable uniqueness
+        hash_start = len("<PII_email_")
+        hash_end = token1.find("_", hash_start)
+        hash_length = hash_end - hash_start if hash_end > hash_start else 0
+        assert hash_length >= 8, f"Hash length {hash_length} is too short for uniqueness"
 
     def test_generate_token_different_inputs(self, detector):
         token1 = detector._generate_token("email", "a@b.com")

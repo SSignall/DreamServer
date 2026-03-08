@@ -17,7 +17,7 @@
     },
     {
       "parameters": {
-        "url": "http://{{ $env.WHISPER_HOST | default('localhost') }}:{{ $env.WHISPER_PORT | default('9000') }}/inference",
+        "url": "={{ 'http://' + ($env.WHISPER_HOST || 'localhost') + ':' + ($env.WHISPER_PORT || '9000') + '/inference' }",
         "method": "POST",
         "headers": {
           "list": [
@@ -28,7 +28,7 @@
           ]
         },
         "body": {
-          "file": "={{ $json.file || $json.audio }}"
+          "file": "={{ $binary.file ? $binary.file : $json.file }}"
         },
         "options": {
           "timeout": 120000
@@ -46,14 +46,14 @@
       },
       "id": "process-stt-response",
       "name": "Process STT Response",
-      "type": "n8n-nodes-base.functions",
+      "type": "n8n-nodes-base.code",
       "typeVersion": 1,
       "position": [650, 300]
     },
     {
       "parameters": {
         "channel": "={{ $json.channel || '#general' }}",
-        "text": "={{ `*Audio Transcribed*\\n\\n**Language:** ${$json.language}\\n**Duration:** ${$json.duration_seconds.toFixed(1)}s\\n**Characters:** ${$json.character_count}` }}"
+        "text": "={{ '*Audio Transcribed*\\n\\n**Language:** ' + $json.language + '\\n**Duration:** ' + ($json.duration_seconds || 0).toFixed(1) + 's\\n**Characters:** ' + $json.character_count }}"
       },
       "id": "stt-discord-output",
       "name": "Discord Output",
