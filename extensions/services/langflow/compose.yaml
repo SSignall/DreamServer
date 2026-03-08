@@ -10,7 +10,7 @@ services:
     environment:
       - LANGFLOW_HOST=0.0.0.0
       - LANGFLOW_PORT=7860
-      - LLM_API_URL=${LLM_API_URL:-http://llama-server:8000}
+      - LLM_API_URL=${LLM_API_URL:-http://llama-server:8080}
     volumes:
       - ./data/langflow:/app/data
     ports:
