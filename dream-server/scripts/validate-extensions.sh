@@ -7,6 +7,9 @@
 #   - Compose file syntax, healthchecks, security, pinned images
 #   - Port conflict detection across all extensions
 #   - Duplicate environment variable detection
+#   - Docker network connectivity (dream-network)
+#   - Health endpoint consistency (manifest vs compose)
+#   - Dangerous volume mounts and hardcoded passwords
 #
 # Usage: bash scripts/validate-extensions.sh [--strict]
 #   --strict: Treat warnings as failures (for CI gating)
@@ -91,7 +94,7 @@ echo -e "Found ${#extensions[@]} extensions to validate"
 # ============================================================================
 # CHECK 1: Manifest Presence
 # ============================================================================
-header "1/8" "Manifest Presence"
+header "1/13" "Manifest Presence"
 
 for ext in "${extensions[@]}"; do
     if [[ -f "$EXT_DIR/$ext/manifest.yaml" ]]; then
@@ -104,7 +107,7 @@ done
 # ============================================================================
 # CHECK 2: Manifest Schema Validation
 # ============================================================================
-header "2/8" "Manifest Schema & ID Match"
+header "2/13" "Manifest Schema & ID Match"
 
 for ext in "${extensions[@]}"; do
     manifest="$EXT_DIR/$ext/manifest.yaml"
@@ -164,7 +167,7 @@ done
 # ============================================================================
 # CHECK 3: Compose File Presence & Syntax
 # ============================================================================
-header "3/8" "Compose Files"
+header "3/13" "Compose Files"
 
 for ext in "${extensions[@]}"; do
     manifest="$EXT_DIR/$ext/manifest.yaml"
@@ -216,7 +219,7 @@ done
 # ============================================================================
 # CHECK 4: No Floating Docker Tags (:latest)
 # ============================================================================
-header "4/8" "Pinned Docker Images (no :latest)"
+header "4/13" "Pinned Docker Images (no :latest)"
 
 for ext in "${extensions[@]}"; do
     compose="$EXT_DIR/$ext/compose.yaml"
@@ -259,7 +262,7 @@ done
 # ============================================================================
 # CHECK 5: Healthchecks Present
 # ============================================================================
-header "5/8" "Healthchecks"
+header "5/13" "Healthchecks"
 
 for ext in "${extensions[@]}"; do
     compose="$EXT_DIR/$ext/compose.yaml"
@@ -314,7 +317,7 @@ done
 # ============================================================================
 # CHECK 6: Security Options (no-new-privileges)
 # ============================================================================
-header "6/8" "Security Options"
+header "6/13" "Security Options"
 
 for ext in "${extensions[@]}"; do
     compose="$EXT_DIR/$ext/compose.yaml"
@@ -350,7 +353,7 @@ done
 # ============================================================================
 # CHECK 7: Resource Limits (warning only)
 # ============================================================================
-header "7/8" "Resource Limits"
+header "7/13" "Resource Limits"
 
 for ext in "${extensions[@]}"; do
     compose="$EXT_DIR/$ext/compose.yaml"
@@ -387,7 +390,7 @@ done
 # ============================================================================
 # CHECK 8: Port Conflicts & Duplicate Env Vars
 # ============================================================================
-header "8/8" "Port Conflicts & Duplicate Env Vars"
+header "8/13" "Port Conflicts & Duplicate Env Vars"
 
 # Port conflict detection across all manifests
 port_map=$(python3 -c "
@@ -473,6 +476,302 @@ else:
         pass "No duplicate env vars: $ext"
     elif [[ "$result" == DUPES:* ]]; then
         fail "Duplicate env vars: $ext" "${result#DUPES:}"
+    fi
+done
+
+# ============================================================================
+# CHECK 9: Docker Network (dream-network)
+# ============================================================================
+header "9/13" "Docker Network (dream-network)"
+
+for ext in "${extensions[@]}"; do
+    compose="$EXT_DIR/$ext/compose.yaml"
+    [[ ! -f "$compose" ]] && continue
+
+    result=$(python3 -c "
+import yaml, sys
+with open(sys.argv[1]) as f:
+    doc = yaml.safe_load(f)
+if not doc:
+    print('OK')
+    sys.exit(0)
+
+services = doc.get('services', {})
+networks = doc.get('networks', {})
+missing = []
+
+# Check if dream-network is defined at top level
+has_top_level = 'dream-network' in networks
+
+for svc_name, svc in services.items():
+    svc_networks = svc.get('networks', [])
+    if isinstance(svc_networks, dict):
+        svc_nets = list(svc_networks.keys())
+    elif isinstance(svc_networks, list):
+        svc_nets = svc_networks
+    else:
+        svc_nets = []
+    if 'dream-network' not in svc_nets:
+        missing.append(svc_name)
+
+if missing:
+    print('MISSING:' + ', '.join(missing))
+elif not has_top_level:
+    print('NO_TOP_LEVEL')
+else:
+    print('OK')
+" "$compose" 2>&1)
+
+    if [[ "$result" == "OK" ]]; then
+        pass "dream-network connected: $ext"
+    elif [[ "$result" == "NO_TOP_LEVEL" ]]; then
+        fail "dream-network not defined in networks: $ext" "Add networks: { dream-network: { external: true } }"
+    elif [[ "$result" == MISSING:* ]]; then
+        fail "Services not on dream-network: $ext" "${result#MISSING:}"
+    fi
+done
+
+# ============================================================================
+# CHECK 10: Health Endpoint Consistency
+# ============================================================================
+header "10/13" "Health Endpoint Consistency (manifest vs compose)"
+
+for ext in "${extensions[@]}"; do
+    manifest="$EXT_DIR/$ext/manifest.yaml"
+    compose="$EXT_DIR/$ext/compose.yaml"
+    [[ ! -f "$manifest" || ! -f "$compose" ]] && continue
+
+    result=$(python3 -c "
+import yaml, sys, re
+
+with open(sys.argv[1]) as f:
+    m = yaml.safe_load(f)
+with open(sys.argv[2]) as f:
+    c = yaml.safe_load(f)
+
+svc = m.get('service', {})
+health_path = svc.get('health', '')
+port = svc.get('port')
+
+# Skip CLI tools (health: '')
+if health_path == '' or health_path is None:
+    print('SKIP')
+    sys.exit(0)
+
+if not c:
+    print('SKIP')
+    sys.exit(0)
+
+services = c.get('services', {})
+mismatches = []
+for svc_name, svc_def in services.items():
+    hc = svc_def.get('healthcheck', {})
+    test = hc.get('test', [])
+    if isinstance(test, list):
+        test_str = ' '.join(str(t) for t in test)
+    else:
+        test_str = str(test)
+
+    # Extract URL from healthcheck (curl/wget commands)
+    url_match = re.search(r'https?://[^\s\"]+', test_str)
+    if not url_match:
+        continue
+
+    hc_url = url_match.group(0)
+
+    # Check if manifest health path appears in healthcheck URL
+    if health_path and health_path not in hc_url:
+        mismatches.append(f'{svc_name}: manifest says {health_path}, compose checks {hc_url}')
+
+if mismatches:
+    print('MISMATCH:' + '; '.join(mismatches))
+else:
+    print('OK')
+" "$manifest" "$compose" 2>&1)
+
+    if [[ "$result" == "OK" ]]; then
+        pass "Health endpoints consistent: $ext"
+    elif [[ "$result" == "SKIP" ]]; then
+        continue
+    elif [[ "$result" == MISMATCH:* ]]; then
+        warn "Health endpoint mismatch: $ext" "${result#MISMATCH:}"
+    fi
+done
+
+# ============================================================================
+# CHECK 11: Compose Port Conflicts
+# ============================================================================
+header "11/13" "Compose Port Mapping Conflicts"
+
+# Scan all compose files for host port bindings and detect collisions
+compose_ports=$(python3 -c "
+import yaml, os, sys, json, re
+
+ext_dir = sys.argv[1]
+ports = {}  # host_port -> [service_ids]
+
+for name in sorted(os.listdir(ext_dir)):
+    compose = os.path.join(ext_dir, name, 'compose.yaml')
+    if not os.path.isfile(compose):
+        continue
+    with open(compose) as f:
+        doc = yaml.safe_load(f)
+    if not doc:
+        continue
+    services = doc.get('services', {})
+    for svc_name, svc in services.items():
+        for p in svc.get('ports', []):
+            p_str = str(p)
+            # Extract host port from mappings like '8080:80', '0.0.0.0:8080:80'
+            parts = p_str.split(':')
+            if len(parts) >= 2:
+                host_port = parts[-2].strip()
+                # Remove IP binding if present
+                if '.' in host_port:
+                    continue  # skip, the port is the last numeric part
+                try:
+                    hp = int(host_port)
+                    ports.setdefault(hp, []).append(f'{name}/{svc_name}')
+                except ValueError:
+                    pass
+
+conflicts = {str(p): svcs for p, svcs in ports.items() if len(svcs) > 1}
+if conflicts:
+    print('CONFLICTS:' + json.dumps(conflicts))
+else:
+    print('OK')
+" "$EXT_DIR" 2>&1)
+
+if [[ "$compose_ports" == "OK" ]]; then
+    pass "No compose port mapping conflicts"
+elif [[ "$compose_ports" == CONFLICTS:* ]]; then
+    conflict_json="${compose_ports#CONFLICTS:}"
+    python3 -c "
+import json, sys
+conflicts = json.loads(sys.argv[1])
+for port, svcs in conflicts.items():
+    print(f'  Host port {port}: {\" vs \".join(svcs)}')
+" "$conflict_json"
+    fail "Compose port mapping conflicts detected" "Multiple services bind the same host port"
+fi
+
+# ============================================================================
+# CHECK 12: Dangerous Volume Mounts
+# ============================================================================
+header "12/13" "Dangerous Volume Mounts"
+
+for ext in "${extensions[@]}"; do
+    compose="$EXT_DIR/$ext/compose.yaml"
+    [[ ! -f "$compose" ]] && continue
+
+    result=$(python3 -c "
+import yaml, sys, re
+
+with open(sys.argv[1]) as f:
+    doc = yaml.safe_load(f)
+if not doc:
+    print('OK')
+    sys.exit(0)
+
+services = doc.get('services', {})
+dangerous = []
+patterns = [
+    (r'~/', 'mounts home directory'),
+    (r'\\\$HOME', 'mounts home directory'),
+    (r'\\\${HOME}', 'mounts home directory'),
+    (r'\.ssh', 'mounts SSH keys'),
+    (r'\.gnupg', 'mounts GPG keys'),
+    (r'\.aws', 'mounts AWS credentials'),
+    (r'/etc/shadow', 'mounts shadow file'),
+    (r'/etc/passwd', 'mounts passwd file'),
+    (r'\\\${PWD}:/[^:]*$', 'mounts entire project directory'),
+    (r'\.:/[^:]*$', 'mounts entire current directory'),
+]
+
+for svc_name, svc in services.items():
+    volumes = svc.get('volumes', [])
+    for v in volumes:
+        v_str = str(v)
+        # Handle dict-style volumes
+        if isinstance(v, dict):
+            v_str = v.get('source', '') + ':' + v.get('target', '')
+        for pattern, reason in patterns:
+            if re.search(pattern, v_str):
+                dangerous.append(f'{svc_name}: {v_str} ({reason})')
+                break
+
+if dangerous:
+    print('DANGEROUS:' + '; '.join(dangerous))
+else:
+    print('OK')
+" "$compose" 2>&1)
+
+    if [[ "$result" == "OK" ]]; then
+        pass "No dangerous mounts: $ext"
+    elif [[ "$result" == DANGEROUS:* ]]; then
+        fail "Dangerous volume mount: $ext" "${result#DANGEROUS:}"
+    fi
+done
+
+# ============================================================================
+# CHECK 13: Hardcoded Passwords
+# ============================================================================
+header "13/13" "Hardcoded Passwords"
+
+for ext in "${extensions[@]}"; do
+    compose="$EXT_DIR/$ext/compose.yaml"
+    [[ ! -f "$compose" ]] && continue
+
+    result=$(python3 -c "
+import yaml, sys, re
+
+with open(sys.argv[1]) as f:
+    doc = yaml.safe_load(f)
+if not doc:
+    print('OK')
+    sys.exit(0)
+
+services = doc.get('services', {})
+hardcoded = []
+password_keys = re.compile(r'(PASSWORD|SECRET|TOKEN|API_KEY)', re.IGNORECASE)
+
+for svc_name, svc in services.items():
+    env = svc.get('environment', {})
+    if isinstance(env, list):
+        pairs = {}
+        for e in env:
+            if isinstance(e, str) and '=' in e:
+                k, v = e.split('=', 1)
+                pairs[k] = v
+        env = pairs
+    elif not isinstance(env, dict):
+        continue
+
+    for key, val in env.items():
+        if not password_keys.search(key):
+            continue
+        val_str = str(val).strip()
+        # Skip if it's an env var reference like \${FOO} or empty
+        if not val_str or val_str.startswith('\${') or val_str == 'None':
+            continue
+        # Skip common placeholder patterns
+        if val_str in ('changeme', 'CHANGEME', 'change_me'):
+            # These are still bad but at least obviously placeholders
+            hardcoded.append(f'{svc_name}: {key}={val_str} (placeholder — use env var)')
+            continue
+        # Flag actual hardcoded values
+        hardcoded.append(f'{svc_name}: {key} is hardcoded')
+
+if hardcoded:
+    print('HARDCODED:' + '; '.join(hardcoded))
+else:
+    print('OK')
+" "$compose" 2>&1)
+
+    if [[ "$result" == "OK" ]]; then
+        pass "No hardcoded passwords: $ext"
+    elif [[ "$result" == HARDCODED:* ]]; then
+        warn "Hardcoded credentials: $ext" "${result#HARDCODED:}"
     fi
 done
 
