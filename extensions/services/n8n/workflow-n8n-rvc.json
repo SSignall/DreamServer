@@ -11,21 +11,21 @@
       },
       "id": "rvc-webhook-trigger",
       "name": "Webhook Trigger",
-      "comment": "Accepts JSON: { model (required), audio_path (required), audio (required, base64), channel (optional) }",
+      "comment": "Accepts JSON: { model (required), audio_path (required), audio (required, base64), channel (optional), pitch (optional), f0_method (optional) }",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
       "position": [250, 300]
     },
     {
       "parameters": {
-        "jsCode": "const model = $input.first().json.model || '';\nconst audioPath = $input.first().json.audio_path || '';\nconst audio = $input.first().json.audio || '';\n\n// Path traversal detection: check for ../, ..\\\\, and encoded variants\nconst pathTraversalPattern = /(\\.\\.[/\\\\\\\\]|%2e%2e[/\\\\\\\\]|\\.\\.\\\\\\\\x5c)/i;\n\n// Check model name (alphanumeric, dash, underscore only - NO backslashes)\nconst validModelPattern = /^[a-zA-Z0-9_-]+$/;\n\nif (!model) {\n  throw new Error('Missing required field: model');\n}\nif (!audio && !audioPath) {\n  throw new Error('Missing required field: audio or audio_path');\n}\nif (pathTraversalPattern.test(audioPath)) {\n  throw new Error('Path traversal detected: audio_path must not contain directory traversal sequences');\n}\nif (!validModelPattern.test(model)) {\n  throw new Error('Invalid model name: must be alphanumeric, dash, or underscore only');\n}\nif (model.length > 100) {\n  throw new Error('Model name too long: max 100 characters');\n}\n\nreturn [{\n  json: {\n    model: model,\n    audio: audio,\n    audio_path: audioPath,\n    channel: $input.first().json.channel || '#general',\n    pitch: $input.first().json.pitch || 0,\n    f0_method: $input.first().json.f0_method || 'rmvpe'\n  }\n}];"
+        "jsCode": "const input = $input.first().json || {};\nconst model = input.model || '';\nconst audioPath = input.audio_path || '';\nconst audio = input.audio || '';\nconst pitch = input.pitch;\nconst f0_method = input.f0_method || 'rmvpe';\n\n// === PATH TRAVERSAL PROTECTION ===\n// Block: ../, ..\\, encoded variants, null bytes, absolute paths\nconst pathTraversalPattern = /(\\.\\.[/\\\\\\\\]|%2e%2e[/\\\\\\\\]|%252e%252e|\\x5c\\x5c|\\x2e\\x2e|%00|\\x00|^\\/|^[a-zA-Z]:\\\\\\\\)/i;\n\n// === MODEL VALIDATION ===\n// Alphanumeric, dash, underscore only - NO backslashes or slashes\nconst validModelPattern = /^[a-zA-Z0-9_-]+$/;\n\n// === PITCH VALIDATION ===\n// Must be numeric between -20 and 20 semitones\nconst pitchNum = parseFloat(pitch);\nif (isNaN(pitchNum) || pitchNum < -20 || pitchNum > 20) {\n  throw new Error('Invalid pitch: must be a number between -20 and 20 semitones');\n}\n\n// === F0_METHOD ALLOWLIST ===\nconst validF0Methods = ['rmvpe', 'pm', 'harvest', 'dio', 'crepe', 'crepe-tiny', 'mangio-crepe', 'mangio-crepe-tiny'];\nif (!validF0Methods.includes(f0_method)) {\n  throw new Error('Invalid f0_method: must be one of ' + validF0Methods.join(', '));\n}\n\n// === REQUIRED FIELD CHECKS ===\nif (!model) {\n  throw new Error('Missing required field: model');\n}\nif (!audio && !audioPath) {\n  throw new Error('Missing required field: audio or audio_path');\n}\n\n// === PATH VALIDATION ===\nif (audioPath) {\n  if (pathTraversalPattern.test(audioPath)) {\n    throw new Error('Path traversal detected: audio_path contains invalid sequences');\n  }\n  // Additional: normalize and re-check for unicode tricks\n  const normalizedPath = audioPath.normalize('NFC');\n  if (normalizedPath !== audioPath && pathTraversalPattern.test(normalizedPath)) {\n    throw new Error('Path traversal detected: audio_path contains unicode-normalized traversal');\n  }\n}\n\n// === MODEL VALIDATION ===\nif (!validModelPattern.test(model)) {\n  throw new Error('Invalid model name: must be alphanumeric, dash, or underscore only');\n}\nif (model.length > 100) {\n  throw new Error('Model name too long: max 100 characters');\n}\n\nreturn [{\n  json: {\n    model: model,\n    audio: audio,\n    audio_path: audioPath,\n    channel: input.channel || '#general',\n    pitch: pitchNum,\n    f0_method: f0_method\n  }\n}];"
       },
       "id": "validate-input",
       "name": "Validate Input",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
       "position": [450, 300],
-      "comment": "Validates model name (alphanumeric, dash, underscore only). Blocks path traversal attempts."
+      "comment": "Validates: model name (alphanumeric, dash, underscore), path traversal (../, null bytes, absolute paths, double encoding), pitch (-20 to 20), f0_method (allowlist)"
     },
     {
       "parameters": {
@@ -55,7 +55,7 @@
       },
       "id": "rvc-upload",
       "name": "RVC Upload",
-      "comment": "Requires RVC_HOST and RVC_PORT environment variables. In docker-compose, RVC service is at 'rvc:7865'.",
+      "comment": "Requires RVC_HOST and RVC_PORT environment variables. Defaults to localhost:7865 ONLY for development.",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 1,
       "position": [650, 300]
@@ -74,7 +74,7 @@
         },
         "body": {
           "mimeType": "application/json",
-          "raw": "={{ JSON.stringify({ model: $('Validate Input').first().json.model, audio_path: $('Validate Input').first().json.audio_path || $json.path || '', pitch: $('Validate Input').first().json.pitch, f0_method: $('Validate Input').first().json.f0_method }) }}"
+          "raw": "={{ JSON.stringify({\n  model: $('Validate Input').first().json.model,\n  audio_path: $json.path ? ($json.path.match(/^\\/tmp\\/[a-zA-Z0-9_-]+\\.[a-zA-Z0-9]+$/) ? $json.path : $('Validate Input').first().json.audio_path) : $('Validate Input').first().json.audio_path,\n  pitch: $('Validate Input').first().json.pitch,\n  f0_method: $('Validate Input').first().json.f0_method\n}) }}"
         },
         "options": {
           "timeout": 300000
@@ -82,21 +82,21 @@
       },
       "id": "rvc-convert",
       "name": "RVC Convert",
-      "comment": "Uses validated inputs from Validate Input node. 5 minute timeout for voice conversion.",
+      "comment": "Uses validated inputs. Re-validates upload response path against strict pattern (/tmp/<alphanumeric>.<ext>) before use.",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 1,
       "position": [850, 300]
     },
     {
       "parameters": {
-        "jsCode": "// Process RVC conversion response\nconst body = $input.first().json || {};\nconst validatedInput = $('Validate Input').first().json || {};\n\nconst downloadUrl = body.download_url || body.url || '';\nconst success = !!downloadUrl;\n\nreturn [{\n  json: {\n    success: success,\n    model: validatedInput.model || 'unknown',\n    pitch: validatedInput.pitch || 0,\n    f0_method: validatedInput.f0_method || 'rmvpe',\n    download_url: downloadUrl,\n    channel: validatedInput.channel || '#general',\n    timestamp: new Date().toISOString()\n  }\n}];"
+        "jsCode": "try {\n  // Process RVC conversion response\n  const body = $input.first().json || {};\n  const validatedInput = $('Validate Input').first().json || {};\n\n  const downloadUrl = body.download_url || body.url || '';\n  const success = !!downloadUrl;\n\n  // Validate download URL doesn't contain traversal\n  if (downloadUrl && /(\\.\\.|\\x00|%00)/.test(downloadUrl)) {\n    throw new Error('Invalid download URL: contains suspicious sequences');\n  }\n\n  return [{\n    json: {\n      success: success,\n      model: validatedInput.model || 'unknown',\n      pitch: validatedInput.pitch || 0,\n      f0_method: validatedInput.f0_method || 'rmvpe',\n      download_url: downloadUrl,\n      channel: validatedInput.channel || '#general',\n      timestamp: new Date().toISOString()\n    }\n  }];\n} catch (err) {\n  throw new Error('Process Response failed: ' + err.message);\n}"
       },
       "id": "process-response",
       "name": "Process Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
       "position": [1050, 300],
-      "comment": "Uses $('Validate Input') to access validated payload fields directly"
+      "comment": "Uses $('Validate Input') for validated payload. Validates download_url for traversal. Wrapped in try/catch with explicit error throwing."
     },
     {
       "parameters": {
@@ -112,14 +112,14 @@
     {
       "parameters": {
         "channel": "={{ $('Webhook Trigger').first().json.channel || '#general' }}",
-        "text": "={{ '*RVC Conversion Failed* ❌\\n\\n**Error:** ' + (($input.all()[0]?.error?.message || $input.all()[0]?.error?.description || 'Unknown error')).toString().slice(0, 997).trimEnd() + '\\n\\nPlease check:\\n- RVC service is running\\n- Model name is valid (alphanumeric, dash, underscore)\\n- Audio file is provided\\n- GPU has sufficient VRAM' }}"
+        "text": "={{ '*RVC Conversion Failed* ❌\\n\\n**Error:** ' + (($input.all()[0]?.error?.message || $input.all()[0]?.error?.description || 'Unknown error')).toString().slice(0, 997).trimEnd() + '\\n\\nPlease check:\\n- RVC service is running\\n- Model name is valid (alphanumeric, dash, underscore)\\n- Audio file is provided\\n- Pitch is between -20 and 20\\n- f0_method is valid (rmvpe, pm, harvest, dio, crepe, etc.)\\n- GPU has sufficient VRAM' }}"
       },
       "id": "discord-error",
       "name": "Discord Error",
       "type": "n8n-nodes-base.discord",
       "typeVersion": 1,
       "position": [650, 500],
-      "comment": "Uses $('Webhook Trigger') for channel (available when validation fails); $input.all()[0].error for error details"
+      "comment": "Uses $('Webhook Trigger') for channel. Catches errors from Validate Input, RVC Upload, RVC Convert, Process Response."
     }
   ],
   "connections": {
@@ -199,6 +199,15 @@
         [
           {
             "node": "Discord Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "error": [
+        [
+          {
+            "node": "Discord Error",
             "type": "main",
             "index": 0
           }
