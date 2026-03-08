@@ -147,11 +147,13 @@ async def check_service_health(service_id: str, config: dict) -> ServiceStatus:
     response_time = None
     last_error = None
 
-    for endpoint in endpoints:
-        url = f"http://{host}:{config['port']}{endpoint}"
-        try:
-            start = asyncio.get_event_loop().time()
-            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=3)) as session:
+    # Create session once outside the loop to avoid connection pool overhead
+    timeout = aiohttp.ClientTimeout(total=3)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
+        for endpoint in endpoints:
+            url = f"http://{host}:{config['port']}{endpoint}"
+            try:
+                start = asyncio.get_event_loop().time()
                 async with session.get(url) as resp:
                     response_time = (asyncio.get_event_loop().time() - start) * 1000
                     if resp.status < 500:
@@ -162,17 +164,19 @@ async def check_service_health(service_id: str, config: dict) -> ServiceStatus:
                         break
                     else:
                         status = "unhealthy"
-        except aiohttp.ClientConnectorError as e:
-            if "Name or service not known" in str(e) or "nodename nor servname" in str(e):
-                status = "not_deployed"
-                break
-            else:
+            except aiohttp.ClientConnectorError as e:
+                # Check for DNS resolution failures (platform-agnostic)
+                e_str = str(e).lower()
+                if any(x in e_str for x in ["name or service not known", "nodename nor servname", "getaddrinfo failed", "name resolution"]):
+                    status = "not_deployed"
+                    break
+                else:
+                    last_error = str(e)
+                    continue
+            except Exception as e:
                 last_error = str(e)
+                logger.debug(f"Health check failed for {service_id} at {url}: {e}")
                 continue
-        except Exception as e:
-            last_error = str(e)
-            logger.debug(f"Health check failed for {service_id} at {url}: {e}")
-            continue
 
     if status == "unknown" and last_error:
         logger.debug(f"Health check failed for {service_id} (tried {endpoints}): {last_error}")

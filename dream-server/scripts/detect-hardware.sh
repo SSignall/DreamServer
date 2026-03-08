@@ -26,11 +26,18 @@ detect_os() {
     fi
 }
 
-# Detect NVIDIA GPU
+# Detect NVIDIA GPU(s)
+# Returns one line per GPU. Use 'detect_nvidia | head -1' for first GPU only,
+# or 'detect_nvidia | wc -l' to count GPUs.
 detect_nvidia() {
     if command -v nvidia-smi &>/dev/null; then
-        nvidia-smi --query-gpu=name,memory.total --format=csv,noheader,nounits 2>/dev/null | head -1
+        nvidia-smi --query-gpu=name,memory.total --format=csv,noheader,nounits 2>/dev/null
     fi
+}
+
+# Detect NVIDIA GPU (first GPU only - for single-GPU contexts)
+detect_nvidia_first() {
+    detect_nvidia | head -1
 }
 
 # Detect AMD GPU via sysfs (works without ROCm installed)

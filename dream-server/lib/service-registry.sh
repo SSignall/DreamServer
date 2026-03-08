@@ -4,15 +4,44 @@
 
 # Resolve extensions dir: if SCRIPT_DIR is set, go up one level (we're in dream-server/)
 # Otherwise assume we're running from repo root or dream-server/
+_safe_cd() {
+    local target="$1"
+    # Reject paths with traversal sequences
+    if [[ "$target" == *".."* ]] || [[ "$target" == *"//"* ]]; then
+        echo "Invalid path (traversal detected): $target" >&2
+        return 1
+    fi
+    cd "$target" 2>/dev/null || {
+        echo "Directory does not exist: $target" >&2
+        return 1
+    }
+    pwd
+}
+
 if [[ -n "${SCRIPT_DIR:-}" ]]; then
-    EXTENSIONS_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)/extensions/services"
+    # Validate SCRIPT_DIR exists and doesn't contain traversal
+    if [[ "$SCRIPT_DIR" == *".."* ]]; then
+        echo "ERROR: SCRIPT_DIR contains path traversal: $SCRIPT_DIR" >&2
+        exit 1
+    fi
+    if [[ ! -d "$SCRIPT_DIR" ]]; then
+        echo "ERROR: SCRIPT_DIR does not exist: $SCRIPT_DIR" >&2
+        exit 1
+    fi
+    EXTENSIONS_DIR="$(_safe_cd "${SCRIPT_DIR}/..")/extensions/services"
 else
     # Try repo root first, then dream-server parent
     if [[ -d "./extensions/services" ]]; then
         EXTENSIONS_DIR="$(pwd)/extensions/services"
     else
-        EXTENSIONS_DIR="$(cd "$(pwd)/.." && pwd)/extensions/services"
+        EXTENSIONS_DIR="$(_safe_cd "$(pwd)/..")/extensions/services"
     fi
+fi
+
+# Final validation: EXTENSIONS_DIR must exist
+if [[ ! -d "$EXTENSIONS_DIR" ]]; then
+    echo "ERROR: Extensions directory not found: $EXTENSIONS_DIR" >&2
+    exit 1
 fi
 _SR_LOADED=false
 _SR_CACHE="/tmp/dream-service-registry.$$.sh"
