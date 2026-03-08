@@ -9,7 +9,7 @@ services:
     volumes:
       - ./data/jupyter/workspaces:/home/jovyan/work
       - ./data/jupyter/notebooks:/home/jovyan/notebooks
-      - jupyter-workspace:/home/jovyan/workspace
+      - ./data/jupyter/workspace:/home/jovyan/workspace
     environment:
       - LLM_API_URL=${LLM_API_URL:-http://localhost:8000}
       - JUPYTER_TOKEN=${JUPYTER_TOKEN:-jupyter}
@@ -32,8 +32,7 @@ services:
     networks:
       - dream-network
 
-volumes:
-  jupyter-workspace:
+# Named volumes removed — using bind mounts only
 
 networks:
   dream-network:

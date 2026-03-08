@@ -6,7 +6,8 @@ services:
     container_name: aider
     volumes:
       - ./data/aider:/app
-      - aider-gitconfig:/home/aider/.gitconfig:ro
+      # Git config: mount from host if available, otherwise use container defaults
+      - ${HOME}/.gitconfig:/home/aider/.gitconfig:ro
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
@@ -29,8 +30,7 @@ services:
       - dream-network
     command: ["sh", "-c", "echo 'Run: docker compose run --rm aider <files>'"]
 
-volumes:
-  aider-gitconfig:
+# Named volumes removed — using bind mounts only
 
 networks:
   dream-network:
