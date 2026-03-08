@@ -261,4 +261,38 @@ def test_tts_generation_error(mock_bark_generate_audio):
 
 def test_tts_stream_generation_error(mock_bark_generate_audio):
     """Test TTS stream when bark.generate_audio raises an exception."""
-    mock_bark_generate_audio.side_effect = Exception("Bark error
+    mock_bark_generate_audio.side_effect = Exception("Bark error")
+    with patch("extensions.services.bark.server._models_loaded", True):
+        response = client.post("/tts/stream", json={
+            "text": "Hello, world!",
+        })
+        assert response.status_code == 500
+        assert "TTS generation failed" in response.json()["detail"]
+
+
+def test_load_models_thread_safety(mock_bark_preload_models):
+    """Test that model loading is thread-safe."""
+    # Reset global state
+    server._models_loaded = False
+
+    results = []
+    errors = []
+
+    def load_and_check():
+        try:
+            server._load_models()
+            results.append(server._models_loaded)
+        except Exception as e:
+            errors.append(e)
+
+    threads = [threading.Thread(target=load_and_check) for _ in range(10)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert len(errors) == 0
+    assert len(results) == 10
+    assert all(results)
+    # preload_models should only be called once due to lock
+    assert mock_bark_preload_models.call_count == 1
