@@ -136,7 +136,7 @@
         "path": "/convert",
         "body": {
           "mimeType": "application/json",
-          "raw": "={{ JSON.stringify({ model: $('Check Valid').item.json.model || 'default', audio_path: $json.path && !$json.path.includes('..') && $json.path.startsWith('/tmp/') ? $json.path : (function(){ throw new Error('Invalid upload response path'); })(), pitch: $('Check Valid').item.json.pitch || 0, f0_method: $('Check Valid').item.json.f0_method || 'rmvpe' }) }}"
+          "raw": "={{ JSON.stringify({ model: $('Check Valid').item.json.model || 'default', audio_path: $json.path && !$json.path.includes('..') && $json.path.startsWith('/tmp/') ? $json.path : (function(){ (function(){ return [{ json: { valid: false, error: 'Invalid upload response path' } }]; })() })(), pitch: $('Check Valid').item.json.pitch || 0, f0_method: $('Check Valid').item.json.f0_method || 'rmvpe' }) }}"
         },
         "options": {
           "timeout": 300000,
