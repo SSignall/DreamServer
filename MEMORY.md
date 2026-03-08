@@ -434,8 +434,10 @@ Pinned all services with floating tags to stable versions:
 - #11 LibreChat ✅ (Todd)
 - #12 AnythingLLM ✅ (Todd)
 - #13 Flowise ✅ (Todd)
-- #14 Langflow ⏳ (Todd building)
-- #15 Open Interpreter — next up
+- #14 Langflow ✅ (Todd)
+- #15 Open Interpreter ✅ (Android-16)
+- #16 InvokeAI ✅ (Android-17)
+- #17 Forge/A1111 — next up
 
 **Hardening Progress (6/6 done):**
 - ✅ Pin container image tags to stable versions (just completed)
