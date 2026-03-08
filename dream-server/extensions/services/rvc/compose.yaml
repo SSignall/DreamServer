@@ -27,12 +27,7 @@ services:
       - dream-network
     deploy:
       resources:
-        limits:
-          cpus: '4.0'
-          memory: 8G
         reservations:
-          cpus: '1.0'
-          memory: 2G
           devices:
             - driver: nvidia
               count: all

@@ -31,14 +31,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 120s
-    deploy:
-      resources:
-        limits:
-          cpus: '4.0'
-          memory: 4G
-        reservations:
-          cpus: '1.0'
-          memory: 1G
     networks:
       - dream-network
 
@@ -59,14 +51,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    deploy:
-      resources:
-        limits:
-          cpus: '2.0'
-          memory: 1G
-        reservations:
-          cpus: '0.5'
-          memory: 256M
     networks:
       - dream-network
 
@@ -83,14 +67,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 512M
-        reservations:
-          cpus: '0.25'
-          memory: 128M
     networks:
       - dream-network
 
