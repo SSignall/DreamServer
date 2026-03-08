@@ -113,11 +113,9 @@ else
         fi
         # Fallback to sed if python3 failed or is not available
         if [ -z "$OPENCLAW_TOKEN_JSON" ]; then
-            # JSON mandatory escapes: \b \f \n \r \t plus backslash and quote
-            # Use printf for literal control chars (portable across bash/sh)
-            BS=$(printf '\b')
-            FF=$(printf '\f')
-            OPENCLAW_TOKEN_JSON=$(printf '%s' "$OPENCLAW_TOKEN" | sed "s/\\/\\\\/g; s/\"/\\\"/g; s/${BS}/\\b/g; s/${FF}/\\f/g; s/\t/\\t/g; s/\n/\\n/g; s/\r/\\r/g")
+            # Token is hex-only (0-9,a-f,A-F), so only escape backslash and quote
+            # (sed only sees hex chars, no control chars to escape)
+            OPENCLAW_TOKEN_JSON=$(printf '%s' "$OPENCLAW_TOKEN" | sed 's/\\/\\\\/g; s/"/\\"/g')
         fi
 
         cat > "$INSTALL_DIR/data/openclaw/home/openclaw.json" << OCLAW_EOF
@@ -159,7 +157,7 @@ else
   "commands": {"native": "auto", "nativeSkills": "auto"},
   "gateway": {
     "mode": "local",
-    "bind": "127.0.0.1",
+    "bind": "loopback",
     "controlUi": {"allowInsecureAuth": true},
     "auth": {"mode": "token", "token": "${OPENCLAW_TOKEN_JSON}"}
   }
