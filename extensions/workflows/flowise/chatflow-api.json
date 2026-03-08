@@ -17,7 +17,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const body = $json.body || $json;\nconst headers = $json.headers || {};\n\nconst expectedKey = $env.FLOWISE_API_KEY;\nconst providedKey = headers['x-api-key'] || headers['X-API-Key'];\n\nfunction timingSafeEqual(a, b) {\n  if (a.length !== b.length) return false;\n  let result = 0;\n  for (let i = 0; i < a.length; i++) {\n    result |= a.charCodeAt(i) ^ b.charCodeAt(i);\n  }\n  return result === 0;\n}\n\nif (expectedKey && expectedKey.length > 0) {\n  if (!providedKey) {\n    return [{ json: { error: 'Authentication required', code: 401 } }];\n  }\n  if (!timingSafeEqual(expectedKey, providedKey)) {\n    return [{ json: { error: 'Invalid API key', code: 403 } }];\n  }\n}\n\nconst chatflowId = body.chatflowId || $env.FLOWISE_DEFAULT_CHATFLOW_ID;\nif (!chatflowId) {\n  return [{ json: { error: 'chatflowId required', code: 400 } }];\n}\n\nreturn [{\n  json: {\n    question: body.question || body.message || body.prompt || 'Hello',\n    chatflowId: chatflowId,\n    streaming: body.streaming || false,\n    overrideConfig: body.overrideConfig || {}\n  }\n}];"
+        "jsCode": "const body = $json.body || $json;\nconst headers = $json.headers || {};\n\nconst expectedKey = $env.FLOWISE_API_KEY;\nconst providedKey = headers['x-api-key'] || headers['X-API-Key'];\n\n// Constant-time comparison without length leak\nfunction constantTimeCompare(a, b) {\n  const lenA = a.length;\n  const lenB = b.length;\n  const maxLen = Math.max(lenA, lenB);\n  let result = 0;\n  for (let i = 0; i < maxLen; i++) {\n    result |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);\n  }\n  return result === 0 && lenA === lenB;\n}\n\nif (expectedKey && expectedKey.length > 0) {\n  if (!providedKey) {\n    return [{ json: { error: 'Authentication required', code: 401 } }];\n  }\n  if (!constantTimeCompare(expectedKey, providedKey)) {\n    return [{ json: { error: 'Invalid API key', code: 403 } }];\n  }\n}\n\nconst chatflowId = body.chatflowId || $env.FLOWISE_DEFAULT_CHATFLOW_ID;\nif (!chatflowId) {\n  return [{ json: { error: 'chatflowId required', code: 400 } }];\n}\n\n// Validate chatflowId format (UUID v4 or alphanumeric with hyphens only)\nconst validIdPattern = /^[a-zA-Z0-9-]+$/;\nif (!validIdPattern.test(chatflowId)) {\n  return [{ json: { error: 'Invalid chatflowId format', code: 400 } }];\n}\n\n// Prevent path traversal\nconst safeChatflowId = chatflowId.replace(/\\.\\./g, '').replace(/\\//g, '');\n\nreturn [{\n  json: {\n    question: body.question || body.message || body.prompt || 'Hello',\n    chatflowId: safeChatflowId,\n    streaming: body.streaming || false,\n    overrideConfig: body.overrideConfig || {}\n  }\n}];"
       },
       "id": "validate-request",
       "name": "Validate Request",
@@ -27,7 +27,7 @@
     },
     {
       "parameters": {
-        "url": "={{ 'http://' + ($env.FLOWISE_HOST || 'flowise') + ':' + ($env.FLOWISE_PORT || '3000') + '/api/v1/prediction/' + $json.chatflowId }}",
+        "url": "={{ 'http://' + ($env.FLOWISE_HOST || 'flowise') + ':' + ($env.FLOWISE_PORT || '3000') + '/api/v1/prediction/' + encodeURIComponent($json.chatflowId) }}",
         "method": "POST",
         "headers": {
           "list": [
@@ -39,7 +39,8 @@
         },
         "body": "={{ JSON.stringify({\n  question: $json.question,\n  streaming: $json.streaming,\n  overrideConfig: $json.overrideConfig\n}) }}",
         "options": {
-          "timeout": 120000
+          "timeout": 120000,
+          "continueOnFail": true
         }
       },
       "id": "flowise-api",
@@ -50,7 +51,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const response = $json;\n\nif (response.error) {\n  return [{\n    json: {\n      error: response.error,\n      code: response.code || 500\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    text: response.text || response.response || 'No response',\n    chatId: response.chatId,\n    chatMessageId: response.chatMessageId,\n    sourceDocuments: response.sourceDocuments || [],\n    usedTools: response.usedTools || []\n  }\n}];"
+        "jsCode": "const response = $json;\n\n// Handle HTTP errors (when continueOnFail catches them)\nif ($('Flowise API').last().error) {\n  const error = $('Flowise API').last().error;\n  return [{\n    json: {\n      error: error.message || 'Flowise API request failed',\n      code: error.statusCode || 502\n    }\n  }];\n}\n\nif (response.error) {\n  return [{\n    json: {\n      error: response.error,\n      code: response.code || 500\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    text: response.text || response.response || 'No response',\n    chatId: response.chatId,\n    chatMessageId: response.chatMessageId,\n    sourceDocuments: response.sourceDocuments || [],\n    usedTools: response.usedTools || []\n  }\n}];"
       },
       "id": "format-response",
       "name": "Format Response",

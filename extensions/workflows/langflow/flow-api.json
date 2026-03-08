@@ -17,7 +17,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const body = $json.body || $json;\nconst headers = $json.headers || {};\n\nconst expectedKey = $env.LANGFLOW_API_KEY;\nconst providedKey = headers['x-api-key'] || headers['X-API-Key'];\n\nfunction timingSafeEqual(a, b) {\n  if (a.length !== b.length) return false;\n  let result = 0;\n  for (let i = 0; i < a.length; i++) {\n    result |= a.charCodeAt(i) ^ b.charCodeAt(i);\n  }\n  return result === 0;\n}\n\nif (expectedKey && expectedKey.length > 0) {\n  if (!providedKey) {\n    return [{ json: { error: 'Authentication required', code: 401 } }];\n  }\n  if (!timingSafeEqual(expectedKey, providedKey)) {\n    return [{ json: { error: 'Invalid API key', code: 403 } }];\n  }\n}\n\nconst flowId = body.flowId || $env.LANGFLOW_DEFAULT_FLOW_ID;\nif (!flowId) {\n  return [{ json: { error: 'flowId required', code: 400 } }];\n}\n\nreturn [{\n  json: {\n    input_value: body.input || body.message || body.prompt || 'Hello',\n    flowId: flowId,\n    input_type: body.input_type || 'chat',\n    output_type: body.output_type || 'chat',\n    tweaks: body.tweaks || {}\n  }\n}];"
+        "jsCode": "const body = $json.body || $json;\nconst headers = $json.headers || {};\n\nconst expectedKey = $env.LANGFLOW_API_KEY;\nconst providedKey = headers['x-api-key'] || headers['X-API-Key'];\n\n// Constant-time comparison without length leak\nfunction constantTimeCompare(a, b) {\n  const lenA = a.length;\n  const lenB = b.length;\n  const maxLen = Math.max(lenA, lenB);\n  let result = 0;\n  for (let i = 0; i < maxLen; i++) {\n    result |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);\n  }\n  return result === 0 && lenA === lenB;\n}\n\nif (expectedKey && expectedKey.length > 0) {\n  if (!providedKey) {\n    return [{ json: { error: 'Authentication required', code: 401 } }];\n  }\n  if (!constantTimeCompare(expectedKey, providedKey)) {\n    return [{ json: { error: 'Invalid API key', code: 403 } }];\n  }\n}\n\nconst flowId = body.flowId || $env.LANGFLOW_DEFAULT_FLOW_ID;\nif (!flowId) {\n  return [{ json: { error: 'flowId required', code: 400 } }];\n}\n\n// Validate flowId format (UUID v4 or alphanumeric with hyphens only)\nconst validIdPattern = /^[a-zA-Z0-9-]+$/;\nif (!validIdPattern.test(flowId)) {\n  return [{ json: { error: 'Invalid flowId format', code: 400 } }];\n}\n\n// Prevent path traversal\nconst safeFlowId = flowId.replace(/\\.\\./g, '').replace(/\\//g, '');\n\nreturn [{\n  json: {\n    input_value: body.input || body.message || body.prompt || 'Hello',\n    flowId: safeFlowId,\n    input_type: body.input_type || 'chat',\n    output_type: body.output_type || 'chat',\n    tweaks: body.tweaks || {}\n  }\n}];"
       },
       "id": "validate-request",
       "name": "Validate Request",
@@ -27,7 +27,7 @@
     },
     {
       "parameters": {
-        "url": "={{ 'http://' + ($env.LANGFLOW_HOST || 'langflow') + ':' + ($env.LANGFLOW_PORT || '7860') + '/api/v1/run/' + $json.flowId }}",
+        "url": "={{ 'http://' + ($env.LANGFLOW_HOST || 'langflow') + ':' + ($env.LANGFLOW_PORT || '7860') + '/api/v1/run/' + encodeURIComponent($json.flowId) }}",
         "method": "POST",
         "headers": {
           "list": [
@@ -39,7 +39,8 @@
         },
         "body": "={{ JSON.stringify({\n  input_value: $json.input_value,\n  input_type: $json.input_type,\n  output_type: $json.output_type,\n  tweaks: $json.tweaks\n}) }}",
         "options": {
-          "timeout": 120000
+          "timeout": 120000,
+          "continueOnFail": true
         }
       },
       "id": "langflow-api",
@@ -50,7 +51,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const response = $json;\n\nif (response.error) {\n  return [{\n    json: {\n      error: response.error,\n      code: response.code || 500\n    }\n  }];\n}\n\n// Extract outputs from Langflow response\nconst outputs = response.outputs || [];\nconst result = outputs[0]?.outputs?.[0]?.results?.message?.text ||\n               outputs[0]?.outputs?.[0]?.artifacts?.message ||\n               'No response';\n\nreturn [{\n  json: {\n    text: result,\n    session_id: response.session_id,\n    outputs: outputs.map(o => ({\n      component: o.component_id,\n      type: o.type\n    }))\n  }\n}];"
+        "jsCode": "const response = $json;\n\n// Handle HTTP errors (when continueOnFail catches them)\nif ($('Langflow API').last().error) {\n  const error = $('Langflow API').last().error;\n  return [{\n    json: {\n      error: error.message || 'Langflow API request failed',\n      code: error.statusCode || 502\n    }\n  }];\n}\n\nif (response.error) {\n  return [{\n    json: {\n      error: response.error,\n      code: response.code || 500\n    }\n  }];\n}\n\n// Extract outputs from Langflow response\nconst outputs = response.outputs || [];\nconst result = outputs[0]?.outputs?.[0]?.results?.message?.text ||\n               outputs[0]?.outputs?.[0]?.artifacts?.message ||\n               'No response';\n\nreturn [{\n  json: {\n    text: result,\n    session_id: response.session_id,\n    outputs: outputs.map(o => ({\n      component: o.component_id,\n      type: o.type\n    }))\n  }\n}];"
       },
       "id": "format-response",
       "name": "Format Response",
