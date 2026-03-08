@@ -1,6 +1,10 @@
 services:
   whisper:
     image: ghcr.io/speaches-ai/speaches:latest-cuda
+    container_name: dream-whisper
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     deploy:
       resources:
         reservations:
@@ -11,6 +15,12 @@ services:
         limits:
           cpus: '4.0'
           memory: 8G
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     networks:
       - dream-network
 
