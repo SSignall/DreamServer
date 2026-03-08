@@ -25,5 +25,7 @@ services:
           memory: 8G
 
   dashboard-api:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - /sys/class/drm:/sys/class/drm:ro
