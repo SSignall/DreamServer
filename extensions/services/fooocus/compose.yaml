@@ -1,6 +1,6 @@
 services:
   fooocus:
-    image: ashleykza/fooocus:2.5.5
+    image: runpod/fooocus:2.5.3
     container_name: dream-fooocus
     restart: unless-stopped
     security_opt:

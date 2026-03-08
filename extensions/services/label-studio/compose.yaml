@@ -1,6 +1,6 @@
 services:
   label-studio:
-    image: heartexlabs/label-studio:1.4.1
+    image: heartexlabs/label-studio:1.22.0
     container_name: dream-label-studio
     restart: unless-stopped
     security_opt:

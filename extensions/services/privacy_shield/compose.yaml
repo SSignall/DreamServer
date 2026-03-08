@@ -1,7 +1,7 @@
 services:
   privacy-shield:
     build:
-      context: ./extensions/services/privacy_shield
+      context: .
       dockerfile: Dockerfile
     container_name: dream-privacy-shield
     restart: unless-stopped

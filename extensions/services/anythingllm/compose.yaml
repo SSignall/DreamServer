@@ -2,7 +2,7 @@ name: anythingllm
 
 services:
   anythingllm:
-    image: mintplexlabs/anythingllm@sha256:8a1b5bfe6299a0c9481b3187eb84d1ab7830d578c056f4d6b6a84e0a5e75e585
+    image: mintplexlabs/anythingllm:1.11.1
     container_name: dream-anythingllm
     restart: unless-stopped
     security_opt:

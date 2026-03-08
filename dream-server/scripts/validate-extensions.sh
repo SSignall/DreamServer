@@ -221,9 +221,18 @@ done
 # ============================================================================
 header "4/13" "Pinned Docker Images (no :latest)"
 
+# Images that genuinely only publish :latest (no versioned tags available)
+LATEST_ALLOWLIST="invokeai xtts"
+
 for ext in "${extensions[@]}"; do
     compose="$EXT_DIR/$ext/compose.yaml"
     [[ ! -f "$compose" ]] && continue
+
+    # Skip allowlisted extensions that only publish :latest
+    if [[ " $LATEST_ALLOWLIST " == *" $ext "* ]]; then
+        pass "Pinned images: $ext (allowlisted — no versioned tags available)"
+        continue
+    fi
 
     # Extract image lines from compose, check for :latest
     floating=$(python3 -c "

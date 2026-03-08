@@ -2,7 +2,7 @@ name: invokeai
 
 services:
   invokeai:
-    image: ghcr.io/invoke-ai/invokeai:v5.5.0
+    image: ghcr.io/invoke-ai/invokeai:latest
     container_name: dream-invokeai
     restart: unless-stopped
     security_opt:

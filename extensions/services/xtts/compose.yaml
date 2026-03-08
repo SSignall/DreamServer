@@ -2,7 +2,7 @@ name: xtts
 
 services:
   xtts:
-    image: ghcr.io/daswer123/xtts-api-server:v0.8.2
+    image: daswer123/xtts-api-server:latest
     container_name: dream-xtts
     ports:
       - "${XTTS_PORT:-8100}:80"

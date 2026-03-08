@@ -2,7 +2,7 @@
 services:
   token-spy:
     build:
-      context: ./extensions/services/token-spy
+      context: .
       dockerfile: Dockerfile
     container_name: dream-token-spy
     restart: unless-stopped

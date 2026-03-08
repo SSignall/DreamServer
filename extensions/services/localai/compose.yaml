@@ -1,6 +1,6 @@
 services:
   localai:
-    image: localai/localai:v3.12.1-cpu
+    image: localai/localai:v3.12.1-aio-cpu
     container_name: localai
     networks:
       - dream-network
