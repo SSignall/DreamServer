@@ -95,6 +95,8 @@ else
         mkdir -p "$INSTALL_DIR/data/openclaw/home/agents/main/sessions"
         # Generate OpenClaw home config with local llama-server provider
         OPENCLAW_TOKEN=$(openssl rand -hex 24 2>/dev/null || head -c 24 /dev/urandom | xxd -p)
+        # Escape token for JSON insertion (handle quotes, backslashes, control chars)
+        OPENCLAW_TOKEN_JSON=$(printf '%s' "$OPENCLAW_TOKEN" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g; s/\n/\\n/g; s/\r/\\r/g')
 
         cat > "$INSTALL_DIR/data/openclaw/home/openclaw.json" << OCLAW_EOF
 {
@@ -137,7 +139,7 @@ else
     "mode": "local",
     "bind": "localhost",
     "controlUi": {"allowInsecureAuth": true},
-    "auth": {"mode": "token", "token": "${OPENCLAW_TOKEN}"}
+    "auth": {"mode": "token", "token": "${OPENCLAW_TOKEN_JSON}"}
   }
 }
 OCLAW_EOF
