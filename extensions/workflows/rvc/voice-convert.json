@@ -30,8 +30,11 @@
             }
           ]
         },
-        "binary": {
-          "file": "={{ $binary.file ? $binary.file : null }}"
+        "body": {
+          "file": "={{ $binary.file ? $binary.file : null }}",
+          "model": "={{ (() => { const m = $json.model || 'index.pth'; const sanitized = m.replace(/\\.\\./g, '').replace(/[\\/]/g, ''); if (sanitized !== m) throw new Error('Invalid model path'); return sanitized; })() }}",
+          "pitch": "={{ $json.pitch || 0 }}",
+          "f0_method": "={{ $json.f0_method || 'rmvpe' }}"
         },
         "options": {
           "timeout": 120000
