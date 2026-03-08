@@ -974,3 +974,55 @@ if (a.length !== b.length) return false;
 3. Installer testing — coordinate with Bilal
 4. Upstream monitoring — verify no rot in deployed extensions
 
+---
+
+### 2026-03-08 — Android-18 Review Follow-up (GPU Detection)
+
+**Commit Review Trigger:** Android-18 ping for commit `a5ae4f4c` review
+
+**Issues Raised (all fixed by commit `9508788d`):**
+
+1. **[HIGH]** Code duplication in `get_all_gpus()` — **FIXED**
+   - Issue: Lines ~216-257 duplicated AMD GPU parsing logic instead of calling `get_gpu_info_amd_single()`
+   - Fix: `get_all_gpus()` now calls `get_gpu_info_amd_single()` for each device (line 215)
+   - Pattern: DRY violation → reuse single-GPU function
+
+2. **[HIGH]** Silent failure in NVIDIA detection — **FIXED**
+   - Issue: Bare `except Exception: pass` swallowed all errors (subprocess, parsing, timeout)
+   - Fix: Catches specific exceptions `(subprocess.TimeoutExpired, OSError, subprocess.SubprocessError)`
+   - Result: Debuggable errors instead of silent failures
+
+3. **[MEDIUM]** Missing `GPU_BACKEND` support — **FIXED**
+   - Issue: `get_all_gpus()` ignored `GPU_BACKEND` env var, breaking deployments avoiding slow `nvidia-smi`
+   - Fix: Lines 167, 169, 211 respect `GPU_BACKEND`:
+     - Skip NVIDIA if `GPU_BACKEND=amd`
+     - Skip AMD if `GPU_BACKEND=nvidia`
+   - Backward compatible: default empty string detects both
+
+4. **[MEDIUM]** Inconsistent GPU naming — **FIXED**
+   - Issue: `get_gpu_info_amd_single()` uses `"AMD Radeon (Strix Halo)"`, `get_all_gpus()` used `f"AMD GPU {len(gpus)}"`
+   - Fix: Shared `get_gpu_info_amd_single()` ensures consistent naming
+   - Result: All AMD GPUs use same fallback name
+
+5. **[LOW]** Missing return statement check — **VERIFIED**
+   - Issue: Diff truncated at `get_gpu_in` (line ~259)
+   - Verification: File ends with `return gpus` (line 218), no syntax errors
+
+**Git Activity:**
+- Commits: `a5ae4f4c` (multi-GPU detection), `9508788d` (review fixes)
+- Status: Working tree clean, all fixes committed and pushed
+
+**QA Checklist Applied:**
+- ✅ No code duplication (DRY verified)
+- ✅ Specific exception handling (no silent failures)
+- ✅ `GPU_BACKEND` env var respected
+- ✅ Consistent GPU naming via shared function
+- ✅ Proper return statement, no syntax errors
+
+**Next Session Priorities** (per workstream order):
+1. GitHub issues — #55 (dual GPU), #32 (Windows), #33 (deployment verify)
+2. Hardening wave — remaining checklist items
+3. Extensions — Wave 5 complete (Flowise/Langflow committed)
+4. Installer testing — coordinate with Bilal
+5. Upstream monitoring — verify no rot in deployed extensions
+
