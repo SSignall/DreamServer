@@ -1,7 +1,9 @@
 {
   "name": "ComfyUI Image Generation",
   "active": true,
-  "settings": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
   "nodes": [
     {
       "parameters": {
@@ -11,7 +13,7 @@
       },
       "id": "comfyui-webhook-trigger",
       "name": "Webhook Trigger",
-      "comment": "Accepts JSON: { prompt (required), width (optional, default 1024), height (optional, default 1024), steps (optional, default 20), cfg (optional, default 8.0), seed (optional, random if not set), channel (optional) }",
+      "comment": "Accepts JSON: { prompt (required), width (optional, default 1024), height (optional, default 1024), steps (optional, default 20), cfg (optional, default 8.0), seed (optional, random if not set), channel (optional) }. API key via X-API-Key header only. Set COMFYUI_API_KEY env var to enable authentication.",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
       "position": [
@@ -21,7 +23,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Validate input and set defaults\nconst input = $input.first().json;\n\n// Validate prompt\nconst prompt = (input.prompt || '').toString().trim();\nif (!prompt) {\n  throw new Error('Missing required field: prompt');\n}\nif (prompt.length > 2000) {\n  throw new Error('Prompt too long: max 2000 characters');\n}\n\n// Validate dimensions\nconst width = Math.min(Math.max(parseInt(input.width, 10) || 1024, 256), 2048);\nconst height = Math.min(Math.max(parseInt(input.height, 10) || 1024, 256), 2048);\nconst steps = Math.min(Math.max(parseInt(input.steps, 10) || 20, 1), 50);\nconst cfg = Math.min(Math.max(parseFloat(input.cfg) || 8.0, 1.0), 30.0);\nconst seedRaw = parseInt(input.seed, 10);\nconst seed = isNaN(seedRaw) ? Math.floor(Math.random() * 9999999999) : seedRaw;\n\nreturn [{\n  json: {\n    prompt: prompt,\n    width: width,\n    height: height,\n    steps: steps,\n    cfg: cfg,\n    seed: seed,\n    channel: input.channel || '#general'\n  }\n}];"
+        "jsCode": "// API Key authentication check - timing-safe comparison\nconst headers = $input.first().json.headers || {};\n\n// Case-insensitive header lookup (defense against platform normalization changes)\nconst headerKeys = Object.keys(headers);\nconst apiKeyHeader = headerKeys.find(k => k.toLowerCase() === 'x-api-key');\nconst providedKeyRaw = apiKeyHeader !== undefined ? headers[apiKeyHeader] : '';\nconst expectedKey = $env.COMFYUI_API_KEY;\n\nconst MAX_LEN = 256;\n\n// Timing-safe comparison - prevents timing attacks on API key\nfunction timingSafeEqual(a, b) {\n  if (typeof a !== 'string' || typeof b !== 'string') return false;\n\n  // Include bounds check in result (constant-time, no branch)\n  let result = (a.length > MAX_LEN || b.length > MAX_LEN) ? 1 : 0;\n  // Constant-time comparison: always iterate MAX_LEN, use 0 for out-of-bounds\n  for (let i = 0; i < MAX_LEN; i++) {\n    const charA = i < a.length ? a.charCodeAt(i) : 0;\n    const charB = i < b.length ? b.charCodeAt(i) : 0;\n    result |= charA ^ charB;\n  }\n  // Include length check in constant-time result\n  result |= (a.length === b.length) ? 0 : 1;\n  return result === 0;\n}\n\n// Authentication logic:\n// - If server has expectedKey configured: client MUST provide matching key\n// - If server has NO expectedKey configured: reject any request that provides a key\n// - If neither configured: allow (no auth required)\nif ((expectedKey || providedKeyRaw) && !timingSafeEqual(providedKeyRaw || '', expectedKey || '')) {\n  return [{ json: { valid: false, error: 'Authentication failed' } }];\n}\n\nconst input = $input.first().json || {};\n\n// === TYPE VALIDATION ===\nif (input.prompt !== undefined && typeof input.prompt !== 'string') {\n  return [{ json: { valid: false, error: 'Invalid prompt: must be a string' } }];\n}\nif (input.channel !== undefined && typeof input.channel !== 'string') {\n  return [{ json: { valid: false, error: 'Invalid channel: must be a string' } }];\n}\n\n// Validate prompt\nconst prompt = (input.prompt || '').toString().trim();\nif (!prompt) {\n  return [{ json: { valid: false, error: 'Missing required field: prompt' } }];\n}\nif (prompt.length > 2000) {\n  return [{ json: { valid: false, error: 'Prompt too long: max 2000 characters' } }];\n}\n\n// Validate dimensions\nconst width = Math.min(Math.max(parseInt(input.width, 10) || 1024, 256), 2048);\nconst height = Math.min(Math.max(parseInt(input.height, 10) || 1024, 256), 2048);\nconst steps = Math.min(Math.max(parseInt(input.steps, 10) || 20, 1), 50);\nconst cfg = Math.min(Math.max(parseFloat(input.cfg) || 8.0, 1.0), 30.0);\nconst seedRaw = parseInt(input.seed, 10);\nconst seed = isNaN(seedRaw) ? Math.floor(Math.random() * 9999999999) : seedRaw;\n\n// Validate channel\nconst channelRaw = (input.channel || 'general').replace(/^#+/, '').replace(/[<>@&]/g, '').slice(0, 100);\nif (!channelRaw.match(/^[a-zA-Z0-9_-]+$/)) {\n  return [{ json: { valid: false, error: 'Invalid channel: must be alphanumeric, dash, or underscore only' } }];\n}\n\nreturn [{\n  json: {\n    valid: true,\n    prompt: prompt,\n    width: width,\n    height: height,\n    steps: steps,\n    cfg: cfg,\n    seed: seed,\n    channel: channelRaw\n  }\n}];"
       },
       "id": "validate-input",
       "name": "Validate Input",
@@ -31,7 +33,38 @@
         450,
         300
       ],
-      "comment": "Validates prompt is present and within limits. Clamps dimensions/steps/CFG to safe ranges."
+      "comment": "API key auth (if COMFYUI_API_KEY set). Validates prompt (max 2000 chars), clamps dimensions/steps/CFG to safe ranges."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "type": "boolean"
+          },
+          "conditions": [
+            {
+              "id": "cond1",
+              "leftValue": "={{ $json.valid }}",
+              "operator": {
+                "name": "equal",
+                "type": "boolean"
+              },
+              "rightValue": true
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "check-valid",
+      "name": "Check Valid",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        650,
+        300
+      ],
+      "comment": "Branches based on validation result. True = valid input, continue to ComfyUI. False = validation/auth failed, route to error."
     },
     {
       "parameters": {
@@ -45,7 +78,7 @@
             }
           ]
         },
-        "body": "={{ { \"prompt\": { \"3\": { \"inputs\": { \"seed\": $json.seed, \"steps\": $json.steps, \"cfg\": $json.cfg, \"sampler_name\": \"euler\", \"scheduler\": \"normal\", \"denoise\": 1.0, \"model\": [\"4\", 0], \"positive\": [\"6\", 0], \"negative\": [\"7\", 0], \"latent_image\": [\"5\", 0] }, \"class_type\": \"KSampler\" }, \"4\": { \"inputs\": { \"ckpt_name\": $env.COMFYUI_MODEL_NAME || 'flux1-dev.safetensors' }, \"class_type\": \"CheckpointLoaderSimple\" }, \"5\": { \"inputs\": { \"width\": $json.width, \"height\": $json.height, \"batch_size\": 1 }, \"class_type\": \"EmptyLatentImage\" }, \"6\": { \"inputs\": { \"text\": $json.prompt, \"clip\": [\"4\", 1] }, \"class_type\": \"CLIPTextEncode\" }, \"7\": { \"inputs\": { \"text\": \"text, watermark, blurry, low quality\", \"clip\": [\"4\", 1] }, \"class_type\": \"CLIPTextEncode\" }, \"8\": { \"inputs\": { \"samples\": [\"3\", 0], \"vae\": [\"4\", 2] }, \"class_type\": \"VAEDecode\" }, \"9\": { \"inputs\": { \"filename_prefix\": 'n8n_' + new Date().getTime(), \"images\": [\"8\", 0] }, \"class_type\": \"SaveImage\" } }, \"client_id\": 'n8n_' + new Date().getTime() } }}",
+        "body": "={{ { \"prompt\": { \"3\": { \"inputs\": { \"seed\": $('Validate Input').first().json.seed, \"steps\": $('Validate Input').first().json.steps, \"cfg\": $('Validate Input').first().json.cfg, \"sampler_name\": \"euler\", \"scheduler\": \"normal\", \"denoise\": 1.0, \"model\": [\"4\", 0], \"positive\": [\"6\", 0], \"negative\": [\"7\", 0], \"latent_image\": [\"5\", 0] }, \"class_type\": \"KSampler\" }, \"4\": { \"inputs\": { \"ckpt_name\": $env.COMFYUI_MODEL_NAME || 'flux1-dev.safetensors' }, \"class_type\": \"CheckpointLoaderSimple\" }, \"5\": { \"inputs\": { \"width\": $('Validate Input').first().json.width, \"height\": $('Validate Input').first().json.height, \"batch_size\": 1 }, \"class_type\": \"EmptyLatentImage\" }, \"6\": { \"inputs\": { \"text\": $('Validate Input').first().json.prompt, \"clip\": [\"4\", 1] }, \"class_type\": \"CLIPTextEncode\" }, \"7\": { \"inputs\": { \"text\": \"text, watermark, blurry, low quality\", \"clip\": [\"4\", 1] }, \"class_type\": \"CLIPTextEncode\" }, \"8\": { \"inputs\": { \"samples\": [\"3\", 0], \"vae\": [\"4\", 2] }, \"class_type\": \"VAEDecode\" }, \"9\": { \"inputs\": { \"filename_prefix\": 'n8n_' + new Date().getTime(), \"images\": [\"8\", 0] }, \"class_type\": \"SaveImage\" } }, \"client_id\": 'n8n_' + new Date().getTime() } }}",
         "options": {
           "timeout": 120000
         }
@@ -55,55 +88,54 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 1,
       "position": [
-        650,
-        300
-      ]
+        850,
+        200
+      ],
+      "comment": "Queues image generation. Uses validated inputs from $('Validate Input'). 120 second timeout."
     },
     {
       "parameters": {
-        "jsCode": "// Process ComfyUI response\nconst body = $input.first().json || {};\nconst validatedInput = $('Validate Input').first().json || {};\n\nconst promptId = body.prompt_id || 'unknown';\nconst number = body.number || 0;\n\nreturn [{\n  json: {\n    success: !!promptId && promptId !== 'unknown',\n    prompt_id: promptId,\n    queue_number: number,\n    timestamp: new Date().toISOString(),\n    channel: validatedInput.channel || '#general',\n    prompt: validatedInput.prompt || '',\n    width: validatedInput.width || 1024,\n    height: validatedInput.height || 1024,\n    steps: validatedInput.steps || 20,\n    cfg: validatedInput.cfg || 8.0,\n    seed: validatedInput.seed || 'random'\n  }\n}];"
+        "jsCode": "// Process ComfyUI response\nconst body = $input.first().json || {};\nconst validatedInput = $('Validate Input').first().json || {};\n\nconst promptId = body.prompt_id || 'unknown';\nconst number = body.number || 0;\n\nreturn [{\n  json: {\n    success: !!promptId && promptId !== 'unknown',\n    prompt_id: promptId,\n    queue_number: number,\n    timestamp: new Date().toISOString(),\n    channel: validatedInput.channel || 'general',\n    prompt: validatedInput.prompt || '',\n    width: validatedInput.width || 1024,\n    height: validatedInput.height || 1024,\n    steps: validatedInput.steps || 20,\n    cfg: validatedInput.cfg || 8.0,\n    seed: validatedInput.seed || 'random'\n  }\n}];"
       },
       "id": "process-response",
       "name": "Process Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
       "position": [
-        850,
-        300
+        1050,
+        200
       ],
       "comment": "Uses $('Validate Input') to access validated payload fields directly"
     },
     {
       "parameters": {
-        "channel": "={{ $json.channel || '#general' }}",
-        "text": "={{ '*ComfyUI Image Queued* \ud83c\udfa8\\n\\n**Prompt:** ' + (($json.prompt || '').toString().slice(0, 97).trimEnd()) + (($json.prompt || '').length > 97 ? '...' : '') + '\\n**Size:** ' + ($json.width || 1024) + 'x' + ($json.height || 1024) + '\\n**Steps:** ' + ($json.steps || 20) + ' | **CFG:** ' + ($json.cfg || 8.0) + '\\n**Seed:** ' + ($json.seed || 'random') + '\\n\\n**Prompt ID:** `' + ($json.prompt_id || 'unknown') + '`\\n**Queue #:** ' + ($json.queue_number || 0) + '\\n\\n\u2705 Image generation started! Check ComfyUI for results.' }}",
-        "webhookUri": "={{ $json.channel || '#general' }}"
+        "channel": "={{ $json.channel || 'general' }}",
+        "text": "={{ '*ComfyUI Image Queued* 🎨\\n\\n**Prompt:** ' + (($json.prompt || '').toString().slice(0, 97).trimEnd()) + (($json.prompt || '').length > 97 ? '...' : '') + '\\n**Size:** ' + ($json.width || 1024) + 'x' + ($json.height || 1024) + '\\n**Steps:** ' + ($json.steps || 20) + ' | **CFG:** ' + ($json.cfg || 8.0) + '\\n**Seed:** ' + ($json.seed || 'random') + '\\n\\n**Prompt ID:** `' + ($json.prompt_id || 'unknown') + '`\\n**Queue #:** ' + ($json.queue_number || 0) + '\\n\\n✅ Image generation started! Check ComfyUI for results.' }}"
       },
       "id": "discord-output",
       "name": "Discord Output",
       "type": "n8n-nodes-base.discord",
       "typeVersion": 1,
       "position": [
-        1050,
-        300
+        1250,
+        200
       ],
       "comment": "Sends queue confirmation with clean prompt truncation (ellipsis)"
     },
     {
       "parameters": {
-        "channel": "={{ $('Webhook Trigger').first().json.channel || '#general' }}",
-        "text": "={{ '*ComfyUI Generation Failed* \u274c\\n\\n**Error:** ' + (($input.all()[0]?.error?.message || $input.all()[0]?.error?.description || 'Unknown error')).toString().slice(0, 997).trimEnd() + '\\n\\nPlease check:\\n- ComfyUI service is running\\n- FLUX.1 model is loaded\\n- GPU has sufficient VRAM' }}",
-        "webhookUri": "={{ $('Webhook Trigger').first().json.channel || '#general' }}"
+        "channel": "={{ $('Validate Input').first().json.channel || 'general' }}",
+        "text": "={{ '*ComfyUI Generation Failed* ❌\\n\\n**Error:** ' + (($json.error || $input.all()[0]?.error?.message || $input.all()[0]?.error?.description || 'Unknown error')).toString().slice(0, 997).trimEnd() + '\\n\\nPlease check:\\n- ComfyUI service is running\\n- FLUX.1 model is loaded\\n- GPU has sufficient VRAM\\n- API key is correct (if configured)' }}"
       },
       "id": "discord-error",
       "name": "Discord Error",
       "type": "n8n-nodes-base.discord",
       "typeVersion": 1,
       "position": [
-        650,
-        500
+        850,
+        450
       ],
-      "comment": "Uses $('Webhook Trigger') for channel (available when validation fails); $input.all()[0].error for error details"
+      "comment": "Catches validation/auth errors and API failures. Uses $('Validate Input') for channel access."
     }
   ],
   "connections": {
@@ -122,13 +154,22 @@
       "main": [
         [
           {
-            "node": "Queue Prompt",
+            "node": "Check Valid",
             "type": "main",
             "index": 0
           }
         ]
-      ],
-      "error": [
+      ]
+    },
+    "Check Valid": {
+      "main": [
+        [
+          {
+            "node": "Queue Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ],
         [
           {
             "node": "Discord Error",
@@ -171,6 +212,6 @@
     }
   },
   "meta": {
-    "instanceId": "comfyui-workflow-v1"
+    "instanceId": "comfyui-workflow-v2"
   }
 }

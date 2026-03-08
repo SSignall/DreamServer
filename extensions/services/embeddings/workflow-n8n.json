@@ -1,7 +1,9 @@
 {
   "name": "Embeddings Vector Generation",
   "active": true,
-  "settings": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
   "nodes": [
     {
       "parameters": {
@@ -11,9 +13,49 @@
       },
       "id": "embeddings-webhook-trigger",
       "name": "Webhook Trigger",
+      "comment": "Accepts JSON: { text (required), model (optional) }. API key via X-API-Key header only. Set EMBEDDINGS_API_KEY env var to enable authentication.",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
       "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// API Key authentication check - timing-safe comparison\nconst headers = $input.first().json.headers || {};\n\n// Case-insensitive header lookup (defense against platform normalization changes)\nconst headerKeys = Object.keys(headers);\nconst apiKeyHeader = headerKeys.find(k => k.toLowerCase() === 'x-api-key');\nconst providedKeyRaw = apiKeyHeader !== undefined ? headers[apiKeyHeader] : '';\nconst expectedKey = $env.EMBEDDINGS_API_KEY;\n\nconst MAX_LEN = 256;\n\n// Timing-safe comparison - prevents timing attacks on API key\nfunction timingSafeEqual(a, b) {\n  if (typeof a !== 'string' || typeof b !== 'string') return false;\n\n  // Include bounds check in result (constant-time, no branch)\n  let result = (a.length > MAX_LEN || b.length > MAX_LEN) ? 1 : 0;\n  // Constant-time comparison: always iterate MAX_LEN, use 0 for out-of-bounds\n  for (let i = 0; i < MAX_LEN; i++) {\n    const charA = i < a.length ? a.charCodeAt(i) : 0;\n    const charB = i < b.length ? b.charCodeAt(i) : 0;\n    result |= charA ^ charB;\n  }\n  // Include length check in constant-time result\n  result |= (a.length === b.length) ? 0 : 1;\n  return result === 0;\n}\n\n// Authentication logic:\n// - If server has expectedKey configured: client MUST provide matching key\n// - If server has NO expectedKey configured: reject any request that provides a key\n// - If neither configured: allow (no auth required)\nif ((expectedKey || providedKeyRaw) && !timingSafeEqual(providedKeyRaw || '', expectedKey || '')) {\n  return [{ json: { valid: false, error: 'Authentication failed' } }];\n}\n\nconst input = $input.first().json || {};\n\n// === TYPE VALIDATION ===\nif (input.text !== undefined && typeof input.text !== 'string') {\n  return [{ json: { valid: false, error: 'Invalid text: must be a string' } }];\n}\nif (input.model !== undefined && typeof input.model !== 'string') {\n  return [{ json: { valid: false, error: 'Invalid model: must be a string' } }];\n}\nif (input.channel !== undefined && typeof input.channel !== 'string') {\n  return [{ json: { valid: false, error: 'Invalid channel: must be a string' } }];\n}\n\nconst text = (input.text || input.message || '').toString().trim();\nconst model = (input.model || 'all-MiniLM-L6-v2').toString().trim();\nconst channelRaw = (input.channel || 'general').replace(/^#+/, '').replace(/[<>@&]/g, '').slice(0, 100);\n\n// === TEXT VALIDATION ===\nif (!text) {\n  return [{ json: { valid: false, error: 'Missing required field: text (or message)' } }];\n}\nif (text.length > 32768) {\n  return [{ json: { valid: false, error: 'Text too long: max 32768 characters' } }];\n}\n\n// === MODEL VALIDATION ===\nif (model.length > 100) {\n  return [{ json: { valid: false, error: 'Model name too long: max 100 characters' } }];\n}\nif (!model.match(/^[a-zA-Z0-9_\\-\\/\\.]+$/)) {\n  return [{ json: { valid: false, error: 'Invalid model: must be alphanumeric with dashes, underscores, slashes, or dots' } }];\n}\n\n// === CHANNEL VALIDATION ===\nif (!channelRaw.match(/^[a-zA-Z0-9_-]+$/)) {\n  return [{ json: { valid: false, error: 'Invalid channel: must be alphanumeric, dash, or underscore only' } }];\n}\n\nreturn [{\n  json: {\n    valid: true,\n    text: text,\n    model: model,\n    channel: channelRaw\n  }\n}];"
+      },
+      "id": "validate-input",
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [450, 300],
+      "comment": "API key auth (if EMBEDDINGS_API_KEY set). Validates text (max 32768 chars), model pattern."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "type": "boolean"
+          },
+          "conditions": [
+            {
+              "id": "cond1",
+              "leftValue": "={{ $json.valid }}",
+              "operator": {
+                "name": "equal",
+                "type": "boolean"
+              },
+              "rightValue": true
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "check-valid",
+      "name": "Check Valid",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 300],
+      "comment": "Branches based on validation result. True = valid input, continue to API. False = validation/auth failed."
     },
     {
       "parameters": {
@@ -28,8 +70,8 @@
           ]
         },
         "body": {
-          "input": "={{ $json.text || $json.message || 'Default text' }}",
-          "model": "={{ $json.model || 'all-MiniLM-L6-v2' }}"
+          "input": "={{ $('Validate Input').first().json.text }}",
+          "model": "={{ $('Validate Input').first().json.model }}"
         },
         "options": {
           "timeout": 60000
@@ -39,28 +81,41 @@
       "name": "Embeddings API",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 1,
-      "position": [450, 300]
+      "position": [850, 200],
+      "comment": "Calls embeddings service with validated inputs. 60 second timeout."
     },
     {
       "parameters": {
-        "jsCode": "// Process embeddings response\nconst body = $json || {};\nconst embeddings = body.data || [];\nconst firstEmbedding = embeddings[0]?.embedding || [];\nconst usage = body.usage || {};\n\nreturn [{\n  json: {\n    success: embeddings.length > 0,\n    embedding_dim: firstEmbedding.length,\n    total_embeddings: embeddings.length,\n    tokens_used: usage.total_tokens || 0,\n    timestamp: new Date().toISOString()\n  },\n  binary: {\n    embedding: {\n      data: Buffer.from(JSON.stringify(firstEmbedding)),\n      mimeType: 'application/json'\n    }\n  }\n}];"
+        "jsCode": "// Process embeddings response\nconst body = $input.first().json || {};\nconst validatedInput = $('Validate Input').first().json || {};\nconst embeddings = body.data || [];\nconst firstEmbedding = embeddings[0]?.embedding || [];\nconst usage = body.usage || {};\n\nreturn [{\n  json: {\n    success: embeddings.length > 0,\n    embedding_dim: firstEmbedding.length,\n    total_embeddings: embeddings.length,\n    tokens_used: usage.total_tokens || 0,\n    model: validatedInput.model || 'unknown',\n    channel: validatedInput.channel || 'general',\n    timestamp: new Date().toISOString()\n  },\n  binary: {\n    embedding: {\n      data: Buffer.from(JSON.stringify(firstEmbedding)),\n      mimeType: 'application/json'\n    }\n  }\n}];"
       },
       "id": "process-embeddings",
       "name": "Process Embeddings",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
-      "position": [650, 300]
+      "position": [1050, 200]
     },
     {
       "parameters": {
-        "channel": "={{ $json.channel || '#general' }}",
-        "text": "={{ '*Embeddings Generated*\\n\\n**Dimension:** ' + ($json.embedding_dim || 0) + '\\n**Count:** ' + ($json.total_embeddings || 0) + '\\n**Tokens Used:** ' + ($json.tokens_used || 0) }}"
+        "channel": "={{ $json.channel || 'general' }}",
+        "text": "={{ '*Embeddings Generated* 📊\\n\\n**Model:** ' + ($json.model || 'unknown') + '\\n**Dimension:** ' + ($json.embedding_dim || 0) + '\\n**Count:** ' + ($json.total_embeddings || 0) + '\\n**Tokens Used:** ' + ($json.tokens_used || 0) + '\\n\\n✅ Embeddings ready!' }}"
       },
       "id": "discord-output",
       "name": "Discord Output",
       "type": "n8n-nodes-base.discord",
       "typeVersion": 1,
-      "position": [850, 300]
+      "position": [1250, 200]
+    },
+    {
+      "parameters": {
+        "channel": "={{ $('Validate Input').first().json.channel || 'general' }}",
+        "text": "={{ '*Embeddings Generation Failed* ❌\\n\\n**Error:** ' + (($json.error || $input.all()[0]?.error?.message || $input.all()[0]?.error?.description || 'Unknown error')).toString().slice(0, 997).trimEnd() + '\\n\\nPlease check:\\n- Embeddings service is running\\n- Text is provided and under 32768 characters\\n- Model name is valid\\n- API key is correct (if configured)' }}"
+      },
+      "id": "discord-error",
+      "name": "Discord Error",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [850, 450],
+      "comment": "Catches validation/auth errors and API failures."
     }
   ],
   "connections": {
@@ -68,7 +123,36 @@
       "main": [
         [
           {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "Check Valid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Valid": {
+      "main": [
+        [
+          {
             "node": "Embeddings API",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Discord Error",
             "type": "main",
             "index": 0
           }
@@ -80,6 +164,15 @@
         [
           {
             "node": "Process Embeddings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "error": [
+        [
+          {
+            "node": "Discord Error",
             "type": "main",
             "index": 0
           }
@@ -99,6 +192,6 @@
     }
   },
   "meta": {
-    "instanceId": "embeddings-workflow-v1"
+    "instanceId": "embeddings-workflow-v2"
   }
 }
