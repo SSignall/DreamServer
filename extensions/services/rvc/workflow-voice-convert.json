@@ -136,7 +136,7 @@
         "path": "/convert",
         "body": {
           "mimeType": "application/json",
-          "raw": "={{ JSON.stringify({ model: $('Check Valid').item.json.model || 'default', audio_path: $json.path && !$json.path.includes('..') && $json.path.startsWith('/') ? $json.path : $('Check Valid').item.json.audio_path, pitch: $('Check Valid').item.json.pitch || 0, f0_method: $('Check Valid').item.json.f0_method || 'rmvpe' }) }}"
+          "raw": "={{ JSON.stringify({ model: $('Check Valid').item.json.model || 'default', audio_path: $json.path && !$json.path.includes('..') && $json.path.startsWith('/tmp/') ? $json.path : (function(){ throw new Error('Invalid upload response path'); })(), pitch: $('Check Valid').item.json.pitch || 0, f0_method: $('Check Valid').item.json.f0_method || 'rmvpe' }) }}"
         },
         "options": {
           "timeout": 300000,
@@ -145,7 +145,7 @@
       },
       "outputNodes": [],
       "notesInFlow": false,
-      "notes": "Convert uploaded voice using RVC model. Sanitizes upload path before use."
+      "notes": "Convert uploaded voice using RVC model. Hard-fails if upload path is suspicious (no fallback to user input)."
     },
     {
       "id": "success_response",
