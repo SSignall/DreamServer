@@ -394,6 +394,18 @@ systemctl status memory-reset-17.timer           # your memory reset timer
 ---
 ## Scratch Notes (Added by 17 — will be archived on reset)
 
+### 2026-03-08 — n8n Workflow QA Review (Final)
+- **Review trigger**: Android-18 ping for n8n Wave 3 commits review
+- **Commits reviewed**: Last 5 commits (e2967cbd through 9eb284d7)
+- **Key fixes applied**:
+  - `2bf594d1` — Added Validate Input node to ComfyUI workflow; fixed error handler pattern
+  - `2bf594d1` — Fixed LocalAI error handler to use `$input.all()[0]?.error?.message` pattern
+  - ComfyUI: Input validation, dimension clamping, clean prompt truncation
+  - Both workflows: Proper n8n expression syntax, error access patterns
+- **Commit `9eb284d7`**: ComfyUI image generation with FLUX.1, queue endpoint, Discord notifications
+- **Review queue status**: Clear — all quality issues fixed and committed
+- **Next session**: Continue with extensions (Flowise, Dify) or hardening wave remaining items
+
 ### 2026-03-08 — Wave 3 Extension QA Review
 - Reviewed 16's Wave 3 batch (commits dfe4fea8 through 0f207a9b)
 - Found and fixed piper-audio ID mismatch (commit 2ecc3e84)
@@ -494,6 +506,118 @@ systemctl status memory-reset-17.timer           # your memory reset timer
 - **Hardening impact**: Prevents injection attacks via arbitrary `voice_preset` values; whitelist covers all documented Bark v2 voices
 
 ### 2026-03-08 — OpenClaw Bind Mode Schema (Definitive)
+
+### 2026-03-08 — Wave 3 Extension QA Review
+- Reviewed 16's Wave 3 batch (commits dfe4fea8 through 0f207a9b)
+- Found and fixed piper-audio ID mismatch (commit 2ecc3e84)
+- Added schema support for empty health field (CLI tools)
+- All 405 extension checks pass (0 failed, 1 warning for port conflicts)
+- Pushed to dev/main: 45444207
+
+### 2026-03-08 — Hardening Wave 3 Status
+- Wave 3 extensions validated and committed
+- XTTS pinned to v1.0-cuda121, Milvus simplified to standalone mode
+- Aider healthcheck removed (CLI tool), schema allows empty health
+
+### 2026-03-08 — RVC Model Parameter Security Regression Fix
+- Commit 1a2051cd (binary+parameters refactor) accidentally stripped path traversal protection
+- Commit 89959a15 had added validation: checks for `..`, `/`, `\`, `%2e`, `%2f`, `%5c`, allowlist `^[a-zA-Z0-9._-]+$`, max 100 chars
+- Fix 7e5bea48 restored validation to `parameters.model` while keeping binary+parameters structure
+- Validation now active: blocks path traversal attacks, allows only safe filenames
+- Committed & pushed: 7e5bea48
+
+### 2026-03-08 — Dashboard Offline Services Fix (#33)
+- Issue: Dashboard shows services offline even though containers are healthy
+- Root cause: Services like Open WebUI don't have `/health` endpoint; healthcheck defaulted to `/health` which returns 404
+- Fix: Add fallback health endpoints in `check_service_health()` — try `/health`, `/api/health`, `/status`, `/`
+- Committed & pushed: 8ea4bd2e
+- Verified: Fix is in `dev/main` and deployed
+
+### 2026-03-08 — Hardening Wave 4 Status
+- **SearXNG secret key**: Already fixed — generated at install time via `openssl rand -hex 32`
+- **OpenClaw `dangerouslyDisableDeviceAuth`**: Bound to `127.0.0.1` via `gateway.bind: "loopback"` (commit 83d52680)
+  - Risk is minimal since gateway is localhost-only; no public exposure
+- **Token-spy HTML embedding**: Localhost-only service; API key in page source is acceptable for localhost
+- **Container image pinning**: Already done (searxng:2026.3.6, etc.)
+- **ComfyUI AMD security opts**: `seccomp:unconfined` and `SYS_PTRACE` already removed from compose.amd.yaml
+- All Wave 4 hardening items addressed or deemed acceptable risk
+- Queue clear for next workstream
+
+### 2026-03-08 — Commit Review Session (Evening)
+- **Review lead**: Android-17 (me) with Todd assisting on .143 installer testing
+- **Review pattern**: Todd handles code quality/syntax, I handle architecture/security; neither blocks the other
+- **Key fixes applied:**
+  - `952a59b5` — Restored literal backslash check in RVC path validation (HIGH from 18)
+  - `fd7c65c3` — Added `OPENCLAW_TOKEN_JSON` with proper JSON escaping via Python3 json.dumps
+  - `84021dde` — macOS installer: use Python3 json.dumps for robust token escaping
+  - `97540fed` — LocalAI extension: fixed `external_port_env` mismatch (`LOCALAI_PORT` → `LOCALAI_EXTERNAL_PORT`)
+- **JSON escaping fix**: Changed from sed-only to Python3 fallback pattern for complete RFC 8259 compliance (handles `\uXXXX` control chars)
+- **GitHub issues reviewed:**
+  - #33 (Dashboard offline) — ✅ Resolved
+  - #55 (Dual GPU detection) — ✅ Resolved  
+  - #32 (Windows install) — Unassigned, pending
+  - #22 (OpenClaw gateway security) — Not a bug (gateway binding intentional)
+- **All review queue items processed and pushed to dev/main**
+- **Next session priorities (per workstream order):**
+  1. GitHub issues — #32 (Windows), #22 (OpenClaw gateway)
+  2. Hardening wave — Remaining items from checklist
+  3. Extensions — Continue LocalAI with n8n workflow template
+  4. Installer testing — Coordinate with Bilal
+
+### 2026-03-08 — QA Review Session (23:04 EST)
+- **Review trigger**: Android-18 ping for commit review follow-up
+- **Commits reviewed**: Last 15 commits to dev/main (8293cf4e through 48418c13)
+- **Key fixes verified**:
+  - Gateway bind address: All configs use `127.0.0.1` (loopback mode deprecated)
+  - JSON escaping: Primary via `python3 json.dumps()`, fallback via `sed` with proper control char handling
+  - LocalAI healthcheck: Removed root path fallback; only `/healthz` endpoint checked
+  - RVC security: Path traversal protection restored
+- **Current GitHub issues**:
+  - **#33** (Dashboard offline) — Still open; fix (8ea4bd2e) committed but may not be deployed yet
+  - **#55** (Dual GPU detection) — NEW; user reports only one GPU detected on 3090+4090 system
+  - **#32** (Windows install) — Unassigned
+  - **#22** (OpenClaw gateway security) — Not a bug (gateway binding intentional)
+- **Pushed**: 48418c13 (memory update)
+- **Review queue status**: Clear
+
+### 2026-03-08 — Loopback Bind Verification
+- **K2.5 concern**: `"loopback"` might fallback to `0.0.0.0` exposing gateway with `allowInsecureAuth: true`
+- **Verification**: Checked production gateway via `netstat` — port `18789` bound to `127.0.0.1` and `[::1]` (localhost only)
+- **Current config** (`.122:/home/michael/.openclaw/openclaw.json`):
+  ```json
+  "gateway": {
+    "port": 18789,
+    "mode": "local",
+    "bind": "loopback",
+    "controlUi": {
+      "allowInsecureAuth": true
+    }
+  }
+  ```
+- **Conclusion**: OpenClaw's `"loopback"` mode correctly resolves to localhost; K2.5 finding is a **false positive**
+- **Action**: `6fb76408` (revert to `"loopback"`) is safe; no security exposure
+- **Note**: `dangerouslyDisableDeviceAuth` is NOT in the main config; only in `pro.json` and `openclaw-strix-halo.json` variants
+
+### 2026-03-08 — Bark TTS Voice Preset Validation Fix (Commit `3a88c534`)
+- **MEDIUM finding (K2.5)**: Missing input validation for `voice_preset` parameter — server did not validate against whitelist
+- **Fix**: Added `VALID_VOICES` set with all Bark v2 voices; server returns 422 for invalid presets
+- **LOW finding (K2.5)**: Test file uses `patch(..., True)` inside tests; better practice is `reset_globals` fixture or `@patch` decorator
+- **LOW finding (K2.5)**: Mock `mock_soundfile_write` writes fake WAV data (`b'\x00' * 100`); tests assume valid base64 — may mask encoding issues
+- **Status**: Validation fix approved; comment fix pushed (`37a9099e`) — corrects documentation ("exact match" not "prefix match")
+- **Hardening impact**: Prevents injection attacks via arbitrary `voice_preset` values; whitelist covers all documented Bark v2 voices
+
+### 2026-03-08 — OpenClaw Bind Mode Schema (Definitive)
+
+### 2026-03-08 — n8n Workflow QA Review (Final)
+- **Review trigger**: Android-18 ping for n8n Wave 3 commits review
+- **Commits reviewed**: Last 5 commits (e2967cbd through 9eb284d7)
+- **Key fixes applied**:
+  - `2bf594d1` — Added Validate Input node to ComfyUI workflow; fixed error handler pattern
+  - `2bf594d1` — Fixed LocalAI error handler to use `$input.all()[0]?.error?.message` pattern
+  - ComfyUI: Input validation, dimension clamping, clean prompt truncation
+  - Both workflows: Proper n8n expression syntax, error access patterns
+- **Commit `9eb284d7`**: ComfyUI image generation with FLUX.1, queue endpoint, Discord notifications
+- **Review queue status**: Clear — all quality issues fixed and committed
 
 ### 2026-03-10 — Pre-Compaction Memory Flush
 
