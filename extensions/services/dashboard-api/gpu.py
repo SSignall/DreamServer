@@ -166,6 +166,10 @@ def get_all_gpus() -> list[GPUInfo]:
     gpus: list[GPUInfo] = []
     gpu_backend = os.environ.get("GPU_BACKEND", "").lower()
 
+    # Validate GPU_BACKEND - only empty, "nvidia", or "amd" are allowed
+    if gpu_backend not in ("", "nvidia", "amd"):
+        gpu_backend = ""  # Invalid value falls back to auto-detection
+
     # Skip NVIDIA detection if GPU_BACKEND=amd (avoids slow/hanging nvidia-smi)
     if gpu_backend != "amd":
         try:
