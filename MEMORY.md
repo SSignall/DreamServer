@@ -1174,36 +1174,46 @@ if (a.length !== b.length) return false;
 
 ---
 
-### 2026-03-08 — Commit Review Session (10:47-11:00 EDT)
+### 2026-03-08 — Commit Review Session (10:47-10:53 EDT)
 
-**Commits Reviewed:**
+**Commits Reviewed (Total 7):**
 
-| Commit | Message | Status | Issues |
-|--------|---------|--------|--------|
-| `5ac03509` | fix(workflows): resolve critical security vulnerabilities in flowise/langflow templates | ✅ Fixed | Critical: timing-safe auth bypass, DoS vulnerability, SSL issues |
-| `e2530e6b` | fix(n8n-templates): address 18's review - names, auth, env vars, error handling | ✅ Fixed | All issues resolved (names, auth, env vars, error handling) |
-| `362afed9` | fix(amd): remove duplicate dashboard-api config from overlay | ✅ Fixed | Removed 37 lines of duplicate config, AMD overlay only adds DRM volume |
-| `1359de0a` | fix(open-interpreter): restore correct build context path | ✅ Fixed | Context now points to service directory instead of '.' |
-| `3737a17b` | fix(workflows): correct n8n templates from 025f3d84 review | ✅ Fixed | Added UUIDs, names, updated node versions, env var fallbacks |
-| `d64e36ee` | fix(whisper): correct sed pattern from 82e65a4d review | ✅ Fixed | Made trailing comma optional, removed garbage characters |
+| Commit | Message | Status | Issues Fixed |
+|--------|---------|--------|--------------|
+| `5ac03509` | fix(workflows): critical security vulnerabilities | ✅ **APPROVED** | Timing-safe auth, DoS prevention, HTTP internal, generic errors |
+| `e2530e6b` | fix(n8n-templates): names, auth, env vars, error handling | ✅ **APPROVED** | Node names, webhook auth, env var fallbacks, continueOnFail |
+| `362afed9` | fix(amd): remove duplicate dashboard-api config | ✅ **APPROVED** | Minimal overlay pattern - only AMD-specific volumes |
+| `1359de0a` | fix(open-interpreter): build context path | ✅ **APPROVED** | Context now points to service directory |
+| `3737a17b` | fix(workflows): n8n templates from 025f3d84 review | ✅ **APPROVED** | UUIDs, node names, version updates |
+| `d64e36ee` | fix(whisper): sed pattern fix | ✅ **APPROVED** | Optional comma, removed garbage chars |
+| `83c83432` | fix(n8n): add missing Respond to Webhook node | ✅ **APPROVED** | Added response node, removed redundant option |
 
-**Critical Security Fixes Applied (5ac03509):**
+**Security Fixes Verified (`5ac03509`):**
+- ✅ **Authentication bypass** — `safeCompare` rejects keys >128 chars, early-exits on length mismatch
+- ✅ **DoS vulnerability** — Iterates only to actual string length, not fixed max
+- ✅ **SSL bypass removed** — Uses HTTP for internal container networking
+- ✅ **Error disclosure** — Generic error messages, no internal details leaked
+- ✅ **Dead code removed** — Redundant `.replace()` calls removed (regex already validates)
 
-1. **Authentication bypass** — Reject keys >128 chars instead of truncating
-2. **DoS vulnerability** — Iterate only to actual string length, not fixed max
-3. **ignoreSslIssues** — Use HTTP for internal container networking (no TLS needed)
-4. **Error disclosure** — Return generic error messages, not internal details
-5. **Path traversal** — Removed dead code (regex already excludes dots/slashes)
+**n8n Templates Verified (`e2530e6b`, `3737a17b`, `83c83432`):**
+- ✅ All nodes have `name` property matching connection references
+- ✅ Webhook auth using `headerAuth` + `WEBHOOK_AUTH_TOKEN` env var
+- ✅ Hardcoded URLs replaced with env var fallbacks (`EXTERNAL_API_URL`, `INTERNAL_API_URL`, `DREAM_SERVER_URL`)
+- ✅ `continueOnFail: true` on all HTTP Request nodes
+- ✅ Updated to modern node versions (`code` v2, `webhook` v1.1, `httpRequest` v4.2)
+- ✅ Added missing "Respond to Webhook" node
 
-**QA Pattern - AMD Compose Overlay:**
-```
-# docker-compose.base.yml has full dashboard-api definition
-# docker-compose.amd.yml should ONLY add AMD-specific config:
-dashboard-api:
-  volumes:
-    - /sys/class/drm:/sys/class/drm:ro
-```
-This reduces maintenance burden and prevents config drift between base and overlay files.
+**AMD Overlay Verified (`362afed9`):**
+- ✅ Minimal overlay pattern — only AMD-specific volumes (`/sys/class/drm`)
+- ✅ No duplicate env vars, ports, healthchecks, or deploy resources
+- ✅ Correctly inherits from `docker-compose.base.yml`
+
+**Revert Commits Superseded:**
+- `f2951ed4` — Revert of `9c4bf1e2` (AMD overlay fix)
+- `6fb72909` — Revert of `9a5d34c7` (AMD overlay fix)
+
+**Final State:** ✅ Review queue clear, all fixes merged to `dev/main`
+CI: 595 passed, 0 failed
 
 **Next Session Priorities** (per workstream order):
 
