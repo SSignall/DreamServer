@@ -8,7 +8,7 @@ service:
   host_env: LOCALAI_HOST
   default_host: localai
   port: 8080
-  external_port_env: LOCALAI_EXTERNAL_PORT
+  external_port_env: LOCALAI_PORT
   external_port_default: 8080
   health: /
   type: docker
