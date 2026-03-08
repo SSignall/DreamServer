@@ -405,3 +405,16 @@ systemctl status memory-reset-17.timer           # your memory reset timer
 - Wave 3 extensions validated and committed
 - XTTS pinned to v1.0-cuda121, Milvus simplified to standalone mode
 - Aider healthcheck removed (CLI tool), schema allows empty health
+
+### 2026-03-08 — RVC Model Parameter Security Regression Fix
+- Commit 1a2051cd (binary+parameters refactor) accidentally stripped path traversal protection
+- Commit 89959a15 had added validation: checks for `..`, `/`, `\`, `%2e`, `%2f`, `%5c`, allowlist `^[a-zA-Z0-9._-]+$`, max 100 chars
+- Fix 7e5bea48 restored validation to `parameters.model` while keeping binary+parameters structure
+- Validation now active: blocks path traversal attacks, allows only safe filenames
+- Committed & pushed: 7e5bea48
+
+### 2026-03-08 — Dashboard Offline Services Fix (#33)
+- Issue: Dashboard shows services offline even though containers are healthy
+- Root cause: Services like Open WebUI don't have `/health` endpoint; healthcheck defaulted to `/health` which returns 404
+- Fix: Add fallback health endpoints in `check_service_health()` — try `/health`, `/api/health`, `/status`, `/`
+- Committed & pushed: 8ea4bd2e
