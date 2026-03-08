@@ -1,0 +1,125 @@
+{
+  "name": "Flowise Chatflow API",
+  "active": true,
+  "settings": {},
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "flowise-chat",
+        "options": {}
+      },
+      "id": "flowise-webhook",
+      "name": "Flowise Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body || $json;\nconst headers = $json.headers || {};\n\nconst expectedKey = $env.FLOWISE_API_KEY;\nconst providedKey = headers['x-api-key'] || headers['X-API-Key'];\n\nfunction timingSafeEqual(a, b) {\n  if (a.length !== b.length) return false;\n  let result = 0;\n  for (let i = 0; i < a.length; i++) {\n    result |= a.charCodeAt(i) ^ b.charCodeAt(i);\n  }\n  return result === 0;\n}\n\nif (expectedKey && expectedKey.length > 0) {\n  if (!providedKey) {\n    return [{ json: { error: 'Authentication required', code: 401 } }];\n  }\n  if (!timingSafeEqual(expectedKey, providedKey)) {\n    return [{ json: { error: 'Invalid API key', code: 403 } }];\n  }\n}\n\nconst chatflowId = body.chatflowId || $env.FLOWISE_DEFAULT_CHATFLOW_ID;\nif (!chatflowId) {\n  return [{ json: { error: 'chatflowId required', code: 400 } }];\n}\n\nreturn [{\n  json: {\n    question: body.question || body.message || body.prompt || 'Hello',\n    chatflowId: chatflowId,\n    streaming: body.streaming || false,\n    overrideConfig: body.overrideConfig || {}\n  }\n}];"
+      },
+      "id": "validate-request",
+      "name": "Validate Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ 'http://' + ($env.FLOWISE_HOST || 'flowise') + ':' + ($env.FLOWISE_PORT || '3000') + '/api/v1/prediction/' + $json.chatflowId }}",
+        "method": "POST",
+        "headers": {
+          "list": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "body": "={{ JSON.stringify({\n  question: $json.question,\n  streaming: $json.streaming,\n  overrideConfig: $json.overrideConfig\n}) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "flowise-api",
+      "name": "Flowise API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $json;\n\nif (response.error) {\n  return [{\n    json: {\n      error: response.error,\n      code: response.code || 500\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    text: response.text || response.response || 'No response',\n    chatId: response.chatId,\n    chatMessageId: response.chatMessageId,\n    sourceDocuments: response.sourceDocuments || [],\n    usedTools: response.usedTools || []\n  }\n}];"
+      },
+      "id": "format-response",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "json": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "respond-to-webhook",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1050, 300]
+    }
+  ],
+  "connections": {
+    "Flowise Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Request": {
+      "main": [
+        [
+          {
+            "node": "Flowise API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Flowise API": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": []
+}
