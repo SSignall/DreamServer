@@ -195,11 +195,11 @@ generate_openclaw_config() {
     mkdir -p "$agent_dir" "$sess_dir"
 
     # Escape token for JSON insertion (handle quotes, backslashes, newlines)
-    # Primary: Python's json.dumps() for proper escaping
+    # Primary: Python's json.dumps() for proper escaping (via env to avoid exposing in ps)
     # Fallback: sed for basic escapes (hex tokens only contain 0-9,a-f so control chars aren't possible)
     local token_json
     if command -v python3 &>/dev/null; then
-        token_json=$(python3 -c "import json,sys; print(json.dumps(sys.argv[1])[1:-1])" "$token" 2>/dev/null)
+        token_json=$(OPENCLAW_TOKEN="$token" python3 -c "import json,sys,os; sys.stdout.write(json.dumps(os.environ['OPENCLAW_TOKEN'])[1:-1])" 2>/dev/null)
     else
         token_json=$(printf '%s' "$token" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g; s/\n/\\n/g; s/\r/\\r/g')
     fi
