@@ -14,21 +14,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi.responses import HTMLResponse
 from fastapi.exceptions import HTTPException
 
-# Mock the imports before importing the router module
-mock_get_full_agent_metrics = MagicMock()
-mock_cluster_status = MagicMock()
-mock_throughput = MagicMock()
-mock_verify_api_key = MagicMock()
-
-# Mock cluster_status.refresh() and to_dict()
-mock_cluster_status.refresh = AsyncMock()
-mock_cluster_status.to_dict.return_value = {"nodes": []}
-
-# Mock throughput.get_stats()
-mock_throughput.get_stats.return_value = {"tokens_per_sec": 100.0}
-
-# Patch the imports in the agents module (module-level patching is an anti-pattern)
-# We'll patch at function level instead to avoid import-time side effects
+# Import the agents module (will be patched per-test)
 from extensions.services.dashboard_api.routers import agents
 
 
@@ -71,25 +57,25 @@ class TestAgentMetrics:
     """Tests for /api/agents/metrics endpoint."""
 
     @pytest.mark.asyncio
-    async def test_get_agent_metrics_success(self, api_key_header):
+    async def test_get_agent_metrics_success(self, api_key_header, mock_metrics_data):
         """Test successful retrieval of agent metrics."""
         expected_metrics = {"cluster": {}, "agent": {}, "tokens": {}, "throughput": {}}
-        mock_get_full_agent_metrics.return_value = expected_metrics
         
-        result = await agents.get_agent_metrics(api_key=api_key_header)
-        
-        assert result == expected_metrics
-        mock_get_full_agent_metrics.assert_called_once()
+        with patch('extensions.services.dashboard_api.routers.agents.get_full_agent_metrics', return_value=expected_metrics):
+            result = await agents.get_agent_metrics(api_key=api_key_header)
+            
+            assert result == expected_metrics
+            agents.get_full_agent_metrics.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_get_agent_metrics_with_invalid_api_key(self):
         """Test that invalid API key raises HTTPException."""
-        mock_verify_api_key.side_effect = HTTPException(status_code=401, detail="Invalid API key")
         
-        with pytest.raises(HTTPException) as exc_info:
-            await agents.get_agent_metrics(api_key="invalid-key")
-        
-        assert exc_info.value.status_code == 401
+        with patch('extensions.services.dashboard_api.routers.agents.verify_api_key', side_effect=HTTPException(status_code=401, detail="Invalid API key")):
+            with pytest.raises(HTTPException) as exc_info:
+                await agents.get_agent_metrics(api_key="invalid-key")
+            
+            assert exc_info.value.status_code == 401
 
 
 class TestAgentMetricsHTML:
@@ -98,25 +84,25 @@ class TestAgentMetricsHTML:
     @pytest.mark.asyncio
     async def test_get_agent_metrics_html_success(self, api_key_header, mock_metrics_data):
         """Test successful HTML generation with valid metrics."""
-        mock_get_full_agent_metrics.return_value = mock_metrics_data
         
-        result = await agents.get_agent_metrics_html(api_key=api_key_header)
-        
-        assert isinstance(result, HTMLResponse)
-        html_content = result.body.decode()
-        
-        # Check key elements are present
-        assert "4/4 GPUs" in html_content
-        assert "Ready ✅" in html_content
-        assert "10" in html_content  # session count
-        assert "1234K" in html_content  # tokens_k
-        assert "12.3456" in html_content  # cost
-        assert "1000" in html_content  # requests
-        assert "150.5" in html_content  # current throughput
-        assert "120.3" in html_content  # average throughput
-        assert "gpt-4" in html_content  # top model
-        assert "500K" in html_content  # top model tokens
-        assert "500" in html_content  # top model requests
+        with patch('extensions.services.dashboard_api.routers.agents.get_full_agent_metrics', return_value=mock_metrics_data):
+            result = await agents.get_agent_metrics_html(api_key=api_key_header)
+            
+            assert isinstance(result, HTMLResponse)
+            html_content = result.body.decode()
+            
+            # Check key elements are present
+            assert "4/4 GPUs" in html_content
+            assert "Ready ✅" in html_content
+            assert "10" in html_content  # session count
+            assert "1234K" in html_content  # tokens_k
+            assert "12.3456" in html_content  # cost
+            assert "1000" in html_content  # requests
+            assert "150.5" in html_content  # current throughput
+            assert "120.3" in html_content  # average throughput
+            assert "gpt-4" in html_content  # top model
+            assert "500K" in html_content  # top model tokens
+            assert "500" in html_content  # top model requests
 
     @pytest.mark.asyncio
     async def test_get_agent_metrics_html_no_top_models(self, api_key_header):
@@ -132,16 +118,16 @@ class TestAgentMetricsHTML:
             },
             "throughput": {"current": 50.0, "average": 45.5}
         }
-        mock_get_full_agent_metrics.return_value = mock_metrics
         
-        result = await agents.get_agent_metrics_html(api_key=api_key_header)
-        html_content = result.body.decode()
-        
-        # Check failover status is warning
-        assert "Single GPU ⚠️" in html_content
-        assert "status-warn" in html_content
-        # Check no top models table is present
-        assert "<article class='metric-card'><h4>Top Models" not in html_content
+        with patch('extensions.services.dashboard_api.routers.agents.get_full_agent_metrics', return_value=mock_metrics):
+            result = await agents.get_agent_metrics_html(api_key=api_key_header)
+            html_content = result.body.decode()
+            
+            # Check failover status is warning
+            assert "Single GPU ⚠️" in html_content
+            assert "status-warn" in html_content
+            # Check no top models table is present
+            assert "<article class='metric-card'><h4>Top Models" not in html_content
 
     @pytest.mark.asyncio
     async def test_get_agent_metrics_html_html_escaping(self, api_key_header):
@@ -159,24 +145,24 @@ class TestAgentMetricsHTML:
             },
             "throughput": {"current": 10.0, "average": 10.0}
         }
-        mock_get_full_agent_metrics.return_value = mock_metrics
         
-        result = await agents.get_agent_metrics_html(api_key=api_key_header)
-        html_content = result.body.decode()
-        
-        # Check that HTML special characters are escaped
-        assert "&lt;script&gt;alert('xss')&lt;/script&gt;" in html_content
-        assert "<script>" not in html_content
+        with patch('extensions.services.dashboard_api.routers.agents.get_full_agent_metrics', return_value=mock_metrics):
+            result = await agents.get_agent_metrics_html(api_key=api_key_header)
+            html_content = result.body.decode()
+            
+            # Check that HTML special characters are escaped
+            assert "&lt;script&gt;alert('xss')&lt;/script&gt;" in html_content
+            assert "<script>" not in html_content
 
     @pytest.mark.asyncio
     async def test_get_agent_metrics_html_with_invalid_api_key(self):
         """Test that invalid API key raises HTTPException for HTML endpoint."""
-        mock_verify_api_key.side_effect = HTTPException(status_code=401, detail="Invalid API key")
         
-        with pytest.raises(HTTPException) as exc_info:
-            await agents.get_agent_metrics_html(api_key="invalid-key")
-        
-        assert exc_info.value.status_code == 401
+        with patch('extensions.services.dashboard_api.routers.agents.verify_api_key', side_effect=HTTPException(status_code=401, detail="Invalid API key")):
+            with pytest.raises(HTTPException) as exc_info:
+                await agents.get_agent_metrics_html(api_key="invalid-key")
+            
+            assert exc_info.value.status_code == 401
 
 
 class TestClusterStatus:
@@ -186,23 +172,26 @@ class TestClusterStatus:
     async def test_get_cluster_status_success(self, api_key_header):
         """Test successful cluster status retrieval."""
         expected_status = {"nodes": [{"id": "node1", "status": "healthy"}]}
-        mock_cluster_status.to_dict.return_value = expected_status
         
-        result = await agents.get_cluster_status(api_key=api_key_header)
-        
-        assert result == expected_status
-        mock_cluster_status.refresh.assert_awaited_once()
-        mock_cluster_status.to_dict.assert_called_once()
+        with patch('extensions.services.dashboard_api.routers.agents.cluster_status') as mock_cluster:
+            mock_cluster.to_dict.return_value = expected_status
+            mock_cluster.refresh = AsyncMock()
+            
+            result = await agents.get_cluster_status(api_key=api_key_header)
+            
+            assert result == expected_status
+            mock_cluster.refresh.assert_awaited_once()
+            mock_cluster.to_dict.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_get_cluster_status_with_invalid_api_key(self):
         """Test that invalid API key raises HTTPException for cluster endpoint."""
-        mock_verify_api_key.side_effect = HTTPException(status_code=401, detail="Invalid API key")
         
-        with pytest.raises(HTTPException) as exc_info:
-            await agents.get_cluster_status(api_key="invalid-key")
-        
-        assert exc_info.value.status_code == 401
+        with patch('extensions.services.dashboard_api.routers.agents.verify_api_key', side_effect=HTTPException(status_code=401, detail="Invalid API key")):
+            with pytest.raises(HTTPException) as exc_info:
+                await agents.get_cluster_status(api_key="invalid-key")
+            
+            assert exc_info.value.status_code == 401
 
 
 class TestThroughput:
@@ -212,14 +201,21 @@ class TestThroughput:
     async def test_get_throughput_success(self, api_key_header):
         """Test successful throughput metrics retrieval."""
         expected_stats = {"tokens_per_sec": 100.0, "window": "5m"}
-        mock_throughput.get_stats.return_value = expected_stats
         
-        result = await agents.get_throughput(api_key=api_key_header)
-        
-        assert result == expected_stats
-        mock_throughput.get_stats.assert_called_once()
+        with patch('extensions.services.dashboard_api.routers.agents.throughput') as mock_throughput:
+            mock_throughput.get_stats.return_value = expected_stats
+            
+            result = await agents.get_throughput(api_key=api_key_header)
+            
+            assert result == expected_stats
+            mock_throughput.get_stats.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_get_throughput_with_invalid_api_key(self):
         """Test that invalid API key raises HTTPException for throughput endpoint."""
-        mock_verify_api_key.side_effect = HTTPException(status_code=
+        
+        with patch('extensions.services.dashboard_api.routers.agents.verify_api_key', side_effect=HTTPException(status_code=401, detail="Invalid API key")):
+            with pytest.raises(HTTPException) as exc_info:
+                await agents.get_throughput(api_key="invalid-key")
+            
+            assert exc_info.value.status_code == 401
