@@ -1,0 +1,18 @@
+name: jupyter
+version: "1.0.0"
+description: Jupyter Notebook - Interactive data science and coding environment
+category: tool
+authors:
+  - Project Jupyter
+website: https://jupyter.org/
+image: jupyter/scipy-notebook:notebook-7.3.3
+gpu: [amd, nvidia]
+port: 8888
+data:
+  - ./data/jupyter:/home/jovyan/work
+healthcheck:
+  - wget -q --spider http://localhost:8888/api
+env:
+  - LLM_API_URL
+dependencies: []
+tags: [notebook, python, data-science, coding]
