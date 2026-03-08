@@ -132,7 +132,7 @@ services:
       - DREAM_INSTALL_DIR=/dream-server
       - DREAM_DATA_DIR=/data
       - GPU_BACKEND=${GPU_BACKEND:-nvidia}
-      - SERVICE_HOST=host.docker.internal
+      - SERVICE_HOST=${SERVICE_HOST:-host.docker.internal}
       - OLLAMA_HOST=llama-server
       - WEBUI_HOST=open-webui
       - N8N_HOST=n8n
