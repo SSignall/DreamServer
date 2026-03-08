@@ -22,7 +22,7 @@ apply_patch() {
     fi
 
     # Check if target pattern exists (robust: allow whitespace variations)
-    if ! grep -qE 'vad_filter\s*=\s*effective_vad_filter' "$STT_FILE" 2>/dev/null; then
+    if ! grep -qE 'vad_filter\s*=\s*effective_vad_filter' "$STT_FILE"; then
         echo "WARNING: Target pattern not found in $STT_FILE" >&2
         echo "Patch may not be needed or upstream changed" >&2
         return 0
@@ -30,15 +30,16 @@ apply_patch() {
 
     # Apply patch with flexible whitespace matching
     # Uses perl for more robust pattern matching than sed
+    # Single-quoted strings minimize shell escaping issues
     if command -v perl >/dev/null 2>&1; then
-        perl -i -pe "s/(vad_filter\s*=\s*effective_vad_filter)/\1,\n            vad_parameters={\\"threshold\\": 0.3, \\"min_silence_duration_ms\\": 400, \\"min_speech_duration_ms\\": 50, \\"speech_pad_ms\\": 200},  # DREAM_PATCHED/" "$STT_FILE"
+        perl -i -pe 's/(vad_filter\s*=\s*effective_vad_filter)/$1,\n            vad_parameters={"threshold": 0.3, "min_silence_duration_ms": 400, "min_speech_duration_ms": 50, "speech_pad_ms": 200},  # DREAM_PATCHED/' "$STT_FILE"
     else
-        # Fallback to sed with more flexible pattern
-        sed -i -E "s/vad_filter[[:space:]]*=[[:space:]]*effective_vad_filter[[:space:]]*,?[[:space:]]*/vad_filter = effective_vad_filter,\n            vad_parameters={\\"threshold\\": 0.3, \\"min_silence_duration_ms\\": 400, \\"min_speech_duration_ms\\": 50, \\"speech_pad_ms\\": 200},  # DREAM_PATCHED/" "$STT_FILE"
+        # Fallback to sed with | delimiter to avoid / conflicts in JSON
+        sed -i -E 's|vad_filter[[:space:]]*=[[:space:]]*effective_vad_filter[[:space:]]*,?[[:space:]]*|vad_filter = effective_vad_filter,\n            vad_parameters={"threshold": 0.3, "min_silence_duration_ms": 400, "min_speech_duration_ms": 50, "speech_pad_ms": 200},  # DREAM_PATCHED|' "$STT_FILE"
     fi
 
     # Verify patch applied
-    if grep -q "DREAM_PATCHED" "$STT_FILE" 2>/dev/null; then
+    if grep -q "DREAM_PATCHED" "$STT_FILE"; then
         echo "Patch applied successfully"
         return 0
     else
