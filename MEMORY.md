@@ -803,17 +803,26 @@ if (a.length !== b.length) return false;
 **Security Fixes Verified:**
 - ✅ Whisper entrypoint — Uses hardcoded perl/sed patterns, no user input in commands
 - ✅ Langflow `safeCompare` — Removed `Math.max(a.length, b.length)` which allowed length oracle attack
+- ✅ Security pattern flagged as regression — False positive (style cleanup, security intact)
 
 **Review Queue Status:** ✅ CLEAR
 
 **CI Status:** Awaiting push verification (pre-push hook confirmed up-to-date)
 
+**GitHub Issues:**
+- #55 — Dual GPU detection — Already fixed (`f1e10480`), needs Michael to close
+- #32 — Windows installer — Missing `install.ps1`, unassigned
+- #33 — Dashboard offline — Fix `8ea4bd2e` committed, deployment verify pending
+
+**Security Hardening:**
+- Wave 4 — ✅ Complete (SearXNG key, OpenClaw binding, image pinning, ComfyUI AMD opts)
+- Wave 5 — ⏳ Pending (RVC, Bark, Ollama, LocalAI)
+
 **Next Session Priorities** (per workstream order):
-1. GitHub issues — #55 (dual GPU) is only open issue
-2. Hardening wave — Complete (all checklist items addressed or acceptable risk)
-3. Extensions — Wave 5 complete (Flowise/Langflow committed)
-4. Installer testing — Coordinate with Bilal
-5. Upstream monitoring — Verify no rot in deployed extensions
+1. GitHub issues — #32 (Windows), #33 (deployment verify)
+2. Hardening wave — Wave 5 pending items (low risk)
+3. Installer testing — Coordinate with Bilal
+4. Upstream monitoring — Verify no rot in deployed extensions
 
 ### 2026-03-08 — Android-18 Review Follow-up (n8n-rvc)
 
