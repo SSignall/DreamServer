@@ -28,11 +28,6 @@ services:
           memory: 512M
     networks:
       - dream-network
-    healthcheck:
-      test: ["CMD", "true"]
-      interval: 30s
-      timeout: 5s
-      retries: 1
     command: ["sh", "-c", "echo 'Run: docker compose run --rm aider <files>'"]
 
 networks:
