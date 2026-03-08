@@ -28,7 +28,7 @@ apply_patch() {
     fi
 
     # Check if target pattern exists (robust: allow whitespace variations)
-    if ! grep -qE 'vad_filter\s*=\s*effective_vad_filter' "$STT_FILE"; then
+    if ! grep -qE 'vad_filter\s*=\s*effective_vad_filter' "$STT_FILE" 2>/dev/null; then
         echo "WARNING: Target pattern not found in $STT_FILE" >&2
         echo "Patch may not be needed or upstream changed" >&2
         return 0
