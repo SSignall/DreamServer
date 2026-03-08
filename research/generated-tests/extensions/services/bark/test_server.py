@@ -13,37 +13,26 @@ import pytest
 import base64
 import io
 import threading
+import numpy as np
 from unittest.mock import patch, MagicMock, call
 from fastapi.testclient import TestClient
 from fastapi import HTTPException
 
 # Import the module under test
-from extensions.services.bark.server import (
-    app,
-    TTSRequest,
-    TTSResponse,
-    _load_models,
-    _generate_audio_sync,
-    _generate_audio_stream_sync,
-    VALID_FORMATS,
-    MAX_TEXT_LENGTH,
-    _executor,
-    _models_loaded,
-    _model_lock,
-)
+from extensions.services.bark import server
 
-client = TestClient(app)
+client = TestClient(server.app)
 
 
 # Fixtures
 @pytest.fixture(autouse=True)
 def reset_globals():
     """Reset global state before each test."""
-    global _models_loaded
-    original = _models_loaded
-    _models_loaded = False
+    # Use setattr to modify the module's attribute, not a local variable
+    original = server._models_loaded
+    server._models_loaded = False
     yield
-    _models_loaded = original
+    server._models_loaded = original
 
 
 @pytest.fixture
@@ -97,7 +86,7 @@ def test_health_initial():
 def test_health_after_load(mock_bark_preload_models):
     """Test health endpoint after models are loaded."""
     # Trigger model loading
-    _load_models()
+    server._load_models()
     response = client.get("/health")
     assert response.status_code == 200
     data = response.json()
@@ -157,7 +146,7 @@ def test_tts_invalid_format():
 
 def test_tts_text_too_long():
     """Test TTS with text exceeding MAX_TEXT_LENGTH."""
-    long_text = "a" * (MAX_TEXT_LENGTH + 1)
+    long_text = "a" * (server.MAX_TEXT_LENGTH + 1)
     response = client.post("/tts", json={
         "text": long_text
     })
@@ -251,7 +240,7 @@ def test_tts_invalid_voice_preset():
 
 def test_tts_text_max_length_boundary():
     """Test TTS with text at MAX_TEXT_LENGTH boundary."""
-    text = "a" * MAX_TEXT_LENGTH
+    text = "a" * server.MAX_TEXT_LENGTH
     response = client.post("/tts", json={
         "text": text
     })
