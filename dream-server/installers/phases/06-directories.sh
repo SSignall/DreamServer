@@ -153,7 +153,7 @@ else
   "commands": {"native": "auto", "nativeSkills": "auto"},
   "gateway": {
     "mode": "local",
-    "bind": "localhost",
+    "bind": "loopback",
     "controlUi": {"allowInsecureAuth": true},
     "auth": {"mode": "token", "token": "${OPENCLAW_TOKEN_JSON}"}
   }
