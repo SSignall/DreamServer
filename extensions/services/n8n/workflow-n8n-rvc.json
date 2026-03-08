@@ -73,6 +73,20 @@
     },
     {
       "parameters": {
+        "jsCode": "// Validate upload response path\nconst uploadResponse = $input.first().json || {};\nconst path = uploadResponse.path || '';\nconst validatedInput = $('Validate Input').first().json || {};\nconst fallbackPath = validatedInput.audio_path || '';\n\n// If no path in upload response, use the validated audio_path from input\nif (!path) {\n  if (!fallbackPath) {\n    throw new Error('No audio path available from upload or input');\n  }\n  return [{ json: { path: fallbackPath, from_upload: false } }];\n}\n\n// Decode and validate the path\nlet decodedPath;\ntry {\n  decodedPath = decodeURIComponent(path).normalize('NFC');\n} catch (e) {\n  throw new Error('Invalid upload path: malformed URL encoding');\n}\n\n// Strict validation: must be /tmp/<alphanumeric>.<ext>\nconst validPathPattern = /^\\/tmp\\/[a-zA-Z0-9_-]+\\.[a-zA-Z0-9]+$/;\n\n// Check for traversal in both raw and decoded path\nif (path.includes('..') || decodedPath.includes('..') || !validPathPattern.test(decodedPath)) {\n  throw new Error('Invalid upload response path: failed validation');\n}\n\nreturn [{ json: { path: path, from_upload: true } }];"
+      },
+      "id": "validate-upload-path",
+      "name": "Validate Upload Path",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        750,
+        300
+      ],
+      "comment": "Validates upload response path: decodes URL, checks for traversal, validates /tmp/<alphanumeric>.<ext> pattern. Falls back to input audio_path if upload has no path."
+    },
+    {
+      "parameters": {
         "url": "={{ 'http://' + $env.RVC_HOST + ':' + ($env.RVC_PORT || '7865') + '/convert' }}",
         "method": "POST",
         "headers": {
@@ -85,7 +99,7 @@
         },
         "body": {
           "mimeType": "application/json",
-          "raw": "={{ JSON.stringify({\n  model: $('Validate Input').first().json.model,\n  audio_path: $json.path && !$json.path.includes('..') && $json.path.match(/^\\/tmp\\/[a-zA-Z0-9_-]+\\.[a-zA-Z0-9]+$/) ? $json.path : (function() { throw new Error('Invalid upload response path'); })(),\n  pitch: $('Validate Input').first().json.pitch,\n  f0_method: $('Validate Input').first().json.f0_method\n}) }}"
+          "raw": "={{ JSON.stringify({\n  model: $('Validate Input').first().json.model,\n  audio_path: $('Validate Upload Path').first().json.path,\n  pitch: $('Validate Input').first().json.pitch,\n  f0_method: $('Validate Input').first().json.f0_method\n}) }}"
         },
         "options": {
           "timeout": 300000,
@@ -94,7 +108,7 @@
       },
       "id": "rvc-convert",
       "name": "RVC Convert",
-      "comment": "Uses validated inputs. Re-validates upload response path against strict /tmp/<alphanumeric>.<ext> pattern. Fails hard if path is suspicious. 100MB max response, 5 min timeout.",
+      "comment": "Uses validated inputs and validated upload path. 100MB max response, 5 min timeout.",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 1,
       "position": [
@@ -182,7 +196,7 @@
       "main": [
         [
           {
-            "node": "RVC Convert",
+            "node": "Validate Upload Path",
             "type": "main",
             "index": 0
           }
@@ -223,6 +237,26 @@
         [
           {
             "node": "Discord Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "error": [
+        [
+          {
+            "node": "Discord Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Upload Path": {
+      "main": [
+        [
+          {
+            "node": "RVC Convert",
             "type": "main",
             "index": 0
           }
