@@ -9,10 +9,6 @@ services:
     group_add:
       - "${VIDEO_GID:-44}"
       - "${RENDER_GID:-992}"
-    cap_add:
-      - SYS_PTRACE
-    security_opt:
-      - seccomp:unconfined
     shm_size: 8g
     environment:
       - HSA_OVERRIDE_GFX_VERSION=11.5.1

@@ -46,6 +46,7 @@ RUN git clone https://github.com/comfyanonymous/ComfyUI.git "$COMFYUI_DIR" \
 RUN cd "$COMFYUI_DIR/custom_nodes" \
     && git clone https://github.com/ltdrdata/ComfyUI-Manager.git \
     && cd ComfyUI-Manager \
+    && git checkout 008e6ede56fd53f4c617adae25517a3e020131e7 \
     && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
@@ -54,6 +55,7 @@ RUN cd "$COMFYUI_DIR/custom_nodes" \
 RUN cd "$COMFYUI_DIR/custom_nodes" \
     && git clone https://github.com/city96/ComfyUI-GGUF.git \
     && cd ComfyUI-GGUF \
+    && git checkout 6ea2651e7df66d7585f6ffee804b20e92fb38b8a \
     && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
@@ -62,6 +64,7 @@ RUN cd "$COMFYUI_DIR/custom_nodes" \
 RUN cd "$COMFYUI_DIR/custom_nodes" \
     && git clone https://github.com/kijai/ComfyUI-KJNodes.git \
     && cd ComfyUI-KJNodes \
+    && git checkout c88ac88a8f8a6a090a0d5d607156090cb2911503 \
     && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
@@ -70,6 +73,7 @@ RUN cd "$COMFYUI_DIR/custom_nodes" \
 RUN cd "$COMFYUI_DIR/custom_nodes" \
     && git clone https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git \
     && cd ComfyUI-VideoHelperSuite \
+    && git checkout 993082e4f2473bf4acaf06f51e33877a7eb38960 \
     && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
@@ -78,6 +82,7 @@ RUN cd "$COMFYUI_DIR/custom_nodes" \
 RUN cd "$COMFYUI_DIR/custom_nodes" \
     && git clone https://github.com/Lightricks/ComfyUI-LTXVideo.git \
     && cd ComfyUI-LTXVideo \
+    && git checkout 531512f7286963dc7aff1fd8bf5556e95eae03af \
     && pip3 install --no-cache-dir -r requirements.txt 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
