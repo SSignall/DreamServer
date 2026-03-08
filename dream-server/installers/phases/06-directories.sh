@@ -94,9 +94,13 @@ else
         log "Installed OpenClaw config: $OPENCLAW_CONFIG -> openclaw.json (model: $OPENCLAW_MODEL)"
         mkdir -p "$INSTALL_DIR/data/openclaw/home/agents/main/sessions"
         # Generate OpenClaw home config with local llama-server provider
-        OPENCLAW_TOKEN=$(openssl rand -hex 24 2>/dev/null || head -c 24 /dev/urandom | xxd -p)
-        # Escape token for JSON insertion (handle quotes, backslashes, control chars)
-        OPENCLAW_TOKEN_JSON=$(printf '%s' "$OPENCLAW_TOKEN" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g; s/\n/\\n/g; s/\r/\\r/g')
+        OPENCLAW_TOKEN=$(openssl rand -hex 24 2>/dev/null || od -An -tx1 /dev/urandom | tr -d ' \n' | head -c 48)
+        if [ -z "$OPENCLAW_TOKEN" ]; then
+            log_error "Failed to generate OpenClaw token (openssl not available, od fallback failed)"
+            exit 1
+        fi
+        # Escape token for JSON insertion (handle quotes, backslashes, JSON control chars)
+        OPENCLAW_TOKEN_JSON=$(printf '%s' "$OPENCLAW_TOKEN" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g; s/\n/\\n/g; s/\r/\\r/g; s/\b/\\b/g; s/\f/\\f/g')
 
         cat > "$INSTALL_DIR/data/openclaw/home/openclaw.json" << OCLAW_EOF
 {
