@@ -3,6 +3,8 @@ services:
     image: ignatberesnev/comfyui-gfx1151:v0.2
     container_name: dream-comfyui
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     devices:
       - /dev/dri:/dev/dri
       - /dev/kfd:/dev/kfd
