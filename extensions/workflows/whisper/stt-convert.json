@@ -17,7 +17,7 @@
     },
     {
       "parameters": {
-        "url": "={{ 'http://' + ($env.WHISPER_HOST || 'localhost') + ':' + ($env.WHISPER_PORT || '9000') + '/inference' }",
+        "url": "={{ 'http://' + ($env.WHISPER_HOST || 'localhost') + ':' + ($env.WHISPER_PORT || '9000') + '/inference' }}",
         "method": "POST",
         "headers": {
           "list": [
@@ -27,8 +27,8 @@
             }
           ]
         },
-        "body": {
-          "file": "={{ $binary.file ? $binary.file : $json.file }}"
+        "binary": {
+          "file": "={{ $binary.file ? $binary.file : null }}"
         },
         "options": {
           "timeout": 120000

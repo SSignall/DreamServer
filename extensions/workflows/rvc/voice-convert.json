@@ -13,11 +13,14 @@
       "name": "RVC Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
-      "position": [250, 300]
+      "position": [
+        250,
+        300
+      ]
     },
     {
       "parameters": {
-        "url": "={{ `http://${$env.RVC_HOST || 'localhost'}:${$env.RVC_PORT || '8001'}/voice-convert` }}",
+        "url": "={{ 'http://' + ($env.RVC_HOST || 'localhost') + ':' + ($env.RVC_PORT || '8001') + '/voice-convert' }}",
         "method": "POST",
         "headers": {
           "list": [
@@ -29,7 +32,7 @@
         },
         "body": {
           "file": "={{ $binary.file ? $binary.file.data : $json.file || $json.audio }}",
-          "model": "={{ $json.model || 'index.pth' }}",
+          "model": "={{ (() => { const m = $json.model || 'index.pth'; if (m.includes('..') || m.startsWith('/') || m.includes('\\')) throw new Error('Invalid model path'); return m; })() }}",
           "pitch": "={{ $json.pitch || 0 }}",
           "f0_method": "={{ $json.f0_method || 'rmvpe' }}"
         },
@@ -41,7 +44,10 @@
       "name": "RVC API",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 1,
-      "position": [450, 300]
+      "position": [
+        450,
+        300
+      ]
     },
     {
       "parameters": {
@@ -51,7 +57,10 @@
       "name": "Process RVC Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
-      "position": [650, 300]
+      "position": [
+        650,
+        300
+      ]
     },
     {
       "parameters": {
@@ -62,7 +71,10 @@
       "name": "Discord Output",
       "type": "n8n-nodes-base.discord",
       "typeVersion": 1,
-      "position": [850, 300]
+      "position": [
+        850,
+        300
+      ]
     }
   ],
   "connections": {
