@@ -11,7 +11,10 @@
       "id": 1,
       "type": "webhook",
       "name": "Webhook",
-      "position": [400, 300],
+      "position": [
+        400,
+        300
+      ],
       "parameters": {
         "httpMethod": "POST",
         "path": "bark-tts",
@@ -26,9 +29,12 @@
       "id": "validate_input",
       "type": "code",
       "name": "Validate Input",
-      "position": [550, 300],
+      "position": [
+        550,
+        300
+      ],
       "parameters": {
-        "jsCode": "// API Key authentication check - timing-safe comparison\nconst headers = $input.first().json.headers || {};\nconst providedKey = headers['x-api-key'] || $input.first().json.api_key;\nconst expectedKey = $env.BARK_API_KEY;\n\n// Timing-safe comparison using constant-time string comparison\nfunction timingSafeEqual(a, b) {\n  if (a === null || b === null) return false;\n  if (a.length !== b.length) return false;\n  \n  let result = 0;\n  for (let i = 0; i < a.length; i++) {\n    result |= a.charCodeAt(i) ^ b.charCodeAt(i);\n  }\n  return result === 0;\n}\n\nif (expectedKey && !timingSafeEqual(providedKey || '', expectedKey)) {\n  return [{ json: { valid: false, error: 'Authentication failed' } }];\n}\n\nconst text = ($input.first().json.text || '').trim();\nconst voicePreset = $input.first().json.voice_preset || 'v2/en_speaker_6';\nconst outputFormat = ($input.first().json.output_format || 'wav').toLowerCase();\n\n// Valid Bark voice presets (exact match whitelist)\nconst validVoices = [\n  'v2/en_speaker_0', 'v2/en_speaker_1', 'v2/en_speaker_2', 'v2/en_speaker_3',\n  'v2/en_speaker_4', 'v2/en_speaker_5', 'v2/en_speaker_6', 'v2/en_speaker_7',\n  'v2/en_speaker_8', 'v2/en_speaker_9',\n  'v2/de_speaker_0', 'v2/de_speaker_1', 'v2/de_speaker_2', 'v2/de_speaker_3',\n  'v2/de_speaker_4', 'v2/de_speaker_5', 'v2/de_speaker_6', 'v2/de_speaker_7',\n  'v2/de_speaker_8', 'v2/de_speaker_9',\n  'v2/es_speaker_0', 'v2/es_speaker_1', 'v2/es_speaker_2', 'v2/es_speaker_3',\n  'v2/es_speaker_4', 'v2/es_speaker_5', 'v2/es_speaker_6', 'v2/es_speaker_7',\n  'v2/es_speaker_8', 'v2/es_speaker_9',\n  'v2/fr_speaker_0', 'v2/fr_speaker_1', 'v2/fr_speaker_2', 'v2/fr_speaker_3',\n  'v2/fr_speaker_4', 'v2/fr_speaker_5', 'v2/fr_speaker_6', 'v2/fr_speaker_7',\n  'v2/fr_speaker_8', 'v2/fr_speaker_9',\n  'v2/hi_speaker_0', 'v2/hi_speaker_1', 'v2/hi_speaker_2', 'v2/hi_speaker_3',\n  'v2/hi_speaker_4', 'v2/hi_speaker_5', 'v2/hi_speaker_6', 'v2/hi_speaker_7',\n  'v2/hi_speaker_8', 'v2/hi_speaker_9',\n  'v2/it_speaker_0', 'v2/it_speaker_1', 'v2/it_speaker_2', 'v2/it_speaker_3',\n  'v2/it_speaker_4', 'v2/it_speaker_5', 'v2/it_speaker_6', 'v2/it_speaker_7',\n  'v2/it_speaker_8', 'v2/it_speaker_9',\n  'v2/ja_speaker_0', 'v2/ja_speaker_1', 'v2/ja_speaker_2', 'v2/ja_speaker_3',\n  'v2/ja_speaker_4', 'v2/ja_speaker_5', 'v2/ja_speaker_6', 'v2/ja_speaker_7',\n  'v2/ja_speaker_8', 'v2/ja_speaker_9',\n  'v2/ko_speaker_0', 'v2/ko_speaker_1', 'v2/ko_speaker_2', 'v2/ko_speaker_3',\n  'v2/ko_speaker_4', 'v2/ko_speaker_5', 'v2/ko_speaker_6', 'v2/ko_speaker_7',\n  'v2/ko_speaker_8', 'v2/ko_speaker_9',\n  'v2/pl_speaker_0', 'v2/pl_speaker_1', 'v2/pl_speaker_2', 'v2/pl_speaker_3',\n  'v2/pl_speaker_4', 'v2/pl_speaker_5', 'v2/pl_speaker_6', 'v2/pl_speaker_7',\n  'v2/pl_speaker_8', 'v2/pl_speaker_9',\n  'v2/pt_speaker_0', 'v2/pt_speaker_1', 'v2/pt_speaker_2', 'v2/pt_speaker_3',\n  'v2/pt_speaker_4', 'v2/pt_speaker_5', 'v2/pt_speaker_6', 'v2/pt_speaker_7',\n  'v2/pt_speaker_8', 'v2/pt_speaker_9',\n  'v2/ru_speaker_0', 'v2/ru_speaker_1', 'v2/ru_speaker_2', 'v2/ru_speaker_3',\n  'v2/ru_speaker_4', 'v2/ru_speaker_5', 'v2/ru_speaker_6', 'v2/ru_speaker_7',\n  'v2/ru_speaker_8', 'v2/ru_speaker_9',\n  'v2/tr_speaker_0', 'v2/tr_speaker_1', 'v2/tr_speaker_2', 'v2/tr_speaker_3',\n  'v2/tr_speaker_4', 'v2/tr_speaker_5', 'v2/tr_speaker_6', 'v2/tr_speaker_7',\n  'v2/tr_speaker_8', 'v2/tr_speaker_9',\n  'v2/zh_speaker_0', 'v2/zh_speaker_1', 'v2/zh_speaker_2', 'v2/zh_speaker_3',\n  'v2/zh_speaker_4', 'v2/zh_speaker_5', 'v2/zh_speaker_6', 'v2/zh_speaker_7',\n  'v2/zh_speaker_8', 'v2/zh_speaker_9'\n];\n\nconst validFormats = ['wav', 'mp3', 'ogg', 'flac'];\nconst maxTextLength = 10000;\n\n// Validation\nif (!text) {\n  return [{ json: { valid: false, error: 'text is required' } }];\n}\nif (text.length > maxTextLength) {\n  return [{ json: { valid: false, error: 'text exceeds maximum length of ' + maxTextLength + ' characters' } }];\n}\nif (!validVoices.includes(voicePreset)) {\n  return [{ json: { valid: false, error: 'Invalid voice_preset. Must be one of: ' + validVoices.slice(0, 5).join(', ') + ', ...' } }];\n}\nif (!validFormats.includes(outputFormat)) {\n  return [{ json: { valid: false, error: 'Invalid output_format. Must be one of: ' + validFormats.join(', ') } }];\n}\n\nreturn [{\n  json: {\n    valid: true,\n    text: text,\n    voice_preset: voicePreset,\n    output_format: outputFormat\n  }\n}];"
+        "jsCode": "// API Key authentication check - timing-safe comparison\nconst headers = $input.first().json.headers || {};\n\n// Case-insensitive header lookup (defense against platform normalization changes)\nconst headerKeys = Object.keys(headers);\nconst apiKeyHeader = headerKeys.find(k => k.toLowerCase() === 'x-api-key');\nconst providedKey = (apiKeyHeader ? headers[apiKeyHeader] : null) || $input.first().json.api_key;\nconst expectedKey = $env.BARK_API_KEY;\n\n// Timing-safe comparison using constant-time string comparison\nfunction timingSafeEqual(a, b) {\n  if (a === null || b === null) return false;\n  if (a.length !== b.length) return false;\n  \n  let result = 0;\n  for (let i = 0; i < a.length; i++) {\n    result |= a.charCodeAt(i) ^ b.charCodeAt(i);\n  }\n  return result === 0;\n}\n\nif (expectedKey && !timingSafeEqual(providedKey || '', expectedKey)) {\n  return [{ json: { valid: false, error: 'Authentication failed' } }];\n}\n\nconst text = ($input.first().json.text || '').trim();\nconst voicePreset = $input.first().json.voice_preset || 'v2/en_speaker_6';\nconst outputFormat = ($input.first().json.output_format || 'wav').toLowerCase();\n\n// Valid Bark voice presets (exact match whitelist)\nconst validVoices = [\n  'v2/en_speaker_0', 'v2/en_speaker_1', 'v2/en_speaker_2', 'v2/en_speaker_3',\n  'v2/en_speaker_4', 'v2/en_speaker_5', 'v2/en_speaker_6', 'v2/en_speaker_7',\n  'v2/en_speaker_8', 'v2/en_speaker_9',\n  'v2/de_speaker_0', 'v2/de_speaker_1', 'v2/de_speaker_2', 'v2/de_speaker_3',\n  'v2/de_speaker_4', 'v2/de_speaker_5', 'v2/de_speaker_6', 'v2/de_speaker_7',\n  'v2/de_speaker_8', 'v2/de_speaker_9',\n  'v2/es_speaker_0', 'v2/es_speaker_1', 'v2/es_speaker_2', 'v2/es_speaker_3',\n  'v2/es_speaker_4', 'v2/es_speaker_5', 'v2/es_speaker_6', 'v2/es_speaker_7',\n  'v2/es_speaker_8', 'v2/es_speaker_9',\n  'v2/fr_speaker_0', 'v2/fr_speaker_1', 'v2/fr_speaker_2', 'v2/fr_speaker_3',\n  'v2/fr_speaker_4', 'v2/fr_speaker_5', 'v2/fr_speaker_6', 'v2/fr_speaker_7',\n  'v2/fr_speaker_8', 'v2/fr_speaker_9',\n  'v2/hi_speaker_0', 'v2/hi_speaker_1', 'v2/hi_speaker_2', 'v2/hi_speaker_3',\n  'v2/hi_speaker_4', 'v2/hi_speaker_5', 'v2/hi_speaker_6', 'v2/hi_speaker_7',\n  'v2/hi_speaker_8', 'v2/hi_speaker_9',\n  'v2/it_speaker_0', 'v2/it_speaker_1', 'v2/it_speaker_2', 'v2/it_speaker_3',\n  'v2/it_speaker_4', 'v2/it_speaker_5', 'v2/it_speaker_6', 'v2/it_speaker_7',\n  'v2/it_speaker_8', 'v2/it_speaker_9',\n  'v2/ja_speaker_0', 'v2/ja_speaker_1', 'v2/ja_speaker_2', 'v2/ja_speaker_3',\n  'v2/ja_speaker_4', 'v2/ja_speaker_5', 'v2/ja_speaker_6', 'v2/ja_speaker_7',\n  'v2/ja_speaker_8', 'v2/ja_speaker_9',\n  'v2/ko_speaker_0', 'v2/ko_speaker_1', 'v2/ko_speaker_2', 'v2/ko_speaker_3',\n  'v2/ko_speaker_4', 'v2/ko_speaker_5', 'v2/ko_speaker_6', 'v2/ko_speaker_7',\n  'v2/ko_speaker_8', 'v2/ko_speaker_9',\n  'v2/pl_speaker_0', 'v2/pl_speaker_1', 'v2/pl_speaker_2', 'v2/pl_speaker_3',\n  'v2/pl_speaker_4', 'v2/pl_speaker_5', 'v2/pl_speaker_6', 'v2/pl_speaker_7',\n  'v2/pl_speaker_8', 'v2/pl_speaker_9',\n  'v2/pt_speaker_0', 'v2/pt_speaker_1', 'v2/pt_speaker_2', 'v2/pt_speaker_3',\n  'v2/pt_speaker_4', 'v2/pt_speaker_5', 'v2/pt_speaker_6', 'v2/pt_speaker_7',\n  'v2/pt_speaker_8', 'v2/pt_speaker_9',\n  'v2/ru_speaker_0', 'v2/ru_speaker_1', 'v2/ru_speaker_2', 'v2/ru_speaker_3',\n  'v2/ru_speaker_4', 'v2/ru_speaker_5', 'v2/ru_speaker_6', 'v2/ru_speaker_7',\n  'v2/ru_speaker_8', 'v2/ru_speaker_9',\n  'v2/tr_speaker_0', 'v2/tr_speaker_1', 'v2/tr_speaker_2', 'v2/tr_speaker_3',\n  'v2/tr_speaker_4', 'v2/tr_speaker_5', 'v2/tr_speaker_6', 'v2/tr_speaker_7',\n  'v2/tr_speaker_8', 'v2/tr_speaker_9',\n  'v2/zh_speaker_0', 'v2/zh_speaker_1', 'v2/zh_speaker_2', 'v2/zh_speaker_3',\n  'v2/zh_speaker_4', 'v2/zh_speaker_5', 'v2/zh_speaker_6', 'v2/zh_speaker_7',\n  'v2/zh_speaker_8', 'v2/zh_speaker_9'\n];\n\nconst validFormats = ['wav', 'mp3', 'ogg', 'flac'];\nconst maxTextLength = 10000;\n\n// Validation\nif (!text) {\n  return [{ json: { valid: false, error: 'text is required' } }];\n}\nif (text.length > maxTextLength) {\n  return [{ json: { valid: false, error: 'text exceeds maximum length of ' + maxTextLength + ' characters' } }];\n}\nif (!validVoices.includes(voicePreset)) {\n  return [{ json: { valid: false, error: 'Invalid voice_preset. Must be one of: ' + validVoices.slice(0, 5).join(', ') + ', ...' } }];\n}\nif (!validFormats.includes(outputFormat)) {\n  return [{ json: { valid: false, error: 'Invalid output_format. Must be one of: ' + validFormats.join(', ') } }];\n}\n\nreturn [{\n  json: {\n    valid: true,\n    text: text,\n    voice_preset: voicePreset,\n    output_format: outputFormat\n  }\n}];"
       },
       "outputNodes": [],
       "notesInFlow": false,
@@ -38,7 +44,10 @@
       "id": "check_valid",
       "type": "if",
       "name": "Check Valid",
-      "position": [700, 300],
+      "position": [
+        700,
+        300
+      ],
       "parameters": {
         "conditions": {
           "options": {
@@ -67,7 +76,10 @@
       "id": "error_response",
       "type": "respondToWebhook",
       "name": "Error Response",
-      "position": [700, 500],
+      "position": [
+        700,
+        500
+      ],
       "parameters": {
         "statusCode": 400,
         "body": "={{ JSON.stringify({ error: $('Validate Input').item.json.error }) }}",
@@ -83,7 +95,10 @@
       "id": 2,
       "type": "httpRequest",
       "name": "Bark TTS Request",
-      "position": [850, 300],
+      "position": [
+        850,
+        300
+      ],
       "parameters": {
         "url": "={{ ($env.BARK_HOST || 'http://bark:9200').replace(/\\/$/, '') }}/tts",
         "method": "POST",
@@ -104,7 +119,10 @@
       "id": "success_response",
       "type": "respondToWebhook",
       "name": "Success Response",
-      "position": [1000, 300],
+      "position": [
+        1000,
+        300
+      ],
       "parameters": {
         "statusCode": 200,
         "body": "={{ JSON.stringify({ success: true, format: $json.format, sample_rate: $json.sample_rate, audio_base64_length: ($json.audio_base64 || '').length }) }}",
@@ -120,7 +138,10 @@
       "id": "save_audio",
       "type": "code",
       "name": "Save Audio",
-      "position": [1000, 450],
+      "position": [
+        1000,
+        450
+      ],
       "parameters": {
         "jsCode": "// Decode base64 audio and save to file\nconst audioBase64 = $input.first().json.audio_base64;\nconst format = $input.first().json.format || 'wav';\n\nif (!audioBase64) {\n  return [{ json: { saved: false, error: 'No audio data received' } }];\n}\n\nconst fs = require('fs');\nconst path = require('path');\n\n// Whitelist allowed formats for filename extension\nconst validFormats = ['wav', 'mp3', 'ogg', 'flac'];\nconst sanitizedFormat = validFormats.includes(format) ? format : 'wav';\n\n// Generate filename with timestamp - sanitize to prevent path traversal\nconst timestamp = new Date().toISOString().replace(/[:.]/g, '-').replace(/[^a-zA-Z0-9_-]/g, '');\nconst filename = `bark_${timestamp}.${sanitizedFormat}`;\n\n// FIXED: Path traversal protection - verify resolved path stays within output directory\nconst outputDir = '/data/bark/output';\nconst filepath = path.join(outputDir, filename);\nconst resolvedPath = path.resolve(filepath);\nconst resolvedOutputDir = path.resolve(outputDir);\n\nif (!resolvedPath.startsWith(resolvedOutputDir + path.sep)) {\n  return [{ json: { saved: false, error: 'Invalid filename: path traversal detected' } }];\n}\n\n// Ensure directory exists\nif (!fs.existsSync(outputDir)) {\n  fs.mkdirSync(outputDir, { recursive: true });\n}\n\n// Decode and save\nconst buffer = Buffer.from(audioBase64, 'base64');\n\n// Enforce max file size (100MB)\nconst maxSizeBytes = 100 * 1024 * 1024;\nif (buffer.length > maxSizeBytes) {\n  return [{ json: { saved: false, error: 'Audio file exceeds maximum size of 100MB' } }];\n}\n\nfs.writeFileSync(filepath, buffer);\n\nreturn [{\n  json: {\n    saved: true,\n    filename: filename,\n    filepath: filepath,\n    size_bytes: buffer.length\n  }\n}];"
       },
@@ -132,7 +153,10 @@
       "id": 3,
       "type": "Discord",
       "name": "Discord Notification",
-      "position": [1150, 300],
+      "position": [
+        1150,
+        300
+      ],
       "parameters": {
         "webhookUrl": "={{ $env.DISCORD_WEBHOOK_URL || '' }}",
         "text": "={{ 'Bark TTS complete! File: ' + $('Save Audio').item.json.filename + ' Size: ' + Math.round($('Save Audio').item.json.size_bytes / 1024) + 'KB' }}",
