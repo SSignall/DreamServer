@@ -27,6 +27,11 @@
             }
           ]
         },
+        "body": {
+          "model": "={{ ((m) => { const sanitized = String(m || 'index.pth').replace(/[^a-zA-Z0-9._-]/g, ''); if (!sanitized || sanitized.length > 100) throw new Error('Invalid model name'); return sanitized; })($json.model) }}",
+          "pitch": "={{ $json.pitch || 0 }}",
+          "f0_method": "={{ $json.f0_method || 'rmvpe' }}"
+        },
         "binaryProperty": "data",
         "options": {
           "timeout": 120000
@@ -40,7 +45,7 @@
     },
     {
       "parameters": {
-        "functionCode": "// Process RVC voice conversion response\nconst body = $json;\nconst audioBase64 = body.audio || body.audio_base64 || '';\nconst duration = body.duration || 0;\nconst model = body.model || 'unknown';\nconst pitch_shift = body.pitch_shift || 0;\n\nreturn [{\n  json: {\n    success: audioBase64.length > 0,\n    model: model,\n    pitch_shift: pitch_shift,\n    duration_seconds: duration,\n    audio_size_bytes: audioBase64.length,\n    timestamp: new Date().toISOString()\n  },\n  binary: {\n    data: {\n      data: audioBase64,\n      mimeType: 'audio/wav'\n    }\n  }\n}];"
+        "jsCode": "// Process RVC voice conversion response\nconst body = $json;\nconst audioBase64 = body.audio || body.audio_base64 || '';\nconst duration = body.duration || 0;\nconst model = body.model || 'unknown';\nconst pitch_shift = body.pitch_shift || 0;\n\nreturn [{\n  json: {\n    success: audioBase64.length > 0,\n    model: model,\n    pitch_shift: pitch_shift,\n    duration_seconds: duration,\n    audio_size_bytes: audioBase64.length,\n    timestamp: new Date().toISOString()\n  },\n  binary: {\n    data: {\n      data: audioBase64,\n      mimeType: 'audio/wav'\n    }\n  }\n}];"
       },
       "id": "process-rvc-response",
       "name": "Process RVC Response",
@@ -51,7 +56,7 @@
     {
       "parameters": {
         "channel": "={{ $json.channel || '#general' }}",
-        "text": "={{ '*Voice Converted*\\n\\n**Model:** ' + $json.model + '\\n**Pitch Shift:** ' + $json.pitch_shift + ' semitones\\n**Duration:** ' + ($json.duration_seconds || 0).toFixed(2) + 's\\n**Audio Size:** ' + $json.audio_size_bytes + ' bytes' }}"
+        "text": "={{ '*Voice Converted*\\n\\n**Model:** ' + ($json.model || 'unknown') + '\\n**Pitch Shift:** ' + ($json.pitch_shift || 0) + ' semitones\\n**Duration:** ' + ($json.duration_seconds || 0).toFixed(2) + 's\\n**Audio Size:** ' + ($json.audio_size_bytes || 0) + ' bytes' }}"
       },
       "id": "rvc-discord-output",
       "name": "Discord Output",
@@ -99,3 +104,4 @@
     "instanceId": "rvc-workflow-v1"
   }
 }
+

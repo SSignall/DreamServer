@@ -28,7 +28,7 @@
       "name": "RVC Upload Voice",
       "position": [600, 300],
       "parameters": {
-        "url": "={{ $env.RVC_HOST || 'http://rvc:7865' }}",
+        "url": "={{ $env.RVC_HOST || 'http://rvc:7865' }}/",
         "method": "POST",
         "path": "/upload",
         "options": {
