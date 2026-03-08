@@ -100,7 +100,9 @@ else
             exit 1
         fi
         # Escape token for JSON insertion (handle quotes, backslashes, JSON control chars)
-        OPENCLAW_TOKEN_JSON=$(printf '%s' "$OPENCLAW_TOKEN" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g; s/\n/\\n/g; s/\r/\\r/g; s/\b/\\b/g; s/\f/\\f/g')
+        # Uses Python for complete JSON-safe escaping (handles all control chars including \uXXXX)
+        OPENCLAW_TOKEN_JSON=$(python3 -c "import json,sys; print(json.dumps(sys.argv[1])[1:-1])" "$OPENCLAW_TOKEN" 2>/dev/null || \
+            printf '%s' "$OPENCLAW_TOKEN" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g; s/\n/\\n/g; s/\r/\\r/g; s/\b/\\b/g; s/\f/\\f/g')
 
         cat > "$INSTALL_DIR/data/openclaw/home/openclaw.json" << OCLAW_EOF
 {
