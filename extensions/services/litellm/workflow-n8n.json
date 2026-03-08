@@ -17,7 +17,7 @@
     },
     {
       "parameters": {
-        "url": "http://{{ $env.LITELLM_HOST | default('localhost') }}:{{ $env.LITELLM_PORT | default('4000') }}/v1/chat/completions",
+        "url": "={{ 'http://' + ($env.LITELLM_HOST || 'localhost') + ':' + ($env.LITELLM_PORT || '4000') + '/v1/chat/completions' }}",
         "method": "POST",
         "headers": {
           "list": [
@@ -27,7 +27,7 @@
             },
             {
               "name": "Authorization",
-              "value": "Bearer {{ $env.LITELLM_API_KEY | default('sk-1234') }}"
+              "value": "={{ 'Bearer ' + ($env.LITELLM_API_KEY || 'sk-1234') }}"
             }
           ]
         },
@@ -53,18 +53,18 @@
     },
     {
       "parameters": {
-        "jsCode": "// Process LiteLLM response\nconst body = $json;\nconst message = body.choices?.[0]?.message?.content || body.message?.content || 'No response generated';\nconst model = body.model || 'unknown';\nconst usage = body.usage || {};\n\nreturn [{\n  json: {\n    success: !!message,\n    model: model,\n    response: message,\n    tokens_used: usage.total_tokens || 0,\n    timestamp: new Date().toISOString()\n  }\n}];"
+        "jsCode": "// Process LiteLLM response\nconst body = $json || {};\nconst message = body.choices?.[0]?.message?.content || body.message?.content || 'No response generated';\nconst model = body.model || 'unknown';\nconst usage = body.usage || {};\n\nreturn [{\n  json: {\n    success: !!message,\n    model: model,\n    response: message,\n    tokens_used: usage.total_tokens || 0,\n    timestamp: new Date().toISOString()\n  }\n}];"
       },
       "id": "process-response",
       "name": "Process Response",
-      "type": "n8n-nodes-base.functions",
+      "type": "n8n-nodes-base.code",
       "typeVersion": 1,
       "position": [650, 300]
     },
     {
       "parameters": {
         "channel": "={{ $json.channel || '#general' }}",
-        "text": "={{ `*LiteLLM Response*\\n\\n**Model:** ${$json.model}\\n**Tokens:** ${$json.tokens_used}\\n\\n${$json.response}` }}"
+        "text": "={{ '*LiteLLM Response*\\n\\n**Model:** ' + ($json.model || 'unknown') + '\\n**Tokens:** ' + ($json.tokens_used || 0) + '\\n\\n' + ($json.response || '') }}"
       },
       "id": "discord-output",
       "name": "Discord Output",

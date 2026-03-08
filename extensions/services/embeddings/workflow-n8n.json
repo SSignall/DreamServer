@@ -17,7 +17,7 @@
     },
     {
       "parameters": {
-        "url": "http://{{ $env.EMBEDDINGS_HOST | default('localhost') }}:{{ $env.EMBEDDINGS_PORT | default('8080') }}/embeddings",
+        "url": "={{ 'http://' + ($env.EMBEDDINGS_HOST || 'localhost') + ':' + ($env.EMBEDDINGS_PORT || '8080') + '/embeddings' }}",
         "method": "POST",
         "headers": {
           "list": [
@@ -43,18 +43,18 @@
     },
     {
       "parameters": {
-        "jsCode": "// Process embeddings response\nconst body = $json;\nconst embeddings = body.data || [];\nconst firstEmbedding = embeddings[0]?.embedding || [];\nconst usage = body.usage || {};\n\nreturn [{\n  json: {\n    success: embeddings.length > 0,\n    embedding_dim: firstEmbedding.length,\n    total_embeddings: embeddings.length,\n    tokens_used: usage.total_tokens || 0,\n    timestamp: new Date().toISOString()\n  },\n  binary: {\n    embedding: {\n      data: Buffer.from(JSON.stringify(firstEmbedding)),\n      mimeType: 'application/json'\n    }\n  }\n}];"
+        "jsCode": "// Process embeddings response\nconst body = $json || {};\nconst embeddings = body.data || [];\nconst firstEmbedding = embeddings[0]?.embedding || [];\nconst usage = body.usage || {};\n\nreturn [{\n  json: {\n    success: embeddings.length > 0,\n    embedding_dim: firstEmbedding.length,\n    total_embeddings: embeddings.length,\n    tokens_used: usage.total_tokens || 0,\n    timestamp: new Date().toISOString()\n  },\n  binary: {\n    embedding: {\n      data: Buffer.from(JSON.stringify(firstEmbedding)),\n      mimeType: 'application/json'\n    }\n  }\n}];"
       },
       "id": "process-embeddings",
       "name": "Process Embeddings",
-      "type": "n8n-nodes-base.functions",
+      "type": "n8n-nodes-base.code",
       "typeVersion": 1,
       "position": [650, 300]
     },
     {
       "parameters": {
         "channel": "={{ $json.channel || '#general' }}",
-        "text": "={{ `*Embeddings Generated*\\n\\n**Dimension:** ${$json.embedding_dim}\\n**Count:** ${$json.total_embeddings}\\n**Tokens Used:** ${$json.tokens_used}` }}"
+        "text": "={{ '*Embeddings Generated*\\n\\n**Dimension:** ' + ($json.embedding_dim || 0) + '\\n**Count:** ' + ($json.total_embeddings || 0) + '\\n**Tokens Used:** ' + ($json.tokens_used || 0) }}"
       },
       "id": "discord-output",
       "name": "Discord Output",
