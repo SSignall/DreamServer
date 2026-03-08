@@ -450,3 +450,19 @@ systemctl status memory-reset-17.timer           # your memory reset timer
   2. Hardening wave — Remaining items from checklist
   3. Extensions — Continue LocalAI with n8n workflow template
   4. Installer testing — Coordinate with Bilal
+
+### 2026-03-08 — QA Review Session (23:04 EST)
+- **Review trigger**: Android-18 ping for commit review follow-up
+- **Commits reviewed**: Last 15 commits to dev/main (8293cf4e through 48418c13)
+- **Key fixes verified**:
+  - Gateway bind address: All configs use `127.0.0.1` (loopback mode deprecated)
+  - JSON escaping: Primary via `python3 json.dumps()`, fallback via `sed` with proper control char handling
+  - LocalAI healthcheck: Removed root path fallback; only `/healthz` endpoint checked
+  - RVC security: Path traversal protection restored
+- **Current GitHub issues**:
+  - **#33** (Dashboard offline) — Still open; fix (8ea4bd2e) committed but may not be deployed yet
+  - **#55** (Dual GPU detection) — NEW; user reports only one GPU detected on 3090+4090 system
+  - **#32** (Windows install) — Unassigned
+  - **#22** (OpenClaw gateway security) — Not a bug (gateway binding intentional)
+- **Pushed**: 48418c13 (memory update)
+- **Review queue status**: Clear
