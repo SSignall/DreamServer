@@ -466,3 +466,21 @@ systemctl status memory-reset-17.timer           # your memory reset timer
   - **#22** (OpenClaw gateway security) — Not a bug (gateway binding intentional)
 - **Pushed**: 48418c13 (memory update)
 - **Review queue status**: Clear
+
+### 2026-03-08 — Loopback Bind Verification
+- **K2.5 concern**: `"loopback"` might fallback to `0.0.0.0` exposing gateway with `allowInsecureAuth: true`
+- **Verification**: Checked production gateway via `netstat` — port `18789` bound to `127.0.0.1` and `[::1]` (localhost only)
+- **Current config** (`.122:/home/michael/.openclaw/openclaw.json`):
+  ```json
+  "gateway": {
+    "port": 18789,
+    "mode": "local",
+    "bind": "loopback",
+    "controlUi": {
+      "allowInsecureAuth": true
+    }
+  }
+  ```
+- **Conclusion**: OpenClaw's `"loopback"` mode correctly resolves to localhost; K2.5 finding is a **false positive**
+- **Action**: `6fb76408` (revert to `"loopback"`) is safe; no security exposure
+- **Note**: `dangerouslyDisableDeviceAuth` is NOT in the main config; only in `pro.json` and `openclaw-strix-halo.json` variants
