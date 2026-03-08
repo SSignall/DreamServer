@@ -397,3 +397,29 @@ All 10 Wave 1 extensions built, manifests fixed to schema v1, and validated on .
 | 18 | AudioCraft | `audiocraft` | |
 | 19 | Weaviate | `cr.weaviate.io/semitechnologies/weaviate` | |
 | 20 | Paperless-ngx | `ghcr.io/paperless-ngx/paperless-ngx` | |
+
+---
+
+**2026-03-08 19:50 EST - HARDENING: PIN CONTAINER IMAGE TAGS ✅**
+
+Pinned all services with floating tags to stable versions:
+
+| Service | Old Tag | New Tag | Commit Hash |
+|---------|---------|---------|-------------|
+| fooocus | `:edge` | `v2.5.5` | `f200e1e2` |
+| jupyter | `:latest` | `python-3.11` | `f200e1e2` |
+| openclaw | `:latest` | `v2026.3.2` | `f200e1e2` |
+| searxng | `:latest` | `2026.3.6` | `f200e1e2` |
+| perplexica | `:slim-latest` | `@sha256:7e11...` | `f200e1e2` |
+| whisper (speaches) | `:latest-cpu` | `v0.2.0` | `f200e1e2` |
+
+**Total services: 32**
+
+**Test Results:**
+- `make lint` — shell syntax warning (false positive — heredoc in command substitution)
+- `make test` — 36 tier tests passed, installer contracts passed
+- CI pipeline: validate-compose.yml runs on push
+
+**Push Status:** Committed and pushed to dev repo (`SSignall/Lighthouse-AI-Dev`)
+
+**Note:** The `session-manager.sh` has a bash -n limitation (heredoc in command substitution) — script runs fine despite warning. This is a known static analysis issue.
