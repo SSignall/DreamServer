@@ -1,7 +1,9 @@
 {
   "name": "Langflow Flow API",
   "active": true,
-  "settings": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
   "nodes": [
     {
       "parameters": {
@@ -13,17 +15,23 @@
       "name": "Langflow Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
-      "position": [250, 300]
+      "position": [
+        250,
+        300
+      ]
     },
     {
       "parameters": {
-        "jsCode": "const body = $json.body || $json;\nconst headers = $json.headers || {};\n\nconst expectedKey = $env.LANGFLOW_API_KEY;\nconst providedKey = headers['x-api-key'] || headers['X-API-Key'];\n\n// Constant-time comparison without length leak\nfunction constantTimeCompare(a, b) {\n  const lenA = a.length;\n  const lenB = b.length;\n  const maxLen = Math.max(lenA, lenB);\n  let result = 0;\n  for (let i = 0; i < maxLen; i++) {\n    result |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);\n  }\n  return result === 0 && lenA === lenB;\n}\n\nif (expectedKey && expectedKey.length > 0) {\n  if (!providedKey) {\n    return [{ json: { error: 'Authentication required', code: 401 } }];\n  }\n  if (!constantTimeCompare(expectedKey, providedKey)) {\n    return [{ json: { error: 'Invalid API key', code: 403 } }];\n  }\n}\n\nconst flowId = body.flowId || $env.LANGFLOW_DEFAULT_FLOW_ID;\nif (!flowId) {\n  return [{ json: { error: 'flowId required', code: 400 } }];\n}\n\n// Validate flowId format (UUID v4 or alphanumeric with hyphens only)\nconst validIdPattern = /^[a-zA-Z0-9-]+$/;\nif (!validIdPattern.test(flowId)) {\n  return [{ json: { error: 'Invalid flowId format', code: 400 } }];\n}\n\n// Prevent path traversal\nconst safeFlowId = flowId.replace(/\\.\\./g, '').replace(/\\//g, '');\n\nreturn [{\n  json: {\n    input_value: body.input || body.message || body.prompt || 'Hello',\n    flowId: safeFlowId,\n    input_type: body.input_type || 'chat',\n    output_type: body.output_type || 'chat',\n    tweaks: body.tweaks || {}\n  }\n}];"
+        "jsCode": "const body = $json.body || $json;\nconst headers = $json.headers || {};\n\nconst expectedKey = $env.LANGFLOW_API_KEY;\nconst providedKey = headers['x-api-key'] || headers['X-API-Key'];\n\n// Constant-time comparison without length leak\nfunction constantTimeCompare(a, b) {\n  const lenA = a.length;\n  const lenB = b.length;\n  // Fixed-length comparison (128 chars max, padded with null)\n  const maxLen = 128;\n  let result = 0;\n  for (let i = 0; i < maxLen; i++) {\n    result |= ((a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0)) >> 0;\n  }\n  // Only safe if lengths match AND content matches\n  return result === 0 && lenA === lenB;\n}\n\nif (expectedKey && expectedKey.length > 0) {\n  if (!providedKey) {\n    return [{ json: { error: 'Authentication required', code: 401 } }];\n  }\n  if (!constantTimeCompare(expectedKey, providedKey)) {\n    return [{ json: { error: 'Invalid API key', code: 403 } }];\n  }\n}\n\nconst flowId = body.flowId || $env.LANGFLOW_DEFAULT_FLOW_ID;\nif (!flowId) {\n  return [{ json: { error: 'flowId required', code: 400 } }];\n}\n\n// Validate flowId format (UUID v4 or alphanumeric with hyphens only)\nconst validIdPattern = /^[a-zA-Z0-9-]+$/;\nif (!validIdPattern.test(flowId)) {\n  return [{ json: { error: 'Invalid flowId format', code: 400 } }];\n}\n\n// Prevent path traversal\nconst safeFlowId = flowId.replace(/\\.\\./g, '').replace(/\\//g, '');\n\nreturn [{\n  json: {\n    input_value: body.input || body.message || body.prompt || 'Hello',\n    flowId: safeFlowId,\n    input_type: body.input_type || 'chat',\n    output_type: body.output_type || 'chat',\n    tweaks: body.tweaks || {}\n  }\n}];"
       },
       "id": "validate-request",
       "name": "Validate Request",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
-      "position": [450, 300]
+      "position": [
+        450,
+        300
+      ]
     },
     {
       "parameters": {
@@ -48,7 +56,10 @@
       "name": "Langflow API",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 1,
-      "position": [650, 300]
+      "position": [
+        650,
+        300
+      ]
     },
     {
       "parameters": {
@@ -58,7 +69,10 @@
       "name": "Format Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
-      "position": [850, 300]
+      "position": [
+        850,
+        300
+      ]
     },
     {
       "parameters": {
@@ -70,7 +84,10 @@
       "name": "Respond to Webhook",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [1050, 300]
+      "position": [
+        1050,
+        300
+      ]
     }
   ],
   "connections": {
@@ -118,9 +135,6 @@
         ]
       ]
     }
-  },
-  "settings": {
-    "executionOrder": "v1"
   },
   "staticData": null,
   "tags": []
