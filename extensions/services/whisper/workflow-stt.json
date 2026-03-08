@@ -23,7 +23,7 @@
       },
       "outputNodes": [],
       "notesInFlow": false,
-      "notes": "Trigger Whisper STT via webhook. Expected JSON: { audio (base64), audio_path (file path), language?, model?, response_format?, api_key? } or header X-API-Key. Set WHISPER_API_KEY env var to enable auth. If WHISPER_API_KEY is unset, auth is disabled (documented behavior)."
+      "notes": "Trigger Whisper STT via webhook. Expected JSON: { audio (base64), audio_path (file path), language?, model?, response_format? }. Auth via X-API-Key header ONLY. Set WHISPER_API_KEY env var to enable auth. If WHISPER_API_KEY is unset, auth is disabled (documented behavior)."
     },
     {
       "id": "validate_input",
