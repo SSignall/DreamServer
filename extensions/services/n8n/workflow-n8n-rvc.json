@@ -21,7 +21,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// API Key authentication check - timing-safe comparison\nconst headers = $input.first().json.headers || {};\n\n// Case-insensitive header lookup (defense against platform normalization changes)\nconst headerKeys = Object.keys(headers);\nconst apiKeyHeader = headerKeys.find(k => k.toLowerCase() === 'x-api-key');\nconst providedKey = apiKeyHeader ? headers[apiKeyHeader] : '';\nconst expectedKey = $env.RVC_API_KEY;\n\n// Timing-safe comparison - prevents timing attacks on API key\nfunction timingSafeEqual(a, b) {\n  if (typeof a !== 'string' || typeof b !== 'string') return false;\n  const MAX_LEN = 256;\n  if (a.length > MAX_LEN || b.length > MAX_LEN) return false;\n  \n  let result = 0;\n  // Constant-time comparison: always iterate MAX_LEN, use 0 for out-of-bounds\n  for (let i = 0; i < MAX_LEN; i++) {\n    const charA = i < a.length ? a.charCodeAt(i) : 0;\n    const charB = i < b.length ? b.charCodeAt(i) : 0;\n    result |= charA ^ charB;\n  }\n  // Include length check in constant-time result\n  result |= (a.length === b.length) ? 0 : 1;\n  return result === 0;\n}\n\n// Authentication logic:\n// - If server has expectedKey configured: client MUST provide matching key\n// - If client provides a key but server has none: reject (unauthorized)\n// - If neither configured: allow\nif ((expectedKey || providedKey) && !timingSafeEqual(providedKey || '', expectedKey || '')) {\n  return [{ json: { valid: false, error: 'Authentication failed' } }];\n}\n\nconst input = $input.first().json || {};\nconst model = input.model || '';\nconst audioPath = input.audio_path || '';\nconst audio = input.audio || '';\n\n// === ENHANCED PATH TRAVERSAL PROTECTION ===\n// Blocks: ../, ..\\, %2e%2e%2f, %252e%252e%252f, %2f, %252f, null bytes, absolute paths, Windows drive letters\nconst pathTraversalPattern = /(\\.\\.[/\\\\]|%2e%2e[/\\\\]|%252e%252e[/\\\\]|%2[fF]|%252[fF]|%00|\\x00|^\\/|^[a-zA-Z]:\\\\)/i;\n\n// Decode and normalize for Unicode NFC attack detection\nlet normalizedPath;\ntry {\n  normalizedPath = decodeURIComponent(audioPath).normalize('NFC');\n} catch (e) {\n  return [{ json: { valid: false, error: 'Invalid audio_path: malformed URL encoding' } }];\n}\n\n// === MODEL VALIDATION ===\nconst validModelPattern = /^[a-zA-Z0-9._-]+$/;\n\n// === CHANNEL VALIDATION ===\n// Strip # prefix and Discord special chars, then validate clean name\nconst channelRaw = (input.channel || 'general').replace(/^#+/, '').replace(/[<>@&]/g, '').slice(0, 100);\nif (!channelRaw.match(/^[a-zA-Z0-9_-]+$/)) {\n  return [{ json: { valid: false, error: 'Invalid channel: must be alphanumeric, dash, or underscore only' } }];\n}\nconst channel = channelRaw;\n\n// === F0_METHOD ALLOWLIST ===\nconst validF0Methods = ['harvest', 'pm', 'dio', 'rmvpe', 'crepe', 'crepe-tiny', 'mangio-crepe', 'mangio-crepe-tiny'];\nconst f0Method = (input.f0_method || 'rmvpe').toLowerCase();\n\n// === PITCH VALIDATION ===\nconst pitchRaw = parseInt(input.pitch ?? 0, 10);\nif (isNaN(pitchRaw) || pitchRaw < -12 || pitchRaw > 12) {\n  return [{ json: { valid: false, error: 'Invalid pitch: must be a number between -12 and +12 semitones' } }];\n}\nconst pitch = pitchRaw;\n\n// === REQUIRED FIELD CHECKS ===\nif (!model) {\n  return [{ json: { valid: false, error: 'Missing required field: model' } }];\n}\nif (!audio && !audioPath) {\n  return [{ json: { valid: false, error: 'Missing required field: audio or audio_path' } }];\n}\n\n// === PATH VALIDATION ===\nif (audioPath) {\n  if (pathTraversalPattern.test(audioPath) || pathTraversalPattern.test(normalizedPath)) {\n    return [{ json: { valid: false, error: 'Path traversal detected: audio_path contains invalid sequences' } }];\n  }\n}\n\n// === MODEL VALIDATION ===\nif (!validModelPattern.test(model)) {\n  return [{ json: { valid: false, error: 'Invalid model name: must be alphanumeric, dot, dash, or underscore only' } }];\n}\nif (model.length > 100) {\n  return [{ json: { valid: false, error: 'Model name too long: max 100 characters' } }];\n}\n\n// === F0_METHOD VALIDATION ===\nif (!validF0Methods.includes(f0Method)) {\n  throw new Error('Invalid f0_method: must be one of ' + validF0Methods.join(', '));\n}\n\nreturn [{\n  json: {\n    model: model,\n    audio: audio,\n    audio_path: audioPath,\n    channel: channel,\n    pitch: pitch,\n    f0_method: f0Method\n  }\n}];"
+        "jsCode": "// API Key authentication check - timing-safe comparison\nconst headers = $input.first().json.headers || {};\n\n// Case-insensitive header lookup (defense against platform normalization changes)\nconst headerKeys = Object.keys(headers);\nconst apiKeyHeader = headerKeys.find(k => k.toLowerCase() === 'x-api-key');\nconst providedKey = apiKeyHeader ? headers[apiKeyHeader] : '';\nconst expectedKey = $env.RVC_API_KEY;\n\n// Timing-safe comparison - constant time regardless of input length\n// Prevents timing oracle attacks by ensuring comparison takes same time for all inputs\nfunction timingSafeEqual(a, b) {\n  if (typeof a !== 'string' || typeof b !== 'string') return false;\n  \n  const MAX_LEN = 256;\n  // Normalize both to exactly MAX_LEN characters (truncate or pad with \\0)\n  const aPadded = a.slice(0, MAX_LEN).padEnd(MAX_LEN, '\\0');\n  const bPadded = b.slice(0, MAX_LEN).padEnd(MAX_LEN, '\\0');\n  \n  let result = 0;\n  // Constant-time comparison: always iterate MAX_LEN, no early returns\n  for (let i = 0; i < MAX_LEN; i++) {\n    result |= aPadded.charCodeAt(i) ^ bPadded.charCodeAt(i);\n  }\n  // Include original length check in constant-time result\n  result |= (a.length === b.length) ? 0 : 1;\n  return result === 0;\n}\n\n// Authentication logic:\n// - If server has expectedKey configured: client MUST provide matching key\n// - If client provides a key but server has none: reject (unauthorized)\n// - If neither configured: allow\nif ((expectedKey || providedKey) && !timingSafeEqual(providedKey || '', expectedKey || '')) {\n  return [{ json: { valid: false, error: 'Authentication failed' } }];\n}\n\nconst input = $input.first().json || {};\nconst model = input.model;\nconst audioPath = input.audio_path || '';\nconst audio = input.audio || '';\nconst channel = input.channel;\nconst f0MethodInput = input.f0_method;\nconst pitchInput = input.pitch;\n\n// === MODEL VALIDATION ===\nif (typeof model !== 'string' || !model) {\n  return [{ json: { valid: false, error: 'Missing required field: model (must be a string)' } }];\n}\nconst validModelPattern = /^[a-zA-Z0-9._-]+$/;\nif (!validModelPattern.test(model)) {\n  return [{ json: { valid: false, error: 'Invalid model name: must be alphanumeric, dot, dash, or underscore only' } }];\n}\nif (model.length > 100) {\n  return [{ json: { valid: false, error: 'Model name too long: max 100 characters' } }];\n}\n\n// === REQUIRED FIELD CHECKS ===\nif (!audio && !audioPath) {\n  return [{ json: { valid: false, error: 'Missing required field: audio or audio_path' } }];\n}\n\n// === ENHANCED PATH TRAVERSAL PROTECTION ===\n// Blocks: ../, ..\\, %2e%2e%2f, %252e%252e%252f, %2f, %252f, null bytes, absolute paths, Windows drive letters\nconst pathTraversalPattern = /(\\.\\.[/\\\\]|%2e%2e[/\\\\]|%252e%252e[/\\\\]|%2[fF]|%252[fF]|%00|\\x00|^\\/|^[a-zA-Z]:\\\\)/i;\n\n// Decode and normalize for Unicode NFC attack detection\nlet normalizedPath;\ntry {\n  normalizedPath = decodeURIComponent(audioPath).normalize('NFC');\n} catch (e) {\n  return [{ json: { valid: false, error: 'Invalid audio_path: malformed URL encoding' } }];\n}\n\n// === PATH VALIDATION ===\nif (audioPath) {\n  if (pathTraversalPattern.test(audioPath) || pathTraversalPattern.test(normalizedPath)) {\n  return [{ json: { valid: false, error: 'Path traversal detected: audio_path contains invalid sequences' } }];\n  }\n}\n\n// === CHANNEL VALIDATION ===\n// Strip # prefix and Discord special chars, then validate clean name\nconst channelStr = typeof channel === 'string' ? channel : 'general';\nconst channelRaw = channelStr.replace(/^#+/, '').replace(/[<>@&]/g, '').slice(0, 100);\nif (!channelRaw.match(/^[a-zA-Z0-9_-]+$/)) {\n  return [{ json: { valid: false, error: 'Invalid channel: must be alphanumeric, dash, or underscore only' } }];\n}\n\n// === F0_METHOD ALLOWLIST ===\nconst validF0Methods = ['harvest', 'pm', 'dio', 'rmvpe', 'crepe', 'crepe-tiny', 'mangio-crepe', 'mangio-crepe-tiny'];\nconst f0MethodStr = typeof f0MethodInput === 'string' ? f0MethodInput : 'rmvpe';\nconst f0Method = f0MethodStr.toLowerCase();\nif (!validF0Methods.includes(f0Method)) {\n  return [{ json: { valid: false, error: 'Invalid f0_method: must be one of ' + validF0Methods.join(', ') } }];\n}\n\n// === PITCH VALIDATION ===\nconst pitchRaw = parseInt(pitchInput ?? 0, 10);\nif (isNaN(pitchRaw) || pitchRaw < -12 || pitchRaw > 12) {\n  return [{ json: { valid: false, error: 'Invalid pitch: must be a number between -12 and +12 semitones' } }];\n}\nconst pitch = pitchRaw;\n\nreturn [{\n  json: {\n    valid: true,\n    model: model,\n    audio: audio,\n    audio_path: audioPath,\n    channel: channelRaw,\n    pitch: pitch,\n    f0_method: f0Method\n  }\n}];"
       },
       "id": "validate-input",
       "name": "Validate Input",
@@ -31,8 +31,32 @@
         450,
         300
       ],
-      "comment": "API key auth (if RVC_API_KEY set). Validates model name, path traversal (../, null bytes, double encoding, URL-encoded slashes, absolute paths, unicode), pitch (-12 to 12), f0_method (allowlist)",
-      "notes": "Validates: model name (alphanumeric, dash, underscore), path traversal protection (../, null bytes, double encoding, %2f/%252f URL-encoded slashes, absolute paths, unicode), pitch (-12 to 12), f0_method allowlist, API key auth"
+      "comment": "API key auth (timing-safe, if RVC_API_KEY set). Validates model name, path traversal (../, null bytes, double encoding, URL-encoded slashes, absolute paths, unicode), pitch (-12 to 12), f0_method (allowlist). All inputs type-checked before string operations. Returns {valid: true, ...} on success or {valid: false, error: ...} on failure."
+    },
+    {
+      "parameters": {
+        "conditions": [
+          {
+            "id": "cond1",
+            "leftValue": "={{ $json.valid }}",
+            "operator": {
+              "operation": "equals",
+              "type": "boolean"
+            },
+            "rightValue": true
+          }
+        ],
+        "combineOperation": "all"
+      },
+      "id": "check-valid",
+      "name": "Check Valid",
+      "comment": "Branches based on validation result. True branch continues to RVC Upload, false branch goes to Error Response.",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        600,
+        300
+      ]
     },
     {
       "parameters": {
@@ -67,23 +91,48 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 1,
       "position": [
-        650,
-        300
+        800,
+        200
       ]
     },
     {
       "parameters": {
-        "jsCode": "// Validate upload response path\nconst uploadResponse = $input.first().json || {};\nconst path = uploadResponse.path || '';\n\n// Must have a path from upload - no fallback to user input\nif (!path) {\n  return [{ json: { valid: false, error: 'No audio path returned from upload service' } }];\n}\n\n// Decode and validate the path\nlet decodedPath;\ntry {\n  decodedPath = decodeURIComponent(path).normalize('NFC');\n} catch (e) {\n  return [{ json: { valid: false, error: 'Invalid upload path: malformed URL encoding' } }];\n}\n\n// Strict validation: must be /tmp/<alphanumeric>.<audio_ext>\nconst validPathPattern = /^\\/tmp\\/[a-zA-Z0-9_-]+\\.(wav|mp3|ogg|flac|webm)$/i;\n\n// Path traversal check with URL-encoded variants\nconst traversalPattern = /(\\.\\.[/\\\\]|%2e%2e%2[fF]|%252e%252e%252[fF]|%2[fF]|%252[fF]|%00)/i;\n\n// Check for traversal in both raw and decoded path\nif (traversalPattern.test(path) || traversalPattern.test(decodedPath) || !validPathPattern.test(decodedPath)) {\n  return [{ json: { valid: false, error: 'Invalid upload response path: failed validation' } }];\n}\n\nreturn [{ json: { path: path, from_upload: true } }];"
+        "jsCode": "// Validate upload response path\nconst uploadResponse = $input.first().json || {};\nconst path = uploadResponse.path || '';\n\n// Must have a path from upload - no fallback to user input\nif (!path) {\n  return [{ json: { valid: false, error: 'No audio path returned from upload service' } }];\n}\n\n// Decode and validate the path\nlet decodedPath;\ntry {\n  decodedPath = decodeURIComponent(path).normalize('NFC');\n} catch (e) {\n  return [{ json: { valid: false, error: 'Invalid upload path: malformed URL encoding' } }];\n}\n\n// Strict validation: must be /tmp/<alphanumeric>.<audio_ext>\nconst validPathPattern = /^\\/tmp\\/[a-zA-Z0-9_-]+\\.(wav|mp3|ogg|flac|webm)$/i;\n\n// Path traversal check with URL-encoded variants\nconst traversalPattern = /(\\.\\.[/\\\\]|%2e%2e%2[fF]|%252e%252e%252[fF]|%2[fF]|%252[fF]|%00)/i;\n\n// Check for traversal in both raw and decoded path\nif (traversalPattern.test(path) || traversalPattern.test(decodedPath) || !validPathPattern.test(decodedPath)) {\n  return [{ json: { valid: false, error: 'Invalid upload response path: failed validation' } }];\n}\n\nreturn [{ json: { valid: true, path: path, from_upload: true } }];"
       },
       "id": "validate-upload-path",
       "name": "Validate Upload Path",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
       "position": [
-        750,
-        300
+        950,
+        200
       ],
       "comment": "Validates upload response path: decodes URL, checks for traversal (including %2f/%252f), validates /tmp/<alphanumeric>.<ext> pattern. No fallback to user input."
+    },
+    {
+      "parameters": {
+        "conditions": [
+          {
+            "id": "cond1",
+            "leftValue": "={{ $json.valid }}",
+            "operator": {
+              "operation": "equals",
+              "type": "boolean"
+            },
+            "rightValue": true
+          }
+        ],
+        "combineOperation": "all"
+      },
+      "id": "check-upload-valid",
+      "name": "Check Upload Valid",
+      "comment": "Branches based on upload path validation. True branch continues to RVC Convert, false branch goes to Error Response.",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1100,
+        200
+      ]
     },
     {
       "parameters": {
@@ -99,7 +148,7 @@
         },
         "body": {
           "mimeType": "application/json",
-          "raw": "={{ JSON.stringify({\n  model: $('Validate Input').first().json.model,\n  audio_path: $('Validate Upload Path').first().json.path,\n  pitch: $('Validate Input').first().json.pitch,\n  f0_method: $('Validate Input').first().json.f0_method\n}) }}"
+          "raw": "={{ JSON.stringify({\n  model: $('Validate Input').first().json.model,\n  audio_path: $('Check Upload Valid').first().json.path,\n  pitch: $('Validate Input').first().json.pitch,\n  f0_method: $('Validate Input').first().json.f0_method\n}) }}"
         },
         "options": {
           "timeout": 300000,
@@ -112,50 +161,68 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 1,
       "position": [
-        850,
-        300
+        1300,
+        200
       ]
     },
     {
       "parameters": {
-        "jsCode": "try {\n  // Process RVC conversion response\n  const body = $input.first().json || {};\n  const validatedInput = $('Validate Input').first().json || {};\n\n  const downloadUrl = body.download_url || body.url || '';\n  const success = !!downloadUrl;\n\n  // Validate download URL doesn't contain traversal\n  if (downloadUrl && /(\\.\\.|\\\\x00|%00)/.test(downloadUrl)) {\n    return [{ json: { valid: false, error: 'Invalid download URL: contains suspicious sequences' } }];\n  }\n\n  return [{\n    json: {\n      success: success,\n      model: validatedInput.model || 'unknown',\n      pitch: validatedInput.pitch || 0,\n      f0_method: validatedInput.f0_method || 'rmvpe',\n      download_url: downloadUrl,\n      channel: validatedInput.channel || 'general',\n      timestamp: new Date().toISOString()\n    }\n  }];\n} catch (err) {\n  return [{ json: { valid: false, error: 'Process Response failed: ' + err.message } }];\n}"
+        "jsCode": "try {\n  // Process RVC conversion response\n  const body = $input.first().json || {};\n  const validatedInput = $('Validate Input').first().json || {};\n\n  const downloadUrl = body.download_url || body.url || '';\n  const success = !!downloadUrl;\n\n  // Validate download URL doesn't contain traversal\n  if (downloadUrl && /(\\.\\.|\\\\x00|%00)/.test(downloadUrl)) {\n    return [{ json: { valid: false, error: 'Invalid download URL: contains suspicious sequences' } }];\n  }\n\n  return [{\n    json: {\n      valid: true,\n      success: success,\n      model: validatedInput.model || 'unknown',\n      pitch: validatedInput.pitch || 0,\n      f0_method: validatedInput.f0_method || 'rmvpe',\n      download_url: downloadUrl,\n      channel: validatedInput.channel || 'general',\n      timestamp: new Date().toISOString()\n    }\n  }];\n} catch (err) {\n  return [{ json: { valid: false, error: 'Process Response failed: ' + err.message } }];\n}"
       },
       "id": "process-response",
       "name": "Process Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
       "position": [
-        1050,
-        300
+        1500,
+        200
       ],
       "comment": "Uses validated inputs. Validates download_url for traversal. Wrapped in try/catch."
     },
     {
       "parameters": {
         "webhookUri": "={{ $env.DISCORD_WEBHOOK_URL || '' }}",
-        "text": "={{ '*RVC Voice Conversion Complete* \ud83c\udf99\ufe0f\\n\\n**Model:** ' + ($json.model || 'unknown') + '\\n**Pitch Shift:** ' + ($json.pitch || 0) + ' semitones\\n**F0 Method:** ' + ($json.f0_method || 'rmvpe') + '\\n\\n**Download:** ' + ($json.download_url || 'N/A') + '\\n\\n\u2705 Voice conversion finished!' }}"
+        "text": "={{ '*RVC Voice Conversion Complete* \ud83c\udf99\ufe0f\n\n**Model:** ' + ($json.model || 'unknown') + '\n**Pitch Shift:** ' + ($json.pitch || 0) + ' semitones\n**F0 Method:** ' + ($json.f0_method || 'rmvpe') + '\n\n**Download:** ' + ($json.download_url || 'N/A') + '\n\n\u2705 Voice conversion finished!' }}"
       },
       "id": "discord-output",
       "name": "Discord Output",
       "type": "n8n-nodes-base.discord",
       "typeVersion": 1,
       "position": [
-        1250,
-        300
+        1700,
+        200
       ],
       "comment": "Sends response to Discord webhook."
     },
     {
       "parameters": {
+        "statusCode": 400,
+        "body": "={{ JSON.stringify({ error: $json.error || 'Validation failed' }) }}",
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      },
+      "id": "error-response",
+      "name": "Error Response",
+      "comment": "Returns HTTP 400 for validation/auth failures.",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        800,
+        400
+      ]
+    },
+    {
+      "parameters": {
         "webhookUri": "={{ $env.DISCORD_WEBHOOK_URL || '' }}",
-        "text": "={{ '*RVC Conversion Failed* \u274c\\n\\n**Error:** ' + (($input.all()[0]?.error?.message || $input.all()[0]?.error?.description || 'Unknown error')).toString().slice(0, 997).trimEnd() + '\\n\\nPlease check:\\n- RVC service is running\\n- Model name is valid (alphanumeric, dash, underscore)\\n- Audio file is provided\\n- Pitch is between -12 and 12\\n- f0_method is valid (harvest, pm, dio, rmvpe, crepe, etc.)\\n- GPU has sufficient VRAM' }}"
+        "text": "={{ '*RVC Conversion Failed* \u274c\n\n**Error:** ' + (($input.all()[0]?.error?.message || $input.all()[0]?.error?.description || $json.error || 'Unknown error')).toString().slice(0, 997).trimEnd() + '\n\nPlease check:\n- RVC service is running\n- Model name is valid (alphanumeric, dash, underscore)\n- Audio file is provided\n- Pitch is between -12 and 12\n- f0_method is valid (harvest, pm, dio, rmvpe, crepe, etc.)\n- GPU has sufficient VRAM' }}"
       },
       "id": "discord-error",
       "name": "Discord Error",
       "type": "n8n-nodes-base.discord",
       "typeVersion": 1,
       "position": [
-        650,
+        1300,
         500
       ],
       "comment": "Catches errors from all nodes. Sends to Discord webhook."
@@ -177,16 +244,25 @@
       "main": [
         [
           {
-            "node": "RVC Upload",
+            "node": "Check Valid",
             "type": "main",
             "index": 0
           }
         ]
-      ],
-      "error": [
+      ]
+    },
+    "Check Valid": {
+      "main": [
         [
           {
-            "node": "Discord Error",
+            "node": "RVC Upload",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error Response",
             "type": "main",
             "index": 0
           }
@@ -207,6 +283,35 @@
         [
           {
             "node": "Discord Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Upload Path": {
+      "main": [
+        [
+          {
+            "node": "Check Upload Valid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Upload Valid": {
+      "main": [
+        [
+          {
+            "node": "RVC Convert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error Response",
             "type": "main",
             "index": 0
           }
@@ -242,39 +347,10 @@
             "index": 0
           }
         ]
-      ],
-      "error": [
-        [
-          {
-            "node": "Discord Error",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Validate Upload Path": {
-      "main": [
-        [
-          {
-            "node": "RVC Convert",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ],
-      "error": [
-        [
-          {
-            "node": "Discord Error",
-            "type": "main",
-            "index": 0
-          }
-        ]
       ]
     }
   },
   "meta": {
-    "instanceId": "rvc-workflow-v1"
+    "instanceId": "rvc-workflow-v2"
   }
 }
