@@ -767,3 +767,49 @@ if (a.length !== b.length) return false;
 - JSON validation passes
 - All HIGH issues from 18's review resolved
 - No insecure fallbacks to user input
+
+---
+
+### 2026-03-12 — Wave 5 Progress & Review Fixes
+
+**Review Queue Fixes (from Android-18 findings):**
+
+| Commit | Issue | Status |
+|--------|-------|--------|
+| `83c116c3` | Bark: Early return timing leak | ✅ Fixed |
+| `83c116c3` | Whisper STT: Missing audio size validation | ✅ Fixed |
+
+**Workflow Validation Fixes (commit `1edb23d2`):**
+- All n8n Discord nodes: `channel` → `webhookUri`
+- Bark workflow: Fixed `if` node structure, added `typeVersion` to all nodes
+- Added `n8n-nodes-base.` package prefix to all node types
+
+**Workflow Status:**
+- ✅ bark/workflow-tts.json — VALID
+- ✅ localai/workflow-n8n-localai.json — VALID  
+- ✅ ollama/workflow-n8n-ollama.json — VALID
+- ✅ rvc/workflow-n8n-rvc.json — VALID
+- ✅ comfyui/workflow-n8n-comfyui.json — VALID
+- ✅ dify/workflow-n8n-dify.json — VALID
+
+**Wave 5 Progress:**
+- ✅ Dify workflow created (priority 7) — commit `b5e17fc4`
+- ✅ LocalAI workflow exists — validated
+- ✅ Ollama workflow exists — validated
+- ✅ RVC workflow exists — validated
+- ✅ Bark workflow exists — validated
+- ✅ ComfyUI workflow exists — validated
+- 🔄 Flowise workflow — next priority (priority 9)
+- 🔄 Langflow workflow — after Flowise (priority 10)
+
+**Git Activity:**
+- Latest commits on `dev/main`: `1edb23d2`, `156cde88`, `83c116c3`, `b5e17fc4`
+- Status: Working tree clean
+
+**Next Session Priorities** (per workstream order):
+1. GitHub issues — #55 (dual GPU), #32 (Windows), #33 (deployment verify)
+2. Hardening wave — remaining checklist items
+3. Extensions — **Flowise workflow template** (next)
+4. Installer testing — coordinate with Bilal
+5. Upstream monitoring — verify no rot in deployed extensions
+
