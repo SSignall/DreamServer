@@ -6,7 +6,8 @@ services:
     container_name: aider
     volumes:
       - ./data/aider:/app
-      # Note: Mount git/ssh configs manually if needed:
+      - ${HOME}/.gitconfig:/home/aider/.gitconfig:ro
+      - ${HOME}/.ssh:/home/aider/.ssh:ro
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
