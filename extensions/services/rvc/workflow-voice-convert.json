@@ -3,7 +3,7 @@
   "meta": {
     "title": "RVC Voice Conversion",
     "description": "Convert voices using RVC local AI",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "type": "workflow"
   },
   "nodes": [
@@ -23,12 +23,24 @@
       "notes": "Trigger voice conversion via webhook"
     },
     {
+      "id": "validate_input",
+      "type": "code",
+      "name": "Validate Input",
+      "position": [500, 300],
+      "parameters": {
+        "jsCode": "const model = $input.first().json.model || '';\nconst audioPath = $input.first().json.audio_path || '';\n\n// Path traversal detection: check for ../, ..\\\\, and encoded variants\nconst pathTraversalPattern = /(\\.\\.[/\\\\]|%2e%2e[/\\\\]|\\.\\.\\\\x5c)/i;\n\n// Check model name (alphanumeric, dash, underscore only)\nconst validModelPattern = /^[a-zA-Z0-9_\\\\-]+$/;\n\nif (pathTraversalPattern.test(model) || pathTraversalPattern.test(audioPath)) {\n  return [{\n    json: {\n      error: 'Path traversal detected: model and audio_path must not contain directory traversal sequences',\n      status: 400\n    }\n  }];\n}\n\nif (model && !validModelPattern.test(model)) {\n  return [{\n    json: {\n      error: 'Invalid model name: must be alphanumeric, dash, or underscore only',\n      status: 400\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    model: model || 'default',\n    audio: $input.first().json.audio,\n    audio_path: audioPath\n  }\n}];"
+      },
+      "outputNodes": [],
+      "notesInFlow": false,
+      "notes": "Validate inputs for path traversal and format"
+    },
+    {
       "id": 2,
       "type": "httpRequest",
       "name": "RVC Upload Voice",
       "position": [600, 300],
       "parameters": {
-        "url": "={{ ($env.RVC_HOST || 'http://rvc:7865').replace(/\/$/, '') }}",
+        "url": "={{ ($env.RVC_HOST || 'http://rvc:7865').replace(/\\/$/, '') }}",
         "method": "POST",
         "path": "/upload",
         "body": {
@@ -55,12 +67,12 @@
       "name": "RVC Convert",
       "position": [800, 300],
       "parameters": {
-        "url": "={{ ($env.RVC_HOST || 'http://rvc:7865').replace(/\/$/, '') }}",
+        "url": "={{ ($env.RVC_HOST || 'http://rvc:7865').replace(/\\/$/, '') }}",
         "method": "POST",
         "path": "/convert",
         "body": {
           "mimeType": "application/json",
-          "raw": "={{ JSON.stringify({ model: $json.model || 'default', audio_path: $json.audio_path }) }}"
+          "raw": "={{ JSON.stringify({ model: $('Validate Input').item.json.model || 'default', audio_path: $('RVC Upload Voice').item.json.path || $('Validate Input').item.json.audio_path }) }}"
         },
         "options": {
           "timeout": 300000
@@ -68,7 +80,7 @@
       },
       "outputNodes": [],
       "notesInFlow": false,
-      "notes": "Convert uploaded voice using RVC model"
+      "notes": "Convert uploaded voice using RVC model (uses validated inputs)"
     },
     {
       "id": 4,
@@ -87,6 +99,17 @@
   ],
   "connections": {
     "1": {
+      "main": [
+        [
+          {
+            "node": "validate_input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "validate_input": {
       "main": [
         [
           {
