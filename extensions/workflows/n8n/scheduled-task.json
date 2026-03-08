@@ -6,39 +6,58 @@
   },
   "nodes": [
     {
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "name": "Schedule Trigger",
       "parameters": {
-        "schedule": {
-          "schedule": {
-            "frequency": "everyMinute"
-          }
-        },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.scheduleTrigger",
-      "typeVersion": 1,
-      "position": [250, 300]
-    },
-    {
-      "parameters": {
-        "url": "http://host.docker.internal:8000/health",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 1,
-      "position": [450, 300]
-    },
-    {
-      "parameters": {
-        "keepOnlySet": true,
-        "values": {
-          "string": [
-            { "name": "status", "value": "healthy" },
-            { "name": "timestamp", "value": "={{ new Date().toISOString() }}" }
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
           ]
         }
       },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [250, 300]
+    },
+    {
+      "id": "b2c3d4e5-f6a7-8901-bcde-f23456789012",
+      "name": "HTTP Request",
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.DREAM_SERVER_URL || 'http://host.docker.internal:8000' }}/health",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [450, 300]
+    },
+    {
+      "id": "c3d4e5f6-a7b8-9012-cdef-345678901234",
+      "name": "Set",
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d4e5f6a7-b8c9-0123-def4-567890123456",
+              "name": "status",
+              "value": "healthy",
+              "type": "string"
+            },
+            {
+              "id": "e5f6a7b8-c9d0-1234-ef56-789012345678",
+              "name": "timestamp",
+              "value": "={{ $now }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
       "type": "n8n-nodes-base.set",
-      "typeVersion": 1,
+      "typeVersion": 3.4,
       "position": [650, 300]
     }
   ],
@@ -65,5 +84,8 @@
         ]
       ]
     }
+  },
+  "settings": {
+    "executionOrder": "v1"
   }
 }
