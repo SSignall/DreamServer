@@ -110,7 +110,9 @@ else
         # Fallback: sed for basic escapes (hex tokens only contain 0-9,a-f so control chars aren't possible)
         if command -v python3 &>/dev/null; then
             OPENCLAW_TOKEN_JSON=$(OPENCLAW_TOKEN="$OPENCLAW_TOKEN" python3 -c "import json,sys,os; sys.stdout.write(json.dumps(os.environ['OPENCLAW_TOKEN'])[1:-1])" 2>/dev/null)
-        else
+        fi
+        # Fallback to sed if python3 failed or is not available
+        if [ -z "$OPENCLAW_TOKEN_JSON" ]; then
             OPENCLAW_TOKEN_JSON=$(printf '%s' "$OPENCLAW_TOKEN" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g; s/\n/\\n/g; s/\r/\\r/g')
         fi
 

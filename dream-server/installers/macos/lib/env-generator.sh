@@ -200,7 +200,9 @@ generate_openclaw_config() {
     local token_json
     if command -v python3 &>/dev/null; then
         token_json=$(OPENCLAW_TOKEN="$token" python3 -c "import json,sys,os; sys.stdout.write(json.dumps(os.environ['OPENCLAW_TOKEN'])[1:-1])" 2>/dev/null)
-    else
+    fi
+    # Fallback to sed if python3 failed or is not available
+    if [ -z "$token_json" ]; then
         token_json=$(printf '%s' "$token" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g; s/\n/\\n/g; s/\r/\\r/g')
     fi
 
