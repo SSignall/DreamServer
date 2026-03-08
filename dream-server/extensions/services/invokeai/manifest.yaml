@@ -1,0 +1,33 @@
+schema_version: dream.services.v1
+
+service:
+  id: invokeai
+  name: InvokeAI
+  aliases: [invoke, image, generation, stable-diffusion]
+  container_name: dream-invokeai
+  host_env: INVOKEAI_HOST
+  default_host: invokeai
+  port: 9090
+  external_port_env: INVOKEAI_PORT
+  external_port_default: 9090
+  health: /
+  type: docker
+  gpu_backends: [amd, nvidia]
+  compose_file: compose.yaml
+  category: optional
+  depends_on: []
+  env_vars: []
+
+features:
+  - id: image-generation
+    name: Image Generation
+    description: Professional creative engine for Stable Diffusion with node-based workflows
+    icon: Image
+    category: media
+    requirements:
+      services: [invokeai]
+      vram_gb: 8
+    enabled_services_all: [invokeai]
+    setup_time: ~3 minutes
+    priority: 9
+    gpu_backends: [amd, nvidia]
