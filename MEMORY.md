@@ -370,16 +370,30 @@ All 10 Wave 1 extensions built, manifests fixed to schema v1, and validated on .
 - GPU backends: `[amd, nvidia]` for most services
 - Services connect to LLM via `${LLM_API_URL}` (from `.env`)
 
-**Wave 1 Extensions Priority:**
+**Wave 1 Extensions — COMPLETE ✅**
 | # | Extension | Upstream Image | Status |
 |---|-----------|----------------|--------|
 | 1 | Ollama | `ollama/ollama` | ✅ Done |
 | 2 | SillyTavern | `ghcr.io/sillytavern/sillytavern` | ✅ Done |
 | 3 | Dify | `langgenius/dify-*` | ✅ Done |
 | 4 | Fooocus | `ghcr.io/lllyasviel/fooocus` | ✅ Done |
-| 5 | ChromaDB | `chromadb/chroma` | ⏳ Next |
-| 6 | Piper TTS | `rhasspy/wyoming-piper` | |
-| 7 | Aider | pip package | |
-| 8 | RVC | community image | |
-| 9 | Jupyter | `jupyter/scipy-notebook` | |
-| 10 | Immich | `ghcr.io/immich-app/immich-server` | |
+| 5 | ChromaDB | `chromadb/chroma` | ✅ Done |
+| 6 | Piper TTS | `rhasspy/wyoming-piper` | ✅ Done (renamed to piper-audio) |
+| 7 | Aider | `docker.io/aiderchat/aider` | ✅ Done |
+| 8 | RVC | `rvc` (local build) | ✅ Done |
+| 9 | Jupyter | `jupyter/scipy-notebook` | ✅ Done |
+| 10 | Immich | `ghcr.io/immich-app/immich-server` | ✅ Done |
+
+**Wave 2 Extensions — IN PROGRESS**
+| # | Extension | Upstream Image | Status |
+|---|-----------|----------------|--------|
+| 11 | LibreChat | `ghcr.io/danny-avila/librechat` | ✅ Done (2026-03-07) |
+| 12 | AnythingLLM | `mintplexlabs/anythingllm` | ✅ Done (2026-03-07) |
+| 13 | Flowise | `flowiseai/flowise` | ✅ Done (2026-03-07) |
+| 14 | Langflow | `langflowai/langflow` | ⏳ Next |
+| 15 | Open Interpreter | `openinterpreter` | |
+| 16 | InvokeAI | `invokeai` | |
+| 17 | Forge/A1111 | `stable-diffusion-webui` | |
+| 18 | AudioCraft | `audiocraft` | |
+| 19 | Weaviate | `cr.weaviate.io/semitechnologies/weaviate` | |
+| 20 | Paperless-ngx | `ghcr.io/paperless-ngx/paperless-ngx` | |
