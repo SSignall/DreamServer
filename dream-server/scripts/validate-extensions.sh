@@ -392,12 +392,13 @@ done
 # ============================================================================
 header "8/13" "Port Conflicts & Duplicate Env Vars"
 
-# Port conflict detection across all manifests
+# Port conflict detection across all manifests (external ports only)
+# Internal container ports can overlap — only host-facing ports matter
 port_map=$(python3 -c "
 import yaml, os, sys, json
 
 ext_dir = sys.argv[1]
-ports = {}  # port -> [service_ids]
+ports = {}  # external_port -> [service_ids]
 
 for name in sorted(os.listdir(ext_dir)):
     manifest = os.path.join(ext_dir, name, 'manifest.yaml')
@@ -408,10 +409,10 @@ for name in sorted(os.listdir(ext_dir)):
     svc = m.get('service', {})
     port = svc.get('port')
     ext_port = svc.get('external_port_default')
-    if port:
-        ports.setdefault(port, []).append(name)
-    if ext_port and ext_port != port:
-        ports.setdefault(ext_port, []).append(name + ' (external)')
+    # Use external_port_default if set, otherwise fall back to port
+    effective_port = ext_port if ext_port else port
+    if effective_port:
+        ports.setdefault(effective_port, []).append(name)
 
 conflicts = {str(p): svcs for p, svcs in ports.items() if len(svcs) > 1}
 if conflicts:

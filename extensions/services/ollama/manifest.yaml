@@ -9,7 +9,7 @@ service:
   default_host: ollama
   port: 11434
   external_port_env: OLLAMA_PORT
-  external_port_default: 11434
+  external_port_default: 7804
   health: /
   type: docker
   gpu_backends: [amd, nvidia]
