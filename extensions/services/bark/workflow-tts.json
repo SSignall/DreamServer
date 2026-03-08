@@ -18,7 +18,7 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "bark-tts",
-        "responseMode": "lastNode",
+        "responseMode": "responseNode",
         "options": {}
       },
       "outputNodes": [],
@@ -56,6 +56,7 @@
           "conditions": [
             {
               "id": "cond1",
+              "leftValue": "={{ $json.valid }}",
               "operator": {
                 "name": "equal",
                 "type": "boolean"
@@ -165,73 +166,73 @@
     }
   ],
   "connections": {
-    "Webhook": {
+    "1": {
       "main": [
         [
           {
-            "node": "Validate Input",
+            "node": "validate_input",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Validate Input": {
+    "validate_input": {
       "main": [
         [
           {
-            "node": "Check Valid",
+            "node": "check_valid",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Check Valid": {
+    "check_valid": {
       "main": [
         [
           {
-            "node": "Bark TTS Request",
+            "node": "2",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Error Response",
+            "node": "error_response",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Bark TTS Request": {
+    "2": {
       "main": [
         [
           {
-            "node": "Save Audio",
+            "node": "save_audio",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Save Audio": {
+    "save_audio": {
       "main": [
         [
           {
-            "node": "Success Response",
+            "node": "success_response",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Success Response": {
+    "success_response": {
       "main": [
         [
           {
-            "node": "Discord Notification",
+            "node": "3",
             "type": "main",
             "index": 0
           }
