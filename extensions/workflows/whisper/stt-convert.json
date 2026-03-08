@@ -51,7 +51,7 @@
     {
       "parameters": {
         "channel": "={{ $json.channel || '#general' }}",
-        "text": "={{ '*Audio Transcribed*\\n\\n**Language:** ' + $json.language + '\\n**Duration:** ' + ($json.duration_seconds || 0).toFixed(1) + 's\\n**Characters:** ' + $json.character_count }}"
+        "text": "={{ '*Audio Transcribed*\\n\\n**Language:** ' + $json.language + '\\n**Duration:** ' + ($json.duration_seconds || 0).toFixed(1) + 's\\n**Characters:** ' + ($json.character_count || 0) }}"
       },
       "id": "stt-discord-output",
       "name": "Discord Output",

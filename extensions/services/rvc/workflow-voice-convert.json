@@ -1,0 +1,109 @@
+{
+  "name": "RVC Voice Conversion",
+  "meta": {
+    "title": "RVC Voice Conversion",
+    "description": "Convert voices using RVC local AI",
+    "version": "1.0.0",
+    "type": "workflow"
+  },
+  "nodes": [
+    {
+      "id": 1,
+      "type": "webhook",
+      "name": "Webhook",
+      "position": [400, 300],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "rvc-convert",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "outputNodes": [],
+      "notesInFlow": false,
+      "notes": "Trigger voice conversion via webhook"
+    },
+    {
+      "id": 2,
+      "type": "httpRequest",
+      "name": "RVC Upload Voice",
+      "position": [600, 300],
+      "parameters": {
+        "url": "={{ $env.RVC_HOST || 'http://rvc:7865' }}",
+        "method": "POST",
+        "path": "/upload",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "outputNodes": [],
+      "notesInFlow": false,
+      "notes": "Upload source audio to RVC"
+    },
+    {
+      "id": 3,
+      "type": "httpRequest",
+      "name": "RVC Convert",
+      "position": [800, 300],
+      "parameters": {
+        "url": "={{ $env.RVC_HOST || 'http://rvc:7865' }}",
+        "method": "POST",
+        "path": "/convert",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "outputNodes": [],
+      "notesInFlow": false,
+      "notes": "Convert uploaded voice using RVC model"
+    },
+    {
+      "id": 4,
+      "type": "Discord",
+      "name": "Discord Notification",
+      "position": [1000, 300],
+      "parameters": {
+        "webhookUrl": "={{ $env.DISCORD_WEBHOOK_URL || '' }}",
+        "text": "Voice conversion complete! Download: `{{ $item().json.download_url }}`",
+        "username": "RVC Bot"
+      },
+      "outputNodes": [],
+      "notesInFlow": false,
+      "notes": "Send Discord notification when conversion is done"
+    }
+  ],
+  "connections": {
+    "1": {
+      "main": [
+        [
+          {
+            "node": "2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2": {
+      "main": [
+        [
+          {
+            "node": "3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3": {
+      "main": [
+        [
+          {
+            "node": "4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
