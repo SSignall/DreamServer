@@ -1,0 +1,212 @@
+{
+  "name": "RVC Voice Conversion",
+  "active": true,
+  "settings": {},
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "rvc-convert",
+        "options": {}
+      },
+      "id": "rvc-webhook-trigger",
+      "name": "Webhook Trigger",
+      "comment": "Accepts JSON: { model (required), audio_path (required), audio (required, base64), channel (optional) }",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const model = $input.first().json.model || '';\nconst audioPath = $input.first().json.audio_path || '';\nconst audio = $input.first().json.audio || '';\n\n// Path traversal detection: check for ../, ..\\\\, and encoded variants\nconst pathTraversalPattern = /(\\.\\.[/\\\\\\\\]|%2e%2e[/\\\\\\\\]|\\.\\.\\\\\\\\x5c)/i;\n\n// Check model name (alphanumeric, dash, underscore only - NO backslashes)\nconst validModelPattern = /^[a-zA-Z0-9_-]+$/;\n\nif (!model) {\n  throw new Error('Missing required field: model');\n}\nif (!audio && !audioPath) {\n  throw new Error('Missing required field: audio or audio_path');\n}\nif (pathTraversalPattern.test(audioPath)) {\n  throw new Error('Path traversal detected: audio_path must not contain directory traversal sequences');\n}\nif (!validModelPattern.test(model)) {\n  throw new Error('Invalid model name: must be alphanumeric, dash, or underscore only');\n}\nif (model.length > 100) {\n  throw new Error('Model name too long: max 100 characters');\n}\n\nreturn [{\n  json: {\n    model: model,\n    audio: audio,\n    audio_path: audioPath,\n    channel: $input.first().json.channel || '#general',\n    pitch: $input.first().json.pitch || 0,\n    f0_method: $input.first().json.f0_method || 'rmvpe'\n  }\n}];"
+      },
+      "id": "validate-input",
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [450, 300],
+      "comment": "Validates model name (alphanumeric, dash, underscore only). Blocks path traversal attempts."
+    },
+    {
+      "parameters": {
+        "url": "={{ 'http://' + ($env.RVC_HOST || 'localhost') + ':' + ($env.RVC_PORT || '7865') + '/upload' }}",
+        "method": "POST",
+        "headers": {
+          "list": [
+            {
+              "name": "Content-Type",
+              "value": "multipart/form-data"
+            }
+          ]
+        },
+        "body": {
+          "mimeType": "multipart/form-data",
+          "form-data": [
+            {
+              "key": "audio",
+              "type": "file",
+              "value": "={{ $json.audio }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "rvc-upload",
+      "name": "RVC Upload",
+      "comment": "Requires RVC_HOST and RVC_PORT environment variables. Defaults to localhost:7865 if not set.",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ 'http://' + ($env.RVC_HOST || 'localhost') + ':' + ($env.RVC_PORT || '7865') + '/convert' }}",
+        "method": "POST",
+        "headers": {
+          "list": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "body": {
+          "mimeType": "application/json",
+          "raw": "={{ JSON.stringify({ model: $('Validate Input').first().json.model, audio_path: $json.path || $('Validate Input').first().json.audio_path, pitch: $('Validate Input').first().json.pitch, f0_method: $('Validate Input').first().json.f0_method }) }}"
+        },
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "rvc-convert",
+      "name": "RVC Convert",
+      "comment": "Uses validated inputs from Validate Input node. 5 minute timeout for voice conversion.",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process RVC conversion response\nconst body = $input.first().json || {};\nconst validatedInput = $('Validate Input').first().json || {};\n\nconst downloadUrl = body.download_url || body.url || '';\nconst success = !!downloadUrl;\n\nreturn [{\n  json: {\n    success: success,\n    model: validatedInput.model || 'unknown',\n    pitch: validatedInput.pitch || 0,\n    f0_method: validatedInput.f0_method || 'rmvpe',\n    download_url: downloadUrl,\n    channel: validatedInput.channel || '#general',\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "process-response",
+      "name": "Process Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1050, 300],
+      "comment": "Uses $('Validate Input') to access validated payload fields directly"
+    },
+    {
+      "parameters": {
+        "channel": "={{ $json.channel || '#general' }}",
+        "text": "={{ '*RVC Voice Conversion Complete* 🎙️\\n\\n**Model:** ' + ($json.model || 'unknown') + '\\n**Pitch Shift:** ' + ($json.pitch || 0) + ' semitones\\n**F0 Method:** ' + ($json.f0_method || 'rmvpe') + '\\n\\n**Download:** ' + ($json.download_url || 'N/A') + '\\n\\n✅ Voice conversion finished!' }}"
+      },
+      "id": "discord-output",
+      "name": "Discord Output",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "channel": "={{ $('Webhook Trigger').first().json.channel || '#general' }}",
+        "text": "={{ '*RVC Conversion Failed* ❌\\n\\n**Error:** ' + (($input.all()[0]?.error?.message || $input.all()[0]?.error?.description || 'Unknown error')).toString().slice(0, 997).trimEnd() + '\\n\\nPlease check:\\n- RVC service is running\\n- Model name is valid (alphanumeric, dash, underscore)\\n- Audio file is provided\\n- GPU has sufficient VRAM' }}"
+      },
+      "id": "discord-error",
+      "name": "Discord Error",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [650, 500],
+      "comment": "Uses $('Webhook Trigger') for channel (available when validation fails); $input.all()[0].error for error details"
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "RVC Upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "error": [
+        [
+          {
+            "node": "Discord Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RVC Upload": {
+      "main": [
+        [
+          {
+            "node": "RVC Convert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "error": [
+        [
+          {
+            "node": "Discord Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RVC Convert": {
+      "main": [
+        [
+          {
+            "node": "Process Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "error": [
+        [
+          {
+            "node": "Discord Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Response": {
+      "main": [
+        [
+          {
+            "node": "Discord Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "meta": {
+    "instanceId": "rvc-workflow-v1"
+  }
+}
