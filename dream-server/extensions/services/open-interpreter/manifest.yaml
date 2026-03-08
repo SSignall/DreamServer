@@ -1,0 +1,19 @@
+schema_version: dream.services.v1
+
+service:
+  id: open-interpreter
+  name: Open Interpreter
+  container_name: dream-open-interpreter
+  port:
+    external: 3005
+    internal: 8000
+  compose_file: compose.yaml
+  category: optional
+  description: Visual LLM code interpreter with auto-execution capabilities
+  version: "0.3.0"
+  healthcheck:
+    url: http://localhost:3005/health
+    interval: 60
+    timeout: 10
+    retries: 3
+    start_period: 300
