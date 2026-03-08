@@ -153,9 +153,9 @@ async def check_service_health(service_id: str, config: dict) -> ServiceStatus:
         for endpoint in endpoints:
             url = f"http://{host}:{config['port']}{endpoint}"
             try:
-                start = asyncio.get_event_loop().time()
+                start = asyncio.get_running_loop().time()
                 async with session.get(url) as resp:
-                    response_time = (asyncio.get_event_loop().time() - start) * 1000
+                    response_time = (asyncio.get_running_loop().time() - start) * 1000
                     if resp.status < 500:
                         # Use this endpoint for future checks
                         if endpoint != health_path:
@@ -196,10 +196,10 @@ async def _check_host_service_health(service_id: str, config: dict) -> ServiceSt
     status = "down"
     response_time = None
     try:
-        start = asyncio.get_event_loop().time()
+        start = asyncio.get_running_loop().time()
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=3)) as session:
             async with session.get(url) as resp:
-                response_time = (asyncio.get_event_loop().time() - start) * 1000
+                response_time = (asyncio.get_running_loop().time() - start) * 1000
                 status = "healthy" if resp.status < 500 else "unhealthy"
     except aiohttp.ClientConnectorError:
         status = "down"
