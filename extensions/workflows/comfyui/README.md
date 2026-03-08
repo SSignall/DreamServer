@@ -1,62 +1,76 @@
-# LLM to Image Generation Workflow
+# ComfyUI Workflows
 
-Convert text prompts to generated images using LLM prompt enhancement + ComfyUI.
+This directory contains n8n workflow templates for integrating ComfyUI with other services.
 
-## How It Works
+## Available Workflows
 
-1. User sends a text prompt to the webhook
-2. LLM enhances the prompt with artistic details (style, lighting, composition)
-3. Enhanced prompt is sent to ComfyUI for image generation
-4. Image generation starts and status is returned
+### 1. LLM to Image Generation (`llm-to-image.json`)
 
-## API Endpoint
+This workflow enhances prompts with the LLM, then uses a **predefined ComfyUI workflow** with the enhanced prompt:
 
-**POST** `/llm-to-image`
+1. **Webhook**: Receives prompts with optional API key authentication
+2. **Input Validation**: Validates prompt length, channel format
+3. **LLM Enhancement**: Sends to LLM to generate an enhanced image generation prompt
+4. **ComfyUI Execution**: Uses the predefined workflow with the enhanced prompt
+5. **Output**: Returns enhanced prompt and status to Discord
 
-### Headers
-- `X-API-Key` — Optional API key if `LLM_TO_IMAGE_API_KEY` is set
+#### Use Case
+Best for consistent, high-quality image generation with prompt engineering.
 
-### Body
-```json
-{
-  "prompt": "A futuristic city with flying cars",
-  "channel": "general"
-}
+#### Environment Variables
+
+- `LLM_HOST` - LLM server host (default: localhost)
+- `LLM_PORT` - LLM port (default: 8080)
+- `COMFYUI_HOST` - ComfyUI host (default: localhost)
+- `COMFYUI_PORT` - ComfyUI port (default: 8188)
+- `COMFYUI_MODEL_NAME` - ComfyUI model name (default: flux1-dev.safetensors)
+- `LLM_TO_IMAGE_API_KEY` - Optional API key for webhook authentication
+
+#### Usage
+
+```bash
+curl -X POST http://localhost:5678/webhook/llm-to-image \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-api-key" \
+  -d '{
+    "prompt": "A beautiful landscape with mountains",
+    "channel": "#art"
+  }'
 ```
 
-### Response
-```json
-{
-  "success": true,
-  "prompt_id": "abc123",
-  "queue_number": 5,
-  "original_prompt": "A futuristic city with flying cars",
-  "enhanced_prompt": "A futuristic cyberpunk city at sunset, neon lights, flying cars zooming through the sky, highly detailed, cinematic lighting, 8k resolution",
-  "channel": "general"
-}
+### 2. Dynamic Workflow Generation (`llm-image-gen.json`)
+
+This workflow enables AI-powered image generation by having the LLM **generate the ComfyUI workflow JSON dynamically**:
+
+1. **Webhook**: Receives image generation prompts via POST to `/comfyui-dynamic-workflow`
+2. **LLM Processing**: Sends the prompt to the LLM (llama-server) to generate a ComfyUI workflow JSON
+3. **ComfyUI Execution**: Submits the dynamically generated workflow to ComfyUI for image generation
+4. **Output**: Returns status to Discord
+
+#### Use Case
+Best when you want the LLM to adapt the ComfyUI workflow structure based on the prompt complexity and requirements.
+
+#### Environment Variables
+
+- `LLM_HOST` - LLM server host (default: localhost)
+- `LLM_API_PORT` - LLM API port (default: 8080)
+- `COMFYUI_HOST` - ComfyUI host (default: localhost)
+- `COMFYUI_PORT` - ComfyUI port (default: 8188)
+
+#### Usage
+
+```bash
+curl -X POST http://localhost:5678/webhook/comfyui-dynamic-workflow \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "Create a photorealistic portrait of a cyberpunk samurai",
+    "channel": "#art"
+  }'
 ```
 
-## Environment Variables
+## Setup
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `LLM_TO_IMAGE_API_KEY` | (unset) | API key for webhook authentication |
-| `LLM_HOST` | `localhost` | LLM service host |
-| `LLM_PORT` | `8080` | LLM service port |
-| `LLM_MODEL` | `default` | LLM model name |
-| `COMFYUI_HOST` | `localhost` | ComfyUI service host |
-| `COMFYUI_PORT` | `8188` | ComfyUI service port |
-| `COMFYUI_MODEL_NAME` | `flux1-dev.safetensors` | ComfyUI model to use |
-
-## Requirements
-
-- LLM service running (Dream Server LLM endpoint)
-- ComfyUI service running with FLUX.1 model loaded
-- GPU with sufficient VRAM for image generation
-
-## Security
-
-- API key authentication via timing-safe comparison
-- Prompt length validation (max 2000 chars)
-- Channel validation (alphanumeric, dash, underscore only)
-- All inputs sanitized before processing
+1. Import workflows into n8n
+2. Configure environment variables in your n8n instance
+3. Ensure ComfyUI is running and accessible
+4. Ensure LLM server (llama-server) is running and accessible
