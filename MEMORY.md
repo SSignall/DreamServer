@@ -1045,6 +1045,36 @@ if (a.length !== b.length) return false;
 
 ---
 
+### 2026-03-08 — Commit Message Issues & Jupyter Naming
+
+**Trigger:** Android-17 coaching + Todd's QA
+
+**Commit Message Issues:**
+
+| Commit | Issue | Fix |
+|--------|-------|-----|
+| `ba6a8fcf` | Claims 3 fixes, only fixes aider | `7f3f0b5b` - correct message |
+| `dd6bfc3f` | Message says aider, diff is ollama | Already in history |
+
+**Root Cause:** 16 committing intermediate states instead of batching all changes.
+
+**Fix Pattern Applied:**
+1. Make ALL related changes locally
+2. Test with `make validate-ext`
+3. Commit once with accurate message
+
+**Jupyter Volume Naming:**
+- Issue: `workspaces/` (plural) + `workspace/` (singular) = confusing
+- Fix: Standardize to `workspace/` (singular)
+- Commit: `a693a20a`
+
+**Coaching for 16:**
+- `git diff --cached` before `git commit` — verify diff matches intent
+- Batch all related changes into one commit
+- Don't commit intermediate states that get reverted
+
+---
+
 ### 2026-03-08 — Flip-flop Follow-up (QA Ping)
 
 **Trigger:** Todd's follow-up QA check
