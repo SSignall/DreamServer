@@ -778,6 +778,15 @@ if (a.length !== b.length) return false;
 - Files: bark, ollama, rvc workflows (both direct and n8n variants)
 - Commit: `d370c497`
 
+**Authentication Matrix:**
+
+| Server Config | Client Header | Buggy (`f13d0010`) | Fixed (`d370c497`) |
+|--------------|---------------|-------------------|-------------------|
+| `API_KEY=secret` | `X-API-Key: secret` | ✅ Pass | ✅ Pass |
+| `API_KEY=secret` | (no header) | ❌ **PASS** (BYPASS) | ❌ Fail ✅ |
+| (no key) | (no header) | ✅ Pass | ✅ Pass |
+| (no key) | `X-API-Key: anything` | ✅ Pass | ❌ Fail ✅ |
+
 **n8n Workflow Wave 5 — Final Fixes:**
 
 **Dify Workflow Fix (f75ddc63):**
@@ -804,10 +813,31 @@ if (a.length !== b.length) return false;
 - No insecure fallbacks to user input
 
 **Git Activity:**
-- Latest commits on `dev/main`: `9e264a9c`, `f75ddc63`, `d1339598`
+- Latest commits on `dev/main`: `9e264a9c`, `f75ddc63`, `d1339598`, `e08cb5c5`, `f67575ea`, `d370c497`
 - Status: Working tree clean - all fixes committed and pushed
 
 **Next Session Priorities** (per workstream order):
+1. GitHub issues — #55 (dual GPU), #32 (Windows), #33 (deployment verify)
+2. Hardening wave — remaining checklist items
+3. Extensions — Wave 5 complete (Flowise/Langflow committed)
+4. Installer testing — coordinate with Bilal
+5. Upstream monitoring — verify no rot in deployed extensions
+
+---
+
+### 2026-03-08 — Pre-Compaction Memory Flush (Evening)
+
+**Authentication Bypass Fix (d370c497):**
+- Issue: `f13d0010` fix only validates when client provides key; skips check if header omitted
+- Fix: `if (expectedKey ? !timingSafeEqual(providedKey || '', expectedKey) : providedKey)`
+- Pattern: Always validate when server has key configured; reject if client provides key when server has none
+- Files: bark, ollama, rvc workflows (both direct and n8n variants)
+
+**Git Activity:**
+- Latest commits on `dev/main`: `d370c497`, `f67575ea`, `a5ae4f4c`
+- Status: Working tree clean, all fixes committed and pushed
+
+**Next Session Priorities:**
 1. GitHub issues — #55 (dual GPU), #32 (Windows), #33 (deployment verify)
 2. Hardening wave — remaining checklist items
 3. Extensions — Wave 5 complete (Flowise/Langflow committed)
