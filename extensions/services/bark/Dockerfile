@@ -1,6 +1,6 @@
 # Bark TTS — builds a minimal FastAPI server wrapping suno-ai/bark
 # Pinned: bark==0.1.5, pytorch 2.3.1, CUDA 12.1
-FROM pytorch/pytorch:2.3.1-cuda12.1-cudnn8-runtime
+FROM pytorch/pytorch:2.3.1-cuda12.1-cudnn8-runtime@sha256:2d1dee23cc95bf01aad2a292c10f051b01ddc6e7fa7535620cc8a7457720794c
 
 WORKDIR /app
 

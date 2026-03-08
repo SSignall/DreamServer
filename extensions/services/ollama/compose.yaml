@@ -1,6 +1,6 @@
 services:
   ollama:
-    image: ollama/ollama:0.5.7
+    image: ollama/ollama:0.5.7@sha256:8430bdb513d5dbd85294fb70ea7e1f88ee0aaf9756585ca4dbaf080a773dc774
     container_name: dream-ollama
     restart: unless-stopped
     security_opt:
