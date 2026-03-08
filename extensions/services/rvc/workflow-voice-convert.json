@@ -30,7 +30,17 @@
       "parameters": {
         "url": "={{ $env.RVC_HOST || 'http://rvc:7865' }}",
         "method": "POST",
-        "path": "/upload",
+        "path": "upload",
+        "body": {
+          "mimeType": "multipart/form-data",
+          "form-data": [
+            {
+              "key": "audio",
+              "type": "file",
+              "value": "={{ $json.audio }}"
+            }
+          ]
+        },
         "options": {
           "timeout": 300000
         }
@@ -47,7 +57,11 @@
       "parameters": {
         "url": "={{ $env.RVC_HOST || 'http://rvc:7865' }}",
         "method": "POST",
-        "path": "/convert",
+        "path": "convert",
+        "body": {
+          "mimeType": "application/json",
+          "raw": "={{ JSON.stringify({ model: $json.model || 'default', audio_path: $json.audio_path }) }}"
+        },
         "options": {
           "timeout": 300000
         }
@@ -63,7 +77,7 @@
       "position": [1000, 300],
       "parameters": {
         "webhookUrl": "={{ $env.DISCORD_WEBHOOK_URL || '' }}",
-        "text": "={{ 'Voice conversion complete! Download: ' + ($item().json.download_url || 'N/A') }}",
+        "text": "={{ 'Voice conversion complete! Download: ' + ($json.download_url || 'N/A') }}",
         "username": "RVC Bot"
       },
       "outputNodes": [],

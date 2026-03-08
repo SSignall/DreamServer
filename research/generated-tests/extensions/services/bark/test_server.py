@@ -39,8 +39,8 @@ def reset_globals():
 def mock_bark_generate_audio():
     """Mock bark.generate_audio to return a simple audio array."""
     with patch("extensions.services.bark.server.generate_audio") as mock:
-        # Generate a simple 1-second audio array at 24kHz
-        mock.return_value = [0.1] * 24000
+        # Generate a simple 1-second audio array at 24kHz (numpy array, not list)
+        mock.return_value = np.array([0.1] * 24000, dtype=np.float32)
         yield mock
 
 
@@ -69,7 +69,7 @@ def mock_soundfile_write():
 def mock_soundfile_read():
     """Mock soundfile.read for stream endpoint."""
     with patch("extensions.services.bark.server.sf.read") as mock:
-        mock.return_value = ([0.1] * 24000, 24000)
+        mock.return_value = (np.array([0.1] * 24000, dtype=np.float32), 24000)
         yield mock
 
 

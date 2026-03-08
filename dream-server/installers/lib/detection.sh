@@ -92,14 +92,15 @@ detect_gpu() {
         local raw
         if raw=$(nvidia-smi --query-gpu=name,memory.total --format=csv,noheader 2>/dev/null) && [[ -n "$raw" ]]; then
             GPU_INFO="$raw"
-            GPU_COUNT=$(echo "$GPU_INFO" | wc -l)
             GPU_NAME=$(echo "$GPU_INFO" | head -1 | cut -d',' -f1 | xargs)
             # Sum VRAM for multi-GPU
             GPU_VRAM=$(echo "$GPU_INFO" | awk -F',' '{gsub(/^ +| +$/,"",$2); sum+=$2} END {print sum}' | grep -oP '\d+')
-            # Extract PCI device IDs for all GPUs
-            local pci_ids
-            pci_ids=$(nvidia-smi --query-gpu=pci.device_id --format=csv,noheader 2>/dev/null | xargs)
-            [[ -n "$pci_ids" ]] && GPU_DEVICE_ID="${pci_ids:0:6}"
+            # Count GPUs (assigned once here)
+            GPU_COUNT=$(echo "$GPU_INFO" | wc -l)
+            # Extract first PCI device ID (safest for compatibility)
+            local pci_id
+            pci_id=$(nvidia-smi --query-gpu=pci.device_id --format=csv,noheader 2>/dev/null | head -1 | xargs)
+            [[ -n "$pci_id" ]] && GPU_DEVICE_ID="${pci_id}"
             log "GPU: $GPU_NAME (${GPU_VRAM}MB VRAM) x${GPU_COUNT}"
             return 0
         fi
