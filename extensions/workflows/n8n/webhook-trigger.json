@@ -40,7 +40,8 @@
         "method": "GET",
         "url": "={{ $env.DREAM_SERVER_URL || 'http://host.docker.internal:3002' }}/api/v1/health",
         "options": {
-          "continueOnFail": true
+          "continueOnFail": true,
+          "timeout": 30
         }
       },
       "type": "n8n-nodes-base.httpRequest",
