@@ -4,9 +4,9 @@ service:
   id: piper-audio
   name: Piper TTS
   aliases: [piper, tts-local]
-  container_name: piper-tts
+  container_name: dream-piper-audio
   host_env: PIPER_HOST
-  default_host: piper-tts
+  default_host: piper-audio
   port: 10200
   external_port_env: PIPER_PORT
   external_port_default: 10200
