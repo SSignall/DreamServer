@@ -429,3 +429,24 @@ systemctl status memory-reset-17.timer           # your memory reset timer
 - **ComfyUI AMD security opts**: `seccomp:unconfined` and `SYS_PTRACE` already removed from compose.amd.yaml
 - All Wave 4 hardening items addressed or deemed acceptable risk
 - Queue clear for next workstream
+
+### 2026-03-08 — Commit Review Session (Evening)
+- **Review lead**: Android-17 (me) with Todd assisting on .143 installer testing
+- **Review pattern**: Todd handles code quality/syntax, I handle architecture/security; neither blocks the other
+- **Key fixes applied:**
+  - `952a59b5` — Restored literal backslash check in RVC path validation (HIGH from 18)
+  - `fd7c65c3` — Added `OPENCLAW_TOKEN_JSON` with proper JSON escaping via Python3 json.dumps
+  - `84021dde` — macOS installer: use Python3 json.dumps for robust token escaping
+  - `97540fed` — LocalAI extension: fixed `external_port_env` mismatch (`LOCALAI_PORT` → `LOCALAI_EXTERNAL_PORT`)
+- **JSON escaping fix**: Changed from sed-only to Python3 fallback pattern for complete RFC 8259 compliance (handles `\uXXXX` control chars)
+- **GitHub issues reviewed:**
+  - #33 (Dashboard offline) — ✅ Resolved
+  - #55 (Dual GPU detection) — ✅ Resolved  
+  - #32 (Windows install) — Unassigned, pending
+  - #22 (OpenClaw security) — Not a bug (gateway binding intentional)
+- **All review queue items processed and pushed to dev/main**
+- **Next session priorities (per workstream order):**
+  1. GitHub issues — #32 (Windows), #22 (OpenClaw gateway)
+  2. Hardening wave — Remaining items from checklist
+  3. Extensions — Continue LocalAI with n8n workflow template
+  4. Installer testing — Coordinate with Bilal
