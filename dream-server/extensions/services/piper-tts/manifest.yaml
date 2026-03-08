@@ -1,0 +1,18 @@
+name: piper-tts
+version: "1.0.0"
+description: Piper TTS - Fast, local neural text-to-speech system
+category: tool
+authors:
+  - Rhasspy
+website: https://github.com/rhasspy/piper
+image: lscr.io/linuxserver/piper:1.6.3
+gpu: []  # CPU-based, no GPU required
+port: 10200
+data:
+  - ./data/piper:/config/piper
+healthcheck:
+  - echo '{"type": "describe"}' | nc localhost 10200 || exit 1
+env:
+  - LLM_API_URL
+dependencies: []
+tags: [tts, voice, audio, wyoming]
