@@ -188,6 +188,10 @@ generate_openclaw_config() {
     local sess_dir="${home_dir}/agents/main/sessions"
     mkdir -p "$agent_dir" "$sess_dir"
 
+    # Escape token for JSON insertion (handle quotes, backslashes, control chars)
+    local token_json
+    token_json=$(printf '%s' "$token" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g; s/\n/\\n/g; s/\r/\\r/g')
+
     # Home config
     cat > "${home_dir}/openclaw.json" << OCEOF
 {
@@ -230,7 +234,7 @@ generate_openclaw_config() {
     "mode": "local",
     "bind": "lan",
     "controlUi": {"allowInsecureAuth": true},
-    "auth": {"mode": "token", "token": "${token}"}
+    "auth": {"mode": "token", "token": "${token_json}"}
   }
 }
 OCEOF
