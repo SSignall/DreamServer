@@ -810,46 +810,42 @@ if (a.length !== b.length) return false;
 
 ---
 
-### 2026-03-12 — Wave 5 Progress & Review Fixes
+### 2026-03-08 — Pre-Compaction Memory Flush (Morning)
 
-**Review Queue Fixes (from Android-18 findings):**
+**LocalAI n8n Workflow Template (a51c69ef):**
+- Created `extensions/services/localai/workflow-text-generation.json`
+- API key authentication with timing-safe comparison (header-only, no body fallback)
+- Input validation for messages array, model name, max_tokens, temperature
+- Forward to LocalAI `/v1/chat/completions` endpoint
+- HTTP 400 for validation errors, HTTP 200 for success
 
-| Commit | Issue | Status |
-|--------|-------|--------|
-| `83c116c3` | Bark: Early return timing leak | ✅ Fixed |
-| `83c116c3` | Whisper STT: Missing audio size validation | ✅ Fixed |
+**Critical Regression Fix (463093b8):**
+- Issue: Commit `c44ea259` accidentally deleted entire `jsCode` block from LocalAI and Ollama workflows
+- Fix: Used Python `json` module to surgically restore code and remove only unused `lenDiff` variable
+- Pattern: Use JSON-aware tools (Python json, jq) for JSON editing, never line-based text manipulation
 
-**Workflow Validation Fixes (commit `1edb23d2`):**
-- All n8n Discord nodes: `channel` → `webhookUri`
-- Bark workflow: Fixed `if` node structure, added `typeVersion` to all nodes
-- Added `n8n-nodes-base.` package prefix to all node types
+**QA Checklist Verified on All Commits:**
+- Pinned versions (no `:latest`)
+- Valid syntax (n8n `={{ }}` not Jinja `{{ }}`)
+- No stubs (all files functional)
+- Follows patterns (compared to open-webui/searxng extensions)
+- Security (`security_opt: no-new-privileges`, resource limits, no hardcoded secrets)
+- Health checks (every compose service)
+- No duplicates (env vars, files, commits)
 
-**Workflow Status:**
-- ✅ bark/workflow-tts.json — VALID
-- ✅ localai/workflow-n8n-localai.json — VALID  
-- ✅ ollama/workflow-n8n-ollama.json — VALID
-- ✅ rvc/workflow-n8n-rvc.json — VALID
-- ✅ comfyui/workflow-n8n-comfyui.json — VALID
-- ✅ dify/workflow-n8n-dify.json — VALID
-
-**Wave 5 Progress:**
-- ✅ Dify workflow created (priority 7) — commit `b5e17fc4`
-- ✅ LocalAI workflow exists — validated
-- ✅ Ollama workflow exists — validated
-- ✅ RVC workflow exists — validated
-- ✅ Bark workflow exists — validated
-- ✅ ComfyUI workflow exists — validated
-- 🔄 Flowise workflow — next priority (priority 9)
-- 🔄 Langflow workflow — after Flowise (priority 10)
+**GitHub Issues:**
+- #55 — Dual GPU detection (new)
+- #33 — Dashboard offline
+- #32 — Windows install.ps1 missing
+- #22 — Gateway security (not a bug)
 
 **Git Activity:**
-- Latest commits on `dev/main`: `1edb23d2`, `156cde88`, `83c116c3`, `b5e17fc4`
-- Status: Working tree clean
+- Latest commits: `678941a5`, `8954afa2`, `a02706d5`, `4d169141`, `463093b8`
+- Status: Working tree clean, all fixes committed and pushed
 
-**Next Session Priorities** (per workstream order):
-1. GitHub issues — #55 (dual GPU), #32 (Windows), #33 (deployment verify)
+**Next Session Priorities:**
+1. GitHub issues — #55 (dual GPU), #33 (dashboard offline)
 2. Hardening wave — remaining checklist items
-3. Extensions — **Flowise workflow template** (next)
-4. Installer testing — coordinate with Bilal
-5. Upstream monitoring — verify no rot in deployed extensions
+3. Installer testing — coordinate with Bilal
+4. Upstream monitoring — verify no rot in deployed extensions
 
