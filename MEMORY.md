@@ -667,3 +667,32 @@ systemctl status memory-reset-17.timer           # your memory reset timer
 - Tower 2 (192.168.0.143) is free for testing Dream Server changes
 - No Guardian protection — sandbox environment
 - Coordinate loosely with other agents
+
+---
+
+### 2026-03-08 — Android-18 Review Follow-up (n8n-rvc)
+
+**Commits:** `b749ae09`, `9f74223d`
+
+**Issues Fixed (from 18's review of commit `eafff9c9`):**
+
+1. **[HIGH]** `decodeURIComponent(audioPath)` without try-catch — **FIXED**
+   - Now wrapped in try-catch: throws 'Invalid audio_path: malformed URL encoding'
+
+2. **[SYNTAX]** Extra `}\n\n}` after auth check — **FIXED**
+   - Removed duplicate closing braces
+
+3. **[REGRESSION]** Security patterns removed — **FIXED**
+   - Restored RVC Convert node: fails hard with `throw new Error('Invalid upload response path')` instead of falling back to user input
+   - Added notes field to Validate Input node documenting all validations
+
+4. **[MEDIUM]** `timingSafeEqual` timing side-channel — **PARTIAL**
+   - Current implementation uses `Math.max(a.length, b.length)` to compare to longer length
+   - Prevents early-return side-channel but `a.length ^ b.length` still leaks length difference
+   - **Constraint:** n8n Code nodes don't have access to Node.js crypto module
+   - **Status:** Best-effort implementation within n8n sandbox constraints
+
+**Verification:**
+- JSON validation passes
+- All HIGH issues from 18's review resolved
+- No insecure fallbacks to user input
