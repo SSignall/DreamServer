@@ -29,3 +29,40 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       - /sys/class/drm:/sys/class/drm:ro
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - DREAM_INSTALL_DIR=/dream-server
+      - DREAM_DATA_DIR=/data
+      - GPU_BACKEND=${GPU_BACKEND:-amd}
+      - SERVICE_HOST=${SERVICE_HOST:-host.docker.internal}
+      - OLLAMA_HOST=llama-server
+      - WEBUI_HOST=open-webui
+      - N8N_HOST=n8n
+      - QDRANT_HOST=qdrant
+      - SEARXNG_HOST=searxng
+      - EMBEDDINGS_HOST=embeddings
+      - TTS_HOST=tts
+      - WHISPER_HOST=whisper
+      - DASHBOARD_HOST=dashboard
+      - LLM_MODEL=${LLM_MODEL:-qwen3:30b-a3b}
+      - DASHBOARD_API_KEY=${DASHBOARD_API_KEY:-}
+      - OPENCLAW_TOKEN=${OPENCLAW_TOKEN:-}
+    ports:
+      - "${DASHBOARD_API_PORT:-3002}:3002"
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    dns:
+      - 127.0.0.11
