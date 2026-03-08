@@ -1,0 +1,116 @@
+{
+  "name": "Whisper STT",
+  "meta": {
+    "title": "Whisper STT",
+    "description": "Transcribe audio using Whisper speech-to-text service",
+    "version": "1.0.0",
+    "type": "workflow"
+  },
+  "nodes": [
+    {
+      "id": 1,
+      "type": "webhook",
+      "name": "Webhook",
+      "position": [400, 300],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whisper-stt",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "outputNodes": [],
+      "notesInFlow": false,
+      "notes": "Trigger Whisper STT via webhook. Expected JSON: { audio (base64), audio_path (file path), language?, model?, response_format?, api_key? } or header X-API-Key. Set WHISPER_API_KEY env var to enable authentication."
+    },
+    {
+      "id": "validate_input",
+      "type": "code",
+      "name": "Validate Input",
+      "position": [550, 300],
+      "parameters": {
+        "jsCode": "// API Key authentication check - timing-safe comparison\nconst headers = $input.first().json.headers || {};\n\n// Case-insensitive header lookup (defense against platform normalization changes)\nconst headerKeys = Object.keys(headers);\nconst apiKeyHeader = headerKeys.find(k => k.toLowerCase() === 'x-api-key');\nconst providedKey = (apiKeyHeader ? headers[apiKeyHeader] : null) || $input.first().json.api_key;\nconst expectedKey = $env.WHISPER_API_KEY;\n\n// Timing-safe comparison - no early returns to prevent length leaking\nfunction timingSafeEqual(a, b) {\n  if (a == null || b == null) return false;\n  \n  // Compare to max length to prevent timing side-channel on length\n  const maxLen = Math.max(a.length, b.length);\n  let result = a.length ^ b.length;\n  \n  for (let i = 0; i < maxLen; i++) {\n    const charA = i < a.length ? a.charCodeAt(i) : 0;\n    const charB = i < b.length ? b.charCodeAt(i) : 0;\n    result |= charA ^ charB;\n  }\n  return result === 0;\n}\n\nif (expectedKey && !timingSafeEqual(providedKey || '', expectedKey)) {\n  return [{ json: { valid: false, error: 'Authentication failed' } }];\n}\n\n// Get input parameters\nconst audio = $input.first().json.audio;\nconst audioPath = ($input.first().json.audio_path || '').trim();\nconst language = ($input.first().json.language || 'en').toLowerCase();\nconst model = ($input.first().json.model || 'base').toLowerCase();\nconst responseFormat = ($input.first().json.response_format || 'json').toLowerCase();\n\n// Valid language codes\nconst validLanguages = [\n  'en', 'es', 'fr', 'de', 'it', 'pt', 'nl', 'ja', 'zh', 'ko', 'ar', 'hi', 'pl', 'ru', 'tr'\n];\n\n// Valid model names\nconst validModels = [\n  'tiny', 'base', 'small', 'medium', 'large', 'large-v1', 'large-v2', 'large-v3',\n  'distil-small-en', 'distil-medium-en'\n];\n\n// Valid response formats\nconst validResponseFormats = ['json', 'text', 'srt', 'vtt', 'verbose_json'];\n\n// ENHANCED Path traversal detection (blocks: ../, ..\\\\, %2e%2e, %252e%252e, null bytes, absolute paths, Windows drive letters)\nconst pathTraversalPattern = /(\\.\\.[/\\\\\\\\]|%2e%2e[/\\\\\\\\]|%252e%252e|%00|\\\\\\\\x00|^\\\\/|^[a-zA-Z]:\\\\\\\\)/i;\n\n// Validate required fields\nif (!audio && !audioPath) {\n  return [{ json: { valid: false, error: 'Either audio (base64) or audio_path is required' } }];\n}\n\n// Validate language\nif (!validLanguages.includes(language)) {\n  return [{ json: { valid: false, error: 'Invalid language. Must be one of: ' + validLanguages.join(', ') } }];\n}\n\n// Validate model\nif (!validModels.includes(model)) {\n  return [{ json: { valid: false, error: 'Invalid model. Must be one of: ' + validModels.join(', ') } }];\n}\n\n// Validate response format\nif (!validResponseFormats.includes(responseFormat)) {\n  return [{ json: { valid: false, error: 'Invalid response_format. Must be one of: ' + validResponseFormats.join(', ') } }];\n}\n\n// Path traversal protection on audio_path\nif (audioPath) {\n  // Decode and normalize for Unicode NFC attack detection\n  let normalizedPath;\n  try {\n    normalizedPath = decodeURIComponent(audioPath).normalize('NFC');\n  } catch (e) {\n    return [{ json: { valid: false, error: 'Invalid audio_path: malformed URL encoding' } }];\n  }\n  \n  if (pathTraversalPattern.test(audioPath) || pathTraversalPattern.test(normalizedPath)) {\n    return [{ json: { valid: false, error: 'Invalid audio_path: path traversal detected' } }];\n  }\n}\n\nreturn [{\n  json: {\n    valid: true,\n    audio: audio,\n    audio_path: audioPath,\n    language: language,\n    model: model,\n    response_format: responseFormat\n  }\n}];"
+      },
+      "outputNodes": [],
+      "notesInFlow": false,
+      "notes": "Validate inputs: audio/audio_path (at least one required), language whitelist, model whitelist, response format whitelist, and path traversal protection. Includes fixed timing-safe API key comparison (no length leak)."
+    },
+    {
+      "id": "check_valid",
+      "type": "if",
+      "name": "Check Valid",
+      "position": [700, 300],
+      "parameters": {
+        "conditions": {
+          "options": { "type": "boolean" },
+          "conditions": [{ "id": "cond1", "operator": { "name": "equal", "type": "boolean" }, "rightValue": true }],
+          "combinator": "and"
+        }
+      },
+      "outputNodes": [],
+      "notesInFlow": false,
+      "notes": "Branch based on validation result"
+    },
+    {
+      "id": "error_response",
+      "type": "respondToWebhook",
+      "name": "Error Response",
+      "position": [700, 500],
+      "parameters": {
+        "statusCode": 400,
+        "body": "={{ JSON.stringify({ error: $('Validate Input').item.json.error }) }}",
+        "headers": { "Content-Type": "application/json" }
+      },
+      "outputNodes": [],
+      "notesInFlow": false,
+      "notes": "Return HTTP 400 for validation errors"
+    },
+    {
+      "id": "whisper_stt_request",
+      "type": "httpRequest",
+      "name": "Whisper STT Request",
+      "position": [850, 300],
+      "parameters": {
+        "url": "={{ ($env.WHISPER_HOST || 'http://whisper:8000').replace(/\\/$/, '') }}/v1/audio/transcriptions",
+        "method": "POST",
+        "body": {
+          "mimeType": "multipart/form-data",
+          "formData": {
+            "model": "={{ $('Check Valid').item.json.model }}",
+            "language": "={{ $('Check Valid').item.json.language }}",
+            "response_format": "={{ $('Check Valid').item.json.response_format }}"
+          }
+        },
+        "options": { "timeout": 300000, "maxResponseSize": 104857600 }
+      },
+      "outputNodes": [],
+      "notesInFlow": false,
+      "notes": "Forward validated inputs to Whisper STT service with multipart/form-data. 100MB max response, 5 min timeout."
+    },
+    {
+      "id": "success_response",
+      "type": "respondToWebhook",
+      "name": "Success Response",
+      "position": [1000, 300],
+      "parameters": {
+        "statusCode": 200,
+        "body": "={{ JSON.stringify({ success: true, language: $json.language, text: ($json.text || '').substring(0, 100) + ($json.text && $json.text.length > 100 ? '...' : '') }) }}",
+        "headers": { "Content-Type": "application/json" }
+      },
+      "outputNodes": [],
+      "notesInFlow": false,
+      "notes": "Return successful response with transcribed text preview"
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Validate Input", "type": "main", "index": 0 }]] },
+    "Validate Input": { "main": [[{ "node": "Check Valid", "type": "main", "index": 0 }]] },
+    "Check Valid": {
+      "main": [
+        [{ "node": "Whisper STT Request", "type": "main", "index": 0 }],
+        [{ "node": "Error Response", "type": "main", "index": 0 }]
+      ]
+    },
+    "Whisper STT Request": { "main": [[{ "node": "Success Response", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}
