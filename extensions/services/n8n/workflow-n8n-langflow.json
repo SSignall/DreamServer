@@ -25,7 +25,7 @@
       },
       "id": "validate-input",
       "name": "Validate Input",
-      "comment": "Validates: API key auth (header only - X-API-Key), flowId (required), input_value (required), input_type, output_type, components, stream, channel name. Returns {valid: true, ...} on success or {valid: false, error: ...} on failure.",
+      "comment": "Validates: API key auth (header only - X-API-Key), flowId (required), input_value (required), input_type, output_type, components, stream, channel name",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
       "position": [
@@ -33,49 +33,6 @@
         300
       ],
       "notes": "Validates: flowId (required, max 100 chars), input_value (required, max 32768 chars), input_type (chat|text|document), output_type (chat|text|debug), components (optional object), stream (boolean), channel (alphanumeric, dash, underscore)"
-    },
-    {
-      "parameters": {
-        "conditions": [
-          {
-            "id": "cond1",
-            "leftValue": "={{ $json.valid }}",
-            "operator": {
-              "operation": "equals",
-              "type": "boolean"
-            },
-            "rightValue": true
-          }
-        ],
-        "combineOperation": "all"
-      },
-      "id": "check-valid",
-      "name": "Check Valid",
-      "comment": "Branches based on validation result. True branch continues to Langflow API Call, false branch goes to Error Response.",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [
-        600,
-        300
-      ]
-    },
-    {
-      "parameters": {
-        "statusCode": 400,
-        "body": "={{ JSON.stringify({ error: $json.error || 'Validation failed' }) }}",
-        "headers": {
-          "Content-Type": "application/json"
-        }
-      },
-      "id": "error-response",
-      "name": "Error Response",
-      "comment": "Returns HTTP 400 for validation/auth failures.",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1,
-      "position": [
-        600,
-        500
-      ]
     },
     {
       "parameters": {
