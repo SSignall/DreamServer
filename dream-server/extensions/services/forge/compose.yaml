@@ -2,7 +2,7 @@ name: forge
 
 services:
   forge:
-    image: ghcr.io/ai-dock/stable-diffusion-webui-forge:v2-cuda-12.1.1-base-22.04
+    image: ghcr.io/ai-dock/stable-diffusion-webui-forge@sha256:36a8b82c9ddec17a88303d933f3d08d2c1d1286617f5642281859f64d40beddc
     container_name: dream-forge
     restart: unless-stopped
     security_opt:
