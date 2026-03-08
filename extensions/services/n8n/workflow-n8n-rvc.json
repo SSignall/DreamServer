@@ -31,7 +31,8 @@
         450,
         300
       ],
-      "comment": "API key auth (if RVC_API_KEY set). Validates model name, path traversal (../, null bytes, double encoding, absolute paths, unicode), pitch (-12 to 12), f0_method (allowlist)"
+      "comment": "API key auth (if RVC_API_KEY set). Validates model name, path traversal (../, null bytes, double encoding, absolute paths, unicode), pitch (-12 to 12), f0_method (allowlist)",
+      "notes": "Validates: model name (alphanumeric, dash, underscore), path traversal protection (../, null bytes, double encoding, absolute paths, unicode), pitch (-12 to 12), f0_method allowlist, API key auth"
     },
     {
       "parameters": {
