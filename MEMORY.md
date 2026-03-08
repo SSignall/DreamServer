@@ -976,6 +976,37 @@ if (a.length !== b.length) return false;
 
 ---
 
+### 2026-03-08 — Android-18 Review Follow-up (Authentication Bypass Fix)
+
+**Commit Review Trigger:** Android-18 ping for commit `d370c497` review
+
+**Vulnerability Fixed:**
+- **Issue:** Commit `f13d0010` introduced authentication bypass when `expectedKey` is configured but client omits `X-API-Key` header
+- **Root Cause:** Original logic `if (providedKey && !timingSafeEqual(...))` only validates when client provides a key
+- **Fix:** `if ((expectedKey || providedKey) && !timingSafeEqual(providedKey || '', expectedKey || ''))`
+- **Effect:** Always validates when server has key; rejects if client provides key but server has none; allows if neither configured
+
+**Authentication Matrix:**
+
+| Server Config | Client Header | Buggy (`f13d0010`) | Fixed (`d370c497`) |
+|--------------|---------------|-------------------|-------------------|
+| `API_KEY=secret` | `X-API-Key: secret` | ✅ Pass | ✅ Pass |
+| `API_KEY=secret` | (no header) | ❌ **PASS** (BYPASS) | ❌ Fail ✅ |
+| (no key) | (no header) | ✅ Pass | ✅ Pass |
+| (no key) | `X-API-Key: anything` | ✅ Pass | ❌ Fail ✅ |
+
+**Files Updated:**
+- `extensions/services/bark/workflow-tts.json`
+- `extensions/services/n8n/workflow-n8n-ollama.json`
+- `extensions/services/n8n/workflow-n8n-rvc.json`
+- `extensions/services/rvc/workflow-voice-convert.json`
+
+**Git Activity:**
+- Commit: `d370c497`
+- Status: All fixes committed and pushed to dev/main
+
+---
+
 ### 2026-03-08 — Android-18 Review Follow-up (GPU Detection)
 
 **Commit Review Trigger:** Android-18 ping for commit `a5ae4f4c` review
