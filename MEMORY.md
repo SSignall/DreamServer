@@ -384,19 +384,21 @@ All 10 Wave 1 extensions built, manifests fixed to schema v1, and validated on .
 | 9 | Jupyter | `jupyter/scipy-notebook` | ✅ Done |
 | 10 | Immich | `ghcr.io/immich-app/immich-server` | ✅ Done |
 
-**Wave 2 Extensions — IN PROGRESS**
+**Wave 2 Extensions — 9/10 COMPLETE (2026-03-07)**
 | # | Extension | Upstream Image | Status |
 |---|-----------|----------------|--------|
-| 11 | LibreChat | `ghcr.io/danny-avila/librechat` | ✅ Done (2026-03-07) |
-| 12 | AnythingLLM | `mintplexlabs/anythingllm` | ✅ Done (2026-03-07) |
-| 13 | Flowise | `flowiseai/flowise` | ✅ Done (2026-03-07) |
-| 14 | Langflow | `langflowai/langflow` | ⏳ Next |
-| 15 | Open Interpreter | `openinterpreter` | |
-| 16 | InvokeAI | `invokeai` | |
-| 17 | Forge/A1111 | `stable-diffusion-webui` | |
-| 18 | AudioCraft | `audiocraft` | |
-| 19 | Weaviate | `cr.weaviate.io/semitechnologies/weaviate` | |
-| 20 | Paperless-ngx | `ghcr.io/paperless-ngx/paperless-ngx` | |
+| 11 | LibreChat | `ghcr.io/danny-avila/librechat` | ✅ Done (Todd) |
+| 12 | AnythingLLM | `mintplexlabs/anythingllm` | ✅ Done (Todd) |
+| 13 | Flowise | `flowiseai/flowise` | ✅ Done (Todd) |
+| 14 | Langflow | `langflowai/langflow` | ✅ Done (Todd) |
+| 15 | Open Interpreter | `openinterpreter/openinterpreter:0.3.0` | ✅ Done (16) commit `1f00066e` |
+| 16 | InvokeAI | `ghcr.io/invoke-ai/invokeai:v5.5.0` | ✅ Done (17) commit `56ae8143` |
+| 17 | Forge/A1111 | `ghcr.io/ai-dock/stable-diffusion-webui-forge:v2-cuda-12.1.1-base-22.04` | ✅ Done (16) commit `f0111861` |
+| 18 | AudioCraft | `audiocraft` | ✅ Done (16) commit `c10ace82` |
+| 19 | Weaviate | `cr.weaviate.io/semitechnologies/weaviate:1.36.2` | ✅ Done (16) bumped to 1.36.2 |
+| 20 | Paperless-ngx | `ghcr.io/paperless-ngx/paperless-ngx` | ⏳ Next |
+
+**Latest commits:** `f0111861` (Forge + Weaviate bump) → `SSignall/Lighthouse-AI-Dev`
 
 ---
 
