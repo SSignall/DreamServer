@@ -7,14 +7,15 @@ service:
   container_name: dream-open-interpreter
   host_env: OPEN_INTERPRETER_HOST
   default_host: open-interpreter
-  port: 8080
+  port: 8090
   external_port_env: OPEN_INTERPRETER_PORT
-  external_port_default: 8080
+  external_port_default: 8090
   health: /health
   type: docker
   gpu_backends: []
   category: optional
   depends_on: []
+  compose_file: compose.yaml
   description: |
     Open Interpreter lets LLMs run code locally (Python, JavaScript, Shell, etc.).
     It provides a ChatGPT-like interface in your terminal and can control Chrome,

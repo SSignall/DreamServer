@@ -1,30 +1,77 @@
 # Open Interpreter
 
-A natural language interface for computers that lets LLMs run code locally.
+A local LLM that can run code on your computer.
 
-## Overview
+## What is Open Interpreter?
 
-Open Interpreter equips a function-calling language model with an `exec()` function, which accepts a language (like "Python" or "JavaScript") and code to run. It streams the model's messages, code, and your system's outputs to the terminal as Markdown.
-
-## Features
-
-- **Code Execution**: Run Python, JavaScript, Shell, and more locally
-- **Chat Interface**: ChatGPT-like interface for natural language code generation
-- **Browser Control**: Automate browser tasks for research
-- **Data Analysis**: Plot, clean, and analyze large datasets
+Open Interpreter lets LLMs run code locally (Python, JavaScript, Shell, etc.). It provides:
+- A ChatGPT-like interface in your terminal
+- Browser control for research tasks
+- File creation and editing
+- Data analysis and visualization
 
 ## Configuration
 
-- **Port**: `OPENINTERPRETER_PORT` (default: 8000)
-- **LLM API URL**: `LLM_API_URL` (default: `http://llama-server:8000`)
-- **Data Directory**: `./data/open-interpreter`
+The service connects to your local LLM via `${LLM_API_URL}` (default: `http://llama-server:8000`).
 
 ## Usage
 
-After installation, access the interface at `http://localhost:8000`
+### Via API
+
+Once running, access the API at `http://localhost:<port>`:
+
+```bash
+# Health check
+curl http://localhost:8080/health
+
+# Chat (non-streaming)
+curl -X POST http://localhost:8080/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "What OS are we running?", "stream": false}'
+
+# Chat (streaming)
+curl http://localhost:8080/chat/stream \
+  -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Plot AAPL stock price", "stream": true}'
+```
+
+### Via Terminal (CLI)
+
+```bash
+# Run interpreter interactively
+docker compose run --rm open-interpreter
+
+# Run a single command
+docker compose run --rm open-interpreter -y "Create a file called test.txt"
+```
+
+## Data Persistence
+
+Data is stored in `./data/open-interpreter/`:
+
+- Chat history
+- Config files
+- Generated files
+
+## Ports
+
+| Environment Variable | Default | Description |
+|---------------------|---------|-------------|
+| `OPEN_INTERPRETER_PORT` | `8080` | API server port |
+| `LLM_API_URL` | `http://llama-server:8000` | Your local LLM endpoint |
+
+## Features
+
+| Feature | Description |
+|---------|-------------|
+| Code Execution | Run Python, JavaScript, Shell code locally |
+| Browser Control | Control Chrome for web research |
+| File Operations | Create/edit files, images, videos, PDFs |
+| Data Analysis | Plot, clean, and analyze datasets |
 
 ## Notes
 
-- Open Interpreter will ask for user confirmation before executing code
-- Run with `-y` flag to bypass confirmation (use with caution)
-- Consider running in a restricted environment for safety
+- No GPU required for basic usage
+- Browser automation needs Chrome installed on host
+- Code runs with `auto_run=True` by default (no manual approval)

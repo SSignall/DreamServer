@@ -2,19 +2,20 @@ name: open-interpreter
 
 services:
   open-interpreter:
-    image: kunst1080/openinterpreter@sha256:38d8c5cd6ca261b5cb6d6107addd9120b320fb406feea55946f5a4003a1be64b
+    image: python:3.12-slim@sha256:ccc7089399c8bb65dd1fb3ed6d55efa538a3f5e7fca3f5988ac3b5b87e593bf0
     container_name: dream-open-interpreter
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
     environment:
-      - HOST=0.0.0.0
       - PORT=8080
       - LLM_API_URL=${LLM_API_URL:-http://llama-server:8000}
     volumes:
-      - ./data/open-interpreter:/root/.config/Open Interpreter:rw
+      - ./data/open-interpreter:/app/data:rw
     ports:
-      - "${OPEN_INTERPRETER_PORT:-8080}:8080"
+      - "${OPEN_INTERPRETER_PORT:-8090}:8080"
+    working_dir: /app
+    command: ["python", "server.py"]
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
       interval: 30s
