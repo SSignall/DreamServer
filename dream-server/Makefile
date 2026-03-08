@@ -3,7 +3,7 @@
 
 SHELL_FILES := $(shell find . -name '*.sh' -not -path './node_modules/*' -not -path './.git/*' -not -path './data/*' -not -path './token-spy/*')
 
-.PHONY: help lint test smoke simulate gate doctor
+.PHONY: help lint test smoke simulate validate-ext gate doctor
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -35,9 +35,12 @@ smoke: ## Run platform smoke tests
 simulate: ## Run installer simulation harness
 	@bash scripts/simulate-installers.sh
 
+validate-ext: ## Validate all extension manifests and compose files
+	@bash scripts/validate-extensions.sh
+
 doctor: ## Run diagnostic report
 	@bash scripts/dream-doctor.sh
 
-gate: lint test smoke simulate ## Full pre-release validation (lint + test + smoke + simulate)
+gate: lint test smoke simulate validate-ext ## Full pre-release validation
 	@echo ""
 	@echo "Release gate passed."

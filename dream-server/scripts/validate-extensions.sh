@@ -51,7 +51,7 @@ warn() {
     echo -e "  ${YELLOW}WARN${NC}  $1"
     [[ -n "${2:-}" ]] && echo -e "        ${YELLOW}→ $2${NC}"
     WARN=$((WARN + 1))
-    $STRICT && FAIL=$((FAIL + 1))
+    if $STRICT; then FAIL=$((FAIL + 1)); fi
 }
 
 skip() {

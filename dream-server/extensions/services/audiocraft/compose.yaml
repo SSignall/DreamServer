@@ -28,12 +28,17 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2.0'
-          memory: 8G
+          cpus: '4.0'
+          memory: 16G
         reservations:
-          cpus: '0.5'
-          memory: 2G
+          cpus: '1.0'
+          memory: 4G
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
 
 networks:
   dream-network:
     external: true
+
