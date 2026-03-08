@@ -2,7 +2,7 @@ name: xtts
 
 services:
   xtts:
-    image: ghcr.io/coqui-ai/xtts-streaming-server:v1.0.0
+    image: ghcr.io/daswer123/xtts-api-server:v0.8.2
     container_name: dream-xtts
     ports:
       - "${XTTS_PORT:-8100}:80"
@@ -25,7 +25,7 @@ services:
           devices:
             - capabilities: ["gpu"]
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:80/health')"]
       interval: 30s
       timeout: 10s
       retries: 3
