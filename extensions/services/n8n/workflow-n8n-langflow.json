@@ -1,0 +1,188 @@
+{
+  "name": "Langflow API",
+  "active": true,
+  "settings": {},
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "langflow-run",
+        "options": {}
+      },
+      "id": "langflow-webhook-trigger",
+      "name": "Webhook Trigger",
+      "comment": "Accepts JSON: { flowId (required), input_value (required), input_type (optional), output_type (optional), components (optional), stream (optional) }. API key via X-API-Key header only. Set LANGFLOW_API_KEY env var to enable authentication.",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// API Key authentication check - timing-safe comparison\nconst headers = $input.first().json.headers || {};\n\n// Case-insensitive header lookup (defense against platform normalization changes)\nconst headerKeys = Object.keys(headers);\nconst apiKeyHeader = headerKeys.find(k => k.toLowerCase() === 'x-api-key');\nconst providedKey = apiKeyHeader !== undefined ? headers[apiKeyHeader] : '';\nconst expectedKey = $env.LANGFLOW_API_KEY;\n\n// Timing-safe comparison - prevents timing attacks on API key\nfunction timingSafeEqual(a, b) {\n  if (typeof a !== 'string' || typeof b !== 'string') return false;\n  const MAX_LEN = 256;\n  if (a.length > MAX_LEN || b.length > MAX_LEN) return false;\n  \n  let result = 0;\n  // Constant-time comparison: always iterate MAX_LEN, use 0 for out-of-bounds\n  for (let i = 0; i < MAX_LEN; i++) {\n    const charA = i < a.length ? a.charCodeAt(i) : 0;\n    const charB = i < b.length ? b.charCodeAt(i) : 0;\n    result |= charA ^ charB;\n  }\n  // Include length check in constant-time result\n  result |= (a.length === b.length) ? 0 : 1;\n  return result === 0;\n}\n\nif (expectedKey && !timingSafeEqual(providedKey, expectedKey)) {\n  throw new Error('Authentication failed');\n}\n\nconst input = $input.first().json || {};\nconst flowId = input.flowId || '';\nconst input_value = input.input_value || '';\nconst input_type = input.input_type || 'chat';\nconst output_type = input.output_type || 'chat';\nconst components = input.components || {};\nconst stream = input.stream || false;\n\n// === FLOW_ID VALIDATION ===\nif (!flowId) {\n  throw new Error('Missing required field: flowId');\n}\nif (typeof flowId !== 'string') {\n  throw new Error('Invalid flowId: must be a string');\n}\nif (flowId.length > 100) {\n  throw new Error('flowId too long: max 100 characters');\n}\n\n// === INPUT_VALUE VALIDATION ===\nif (!input_value) {\n  throw new Error('Missing required field: input_value');\n}\nif (typeof input_value !== 'string') {\n  throw new Error('Invalid input_value: must be a string');\n}\nif (input_value.length > 32768) {\n  throw new Error('input_value too long: max 32768 characters');\n}\n\n// === INPUT_TYPE VALIDATION ===\nconst validInputTypes = ['chat', 'text', 'document'];\nif (!validInputTypes.includes(input_type)) {\n  throw new Error('Invalid input_type: must be one of ' + validInputTypes.join(', '));\n}\n\n// === OUTPUT_TYPE VALIDATION ===\nconst validOutputTypes = ['chat', 'text', 'debug'];\nif (!validOutputTypes.includes(output_type)) {\n  throw new Error('Invalid output_type: must be one of ' + validOutputTypes.join(', '));\n}\n\n// === STREAM VALIDATION ===\nif (typeof stream !== 'boolean') {\n  throw new Error('Invalid stream: must be a boolean');\n}\n\n// === COMPONENTS VALIDATION ===\nif (components && typeof components !== 'object') {\n  throw new Error('Invalid components: must be a JSON object');\n}\n\n// === CHANNEL VALIDATION ===\nconst channelRaw = (input.channel || 'general').replace(/^#+/, '').replace(/[<>@&]/g, '').slice(0, 100);\nif (!channelRaw.match(/^[a-zA-Z0-9_-]+$/)) {\n  throw new Error('Invalid channel: must be alphanumeric, dash, or underscore only');\n}\n\nreturn [{\n  json: {\n    flowId: flowId,\n    input_value: input_value,\n    input_type: input_type,\n    output_type: output_type,\n    components: components,\n    stream: stream,\n    channel: channelRaw\n  }\n}];"
+      },
+      "id": "validate-input",
+      "name": "Validate Input",
+      "comment": "Validates: API key auth (header only - X-API-Key), flowId (required), input_value (required), input_type, output_type, components, stream, channel name",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        450,
+        300
+      ],
+      "notes": "Validates: flowId (required, max 100 chars), input_value (required, max 32768 chars), input_type (chat|text|document), output_type (chat|text|debug), components (optional object), stream (boolean), channel (alphanumeric, dash, underscore)"
+    },
+    {
+      "parameters": {
+        "url": "={{ 'http://' + ($env.LANGFLOW_HOST || 'localhost') + ':' + ($env.LANGFLOW_PORT || '7860') + '/api/v1/run/' + $('Validate Input').first().json.flowId }}",
+        "method": "POST",
+        "headers": {
+          "list": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "body": {
+          "mimeType": "application/json",
+          "raw": "={{ JSON.stringify({\n  input_value: $('Validate Input').first().json.input_value,\n  input_type: $('Validate Input').first().json.input_type || 'chat',\n  output_type: $('Validate Input').first().json.output_type || 'chat',\n  components: $('Validate Input').first().json.components || {},\n  stream: $('Validate Input').first().json.stream\n}) }}"
+        },
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "langflow-api-call",
+      "name": "Langflow API Call",
+      "comment": "Calls Langflow /api/v1/run/{flowId} endpoint. 5 min timeout for complex workflows.",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        650,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process Langflow response\nconst body = $input.first().json || {};\nconst webhookInput = $input.all()[1]?.json || {};\n\n// Langflow returns output in different formats depending on the flow\nconst outputs = body.outputs || body.output || [];\nconst text = outputs[0]?.outputs?.message?.text || outputs[0]?.outputs?.output || body.results?.output || body.output || '';\nconst latency = body.latency || body.time || 0;\nconst flowId = body.id || $('Validate Input').first().json.flowId;\n\nreturn [{\n  json: {\n    success: !!text,\n    text: text,\n    latency: latency,\n    flowId: flowId,\n    channel: webhookInput.channel || 'general',\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "process-response",
+      "name": "Process Response",
+      "comment": "Extracts answer from Langflow format, handles various response structures, latency, and flowId.",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        850,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "webhookUri": "={{ $env.DISCORD_WEBHOOK_URL || '' }}",
+        "text": "={{ '*Langflow Response* 🤖\\n\\n**Latency:** ' + ($json.latency + 's' || 'N/A') + '\\n**Answer:** ' + ($json.text || 'No response').toString().slice(0, 1750) + '\\n\\n**Flow ID:** ' + ($json.flowId || 'N/A') }}"
+      },
+      "id": "discord-output",
+      "name": "Discord Output",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [
+        1050,
+        300
+      ],
+      "comment": "Sends response to Discord webhook. Truncates answer to 1750 chars to stay under Discord's 2000 char limit."
+    },
+    {
+      "parameters": {
+        "webhookUri": "={{ $env.DISCORD_WEBHOOK_URL || '' }}",
+        "text": "={{ '*Langflow Failed* ❌\\n\\n**Error:** ' + (($input.all()[0]?.error?.message || $input.all()[0]?.error?.description || 'Unknown error')).toString().slice(0, 997).trimEnd() + '\\n\\nPlease check:\\n- Langflow service is running\\n- flowId is valid\\n- API key is correct\\n- Flow is deployed' }}"
+      },
+      "id": "discord-error",
+      "name": "Discord Error",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [
+        650,
+        500
+      ],
+      "comment": "Sends error notification from Validate Input or API call failures."
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "Langflow API Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "error": [
+        [
+          {
+            "node": "Discord Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Langflow API Call": {
+      "main": [
+        [
+          {
+            "node": "Process Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "error": [
+        [
+          {
+            "node": "Discord Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Response": {
+      "main": [
+        [
+          {
+            "node": "Discord Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "error": [
+        [
+          {
+            "node": "Discord Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "meta": {
+    "instanceId": "langflow-workflow-v1"
+  }
+}

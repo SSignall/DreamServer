@@ -1,0 +1,188 @@
+{
+  "name": "Flowise Chatflow",
+  "active": true,
+  "settings": {},
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "flowise-chat",
+        "options": {}
+      },
+      "id": "flowise-webhook-trigger",
+      "name": "Webhook Trigger",
+      "comment": "Accepts JSON: { chatflowId (required), question (required), sessionId (optional), stream (optional) }. API key via X-API-Key header only. Set FLOWISE_API_KEY env var to enable authentication.",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// API Key authentication check - timing-safe comparison\nconst headers = $input.first().json.headers || {};\n\n// Case-insensitive header lookup (defense against platform normalization changes)\nconst headerKeys = Object.keys(headers);\nconst apiKeyHeader = headerKeys.find(k => k.toLowerCase() === 'x-api-key');\nconst providedKey = apiKeyHeader !== undefined ? headers[apiKeyHeader] : '';\nconst expectedKey = $env.FLOWISE_API_KEY;\n\n// Timing-safe comparison - prevents timing attacks on API key\nfunction timingSafeEqual(a, b) {\n  if (typeof a !== 'string' || typeof b !== 'string') return false;\n  const MAX_LEN = 256;\n  if (a.length > MAX_LEN || b.length > MAX_LEN) return false;\n  \n  let result = 0;\n  // Constant-time comparison: always iterate MAX_LEN, use 0 for out-of-bounds\n  for (let i = 0; i < MAX_LEN; i++) {\n    const charA = i < a.length ? a.charCodeAt(i) : 0;\n    const charB = i < b.length ? b.charCodeAt(i) : 0;\n    result |= charA ^ charB;\n  }\n  // Include length check in constant-time result\n  result |= (a.length === b.length) ? 0 : 1;\n  return result === 0;\n}\n\nif (expectedKey && !timingSafeEqual(providedKey, expectedKey)) {\n  throw new Error('Authentication failed');\n}\n\nconst input = $input.first().json || {};\nconst chatflowId = input.chatflowId || '';\nconst question = input.question || '';\nconst sessionId = input.sessionId || '';\nconst stream = input.stream || false;\n\n// === CHATFLOW_ID VALIDATION ===\nif (!chatflowId) {\n  throw new Error('Missing required field: chatflowId');\n}\nif (typeof chatflowId !== 'string') {\n  throw new Error('Invalid chatflowId: must be a string');\n}\nif (chatflowId.length > 100) {\n  throw new Error('chatflowId too long: max 100 characters');\n}\n\n// === QUESTION VALIDATION ===\nif (!question) {\n  throw new Error('Missing required field: question');\n}\nif (typeof question !== 'string') {\n  throw new Error('Invalid question: must be a string');\n}\nif (question.length > 32768) {\n  throw new Error('Question too long: max 32768 characters');\n}\n\n// === SESSION_ID VALIDATION ===\nif (sessionId && typeof sessionId !== 'string') {\n  throw new Error('Invalid sessionId: must be a string');\n}\nif (sessionId && sessionId.length > 256) {\n  throw new Error('sessionId too long: max 256 characters');\n}\n\n// === STREAM VALIDATION ===\nif (typeof stream !== 'boolean') {\n  throw new Error('Invalid stream: must be a boolean');\n}\n\n// === CHANNEL VALIDATION ===\nconst channelRaw = (input.channel || 'general').replace(/^#+/, '').replace(/[<>@&]/g, '').slice(0, 100);\nif (!channelRaw.match(/^[a-zA-Z0-9_-]+$/)) {\n  throw new Error('Invalid channel: must be alphanumeric, dash, or underscore only');\n}\n\nreturn [{\n  json: {\n    chatflowId: chatflowId,\n    question: question,\n    sessionId: sessionId,\n    stream: stream,\n    channel: channelRaw\n  }\n}];"
+      },
+      "id": "validate-input",
+      "name": "Validate Input",
+      "comment": "Validates: API key auth (header only - X-API-Key), chatflowId (required), question (required), sessionId (optional), stream (boolean), channel name",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        450,
+        300
+      ],
+      "notes": "Validates: chatflowId (required, max 100 chars), question (required, max 32768 chars), sessionId (optional, max 256 chars), stream (boolean), channel (alphanumeric, dash, underscore)"
+    },
+    {
+      "parameters": {
+        "url": "={{ 'http://' + ($env.FLOWISE_HOST || 'localhost') + ':' + ($env.FLOWISE_PORT || '3002') + '/api/v1/prediction/' + $('Validate Input').first().json.chatflowId }}",
+        "method": "POST",
+        "headers": {
+          "list": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "body": {
+          "mimeType": "application/json",
+          "raw": "={{ JSON.stringify({\n  question: $('Validate Input').first().json.question,\n  sessionId: $('Validate Input').first().json.sessionId || undefined,\n  stream: $('Validate Input').first().json.stream\n}) }}"
+        },
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "flowise-api-call",
+      "name": "Flowise API Call",
+      "comment": "Calls Flowise /api/v1/prediction/{chatflowId} endpoint. 5 min timeout for complex workflows.",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        650,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process Flowise response\nconst body = $input.first().json || {};\nconst webhookInput = $input.all()[1]?.json || {};\n\nconst text = body.text || body.answer || '';\nconst sessionId = body.sessionId || body.session_id || '';\nconst conversationId = body.conversationId || body.conversation_id || '';\nconst latency = body.latency || 0;\n\nreturn [{\n  json: {\n    success: !!text,\n    text: text,\n    sessionId: sessionId,\n    conversationId: conversationId,\n    latency: latency,\n    channel: webhookInput.channel || 'general',\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "process-response",
+      "name": "Process Response",
+      "comment": "Extracts answer/text from Flowise format, handles sessionId, conversationId, and latency.",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        850,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "webhookUri": "={{ $env.DISCORD_WEBHOOK_URL || '' }}",
+        "text": "={{ '*Flowise Response* 🤖\\n\\n**Latency:** ' + ($json.latency + 'ms' || 'N/A') + '\\n**Answer:** ' + ($json.text || 'No response').toString().slice(0, 1750) + '\\n\\n**Session ID:** ' + ($json.sessionId || 'N/A') }}"
+      },
+      "id": "discord-output",
+      "name": "Discord Output",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [
+        1050,
+        300
+      ],
+      "comment": "Sends response to Discord webhook. Truncates answer to 1750 chars to stay under Discord's 2000 char limit."
+    },
+    {
+      "parameters": {
+        "webhookUri": "={{ $env.DISCORD_WEBHOOK_URL || '' }}",
+        "text": "={{ '*Flowise Failed* ❌\\n\\n**Error:** ' + (($input.all()[0]?.error?.message || $input.all()[0]?.error?.description || 'Unknown error')).toString().slice(0, 997).trimEnd() + '\\n\\nPlease check:\\n- Flowise service is running\\n- chatflowId is valid\\n- API key is correct\\n- Chatflow is deployed' }}"
+      },
+      "id": "discord-error",
+      "name": "Discord Error",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [
+        650,
+        500
+      ],
+      "comment": "Sends error notification from Validate Input or API call failures."
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "Flowise API Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "error": [
+        [
+          {
+            "node": "Discord Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Flowise API Call": {
+      "main": [
+        [
+          {
+            "node": "Process Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "error": [
+        [
+          {
+            "node": "Discord Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Response": {
+      "main": [
+        [
+          {
+            "node": "Discord Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "error": [
+        [
+          {
+            "node": "Discord Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "meta": {
+    "instanceId": "flowise-workflow-v1"
+  }
+}
