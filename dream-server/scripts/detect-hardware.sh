@@ -29,7 +29,7 @@ detect_os() {
 # Detect NVIDIA GPU
 detect_nvidia() {
     if command -v nvidia-smi &>/dev/null; then
-        nvidia-smi --query-gpu=name,memory.total --format=csv,noheader,nounits 2>/dev/null | head -1
+        nvidia-smi --query-gpu=name,memory.total --format=csv,noheader,nounits 2>/dev/null
     fi
 }
 
