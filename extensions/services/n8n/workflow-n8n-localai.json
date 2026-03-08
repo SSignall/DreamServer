@@ -1,0 +1,112 @@
+{
+  "name": "LocalAI Model Inference",
+  "active": true,
+  "settings": {},
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "localai-inference",
+        "options": {}
+      },
+      "id": "localai-webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ 'http://' + ($env.LOCALAI_HOST || 'localhost') + ':' + ($env.LOCALAI_EXTERNAL_PORT || '8080') + '/v1/chat/completions' }}",
+        "method": "POST",
+        "headers": {
+          "list": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "body": {
+          "model": "={{ $json.model || 'local-model' }}",
+          "messages": [
+            {
+              "role": "user",
+              "content": "={{ $json.message || 'Hello' }}"
+            }
+          ],
+          "temperature": "={{ $json.temperature || 0.7 }}",
+          "max_tokens": "={{ $json.max_tokens || 1024 }}",
+          "stream": false
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "localai-api-call",
+      "name": "LocalAI API Call",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process LocalAI response\nconst body = $json || {};\nconst message = body.choices?.[0]?.message?.content || body.message?.content || 'No response generated';\nconst model = body.model || 'unknown';\nconst usage = body.usage || {};\n\nreturn [{\n  json: {\n    success: !!message,\n    model: model,\n    response: message,\n    tokens_used: usage.total_tokens || 0,\n    prompt_tokens: usage.prompt_tokens || 0,\n    completion_tokens: usage.completion_tokens || 0,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "process-response",
+      "name": "Process Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "channel": "={{ $json.channel || '#general' }}",
+        "text": "={{ '*LocalAI Response*\\n\\n**Model:** ' + ($json.model || 'unknown') + '\\n**Tokens:** ' + ($json.tokens_used || 0) + '\\n\\n' + ($json.response || '') }}"
+      },
+      "id": "discord-output",
+      "name": "Discord Output",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [850, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "LocalAI API Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LocalAI API Call": {
+      "main": [
+        [
+          {
+            "node": "Process Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Response": {
+      "main": [
+        [
+          {
+            "node": "Discord Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "meta": {
+    "instanceId": "localai-workflow-v1"
+  }
+}
