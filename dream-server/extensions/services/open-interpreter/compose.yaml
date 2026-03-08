@@ -1,21 +1,22 @@
+name: open-interpreter
+
 services:
   open-interpreter:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: kunst1080/openinterpreter@sha256:38d8c5cd6ca261b5cb6d6107addd9120b320fb406feea55946f5a4003a1be64b
     container_name: dream-open-interpreter
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
     environment:
-      - OPENAI_API_BASE=${LLM_API_URL:-http://llama-server:8000}
-      - OPENAI_API_KEY=${LLM_API_KEY:-fake_key}
+      - HOST=0.0.0.0
+      - PORT=8080
+      - LLM_API_URL=${LLM_API_URL:-http://llama-server:8000}
     volumes:
-      - ./data/open-interpreter:/root/.open-interpreter
+      - ./data/open-interpreter:/root/.config/Open Interpreter:rw
     ports:
-      - "${OPENINTERPRETER_PORT:-8000}:8000"
+      - "${OPEN_INTERPRETER_PORT:-8080}:8080"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
       interval: 30s
       timeout: 10s
       retries: 3
