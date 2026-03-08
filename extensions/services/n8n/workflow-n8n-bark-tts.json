@@ -106,7 +106,7 @@
     {
       "parameters": {
         "channel": "={{ $('Webhook Trigger').first().json.channel || '#general' }}",
-        "text": "={{ '*Bark TTS Failed*\n\n**Error:** ' + ($json.message || $json.error || $json.description || (typeof $json === 'string' ? $json.substring(0, 200) : 'Unknown error')) + '\n**Status:** ' + ($json.statusCode || $json.code || 'N/A') + '\n\nPlease check the Bark service and try again.' }}"
+        "text": "={{ '*Bark TTS Failed*\n\n**Error:** ' + (($json.message || $json.error || $json.description || (typeof $json === 'string' ? $json : 'Unknown error')).toString().slice(0, 200)) + '\n**Status:** ' + ($json.statusCode || $json.code || 'N/A') + '\n\nPlease check the Bark service and try again.' }}"
       },
       "id": "discord-error",
       "name": "Discord Error",
