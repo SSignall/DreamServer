@@ -306,9 +306,31 @@ main() {
         local gpu_count
         gpu_count=$(echo "$nvidia_out" | wc -l)
         gpu_vram_mb=$(echo "$nvidia_out" | awk -F',' '{gsub(/^ +| +$/,"",$2); sum+=$2} END {print sum}')
-        
-        # Get first GPU name for display (all GPUs in a system are usually the same model)
-        gpu_name=$(echo "$nvidia_out" | awk -F',' '{gsub(/^ +| +$/,"",$1); print $1}' | head -1)
+
+        # Build GPU name: show all unique models (handles mixed GPU setups like 3090+4090)
+        if [[ "$gpu_count" -eq 1 ]]; then
+            gpu_name=$(echo "$nvidia_out" | awk -F',' '{gsub(/^ +| +$/,"",$1); print $1}' | head -1)
+        else
+            # Multiple GPUs: extract unique models and count occurrences
+            local models
+            models=$(echo "$nvidia_out" | awk -F',' '{gsub(/^ +| +$/,"",$1); print $1}' | sort | uniq -c | sort -rn)
+            # Build compact representation: "NVIDIA GeForce RTX 3090 x2" or "RTX 3090 + RTX 4090"
+            local name_parts=()
+            while read -r line; do
+                # uniq -c output has leading spaces: "  2 NVIDIA GeForce RTX 3090"
+                local count model
+                count=$(echo "$line" | awk '{print $1}')
+                model=$(echo "$line" | awk '{$1=""; sub(/^[[:space:]]+/, ""); print}')
+                if [[ "$count" -eq 1 ]]; then
+                    name_parts+=("$model")
+                else
+                    name_parts+=("${model} x${count}")
+                fi
+            done <<< "$models"
+            # Join with " + "
+            printf -v gpu_name "%s + " "${name_parts[@]}"
+            gpu_name="${gpu_name%+ }"  # Remove trailing " + "
+        fi
         
         gpu_type="nvidia"
         gpu_architecture="cuda"
