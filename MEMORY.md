@@ -1007,6 +1007,44 @@ if (a.length !== b.length) return false;
 
 ---
 
+### 2026-03-08 — Commit Review & Port Standardization (QA Ping)
+
+**Trigger:** Android-18 supervisor QA ping + Todd's review
+
+**Commits Reviewed:** `f33ff487`, `ba6a8fcf`, `c7723a49`, `cc48affc`
+
+**Issues Found & Fixed:**
+
+1. **[LOW]** Commit message misleading (`ba6a8fcf`) — **FIXED**
+   - Issue: Claims multi-service fix but only affects aider
+   - Fix: Amended commit message to accurately reflect changes
+   - Commit: `dd6bfc3f`
+
+2. **[DISCOVERY]** Port default standardization — **IMPLEMENTED**
+   - Issue: Services using inconsistent default ports (3001, 3002, 7860, 8080, etc.)
+   - Fix: Standardized all to 78xx range (7800-7811)
+   - Commits: `692a5ab4` (23 services updated)
+
+**Git Activity:**
+- Commits: `f33ff487`, `ba6a8fcf`, `c7723a49`, `cc48affc`, `dd6bfc3f`, `692a5ab4`
+- Status: All fixes committed and pushed to dev/main
+
+**QA Checklist Applied:**
+- ✅ Health endpoints correct (no `/` root paths)
+- ✅ Security mounts commented out appropriately
+- ✅ No stubs or placeholders
+- ✅ Follows existing extension patterns
+- ✅ Port defaults aligned (78xx range)
+- ✅ Network references present
+
+**Next Session Priorities** (per workstream order):
+1. GitHub issues — check manually (gh not authenticated)
+2. Hardening wave — remaining checklist items
+3. Installer testing — coordinate with Bilal
+4. Upstream monitoring — verify no rot in deployed extensions
+
+---
+
 ### 2026-03-08 — Android-18 Review Follow-up (GPU Detection)
 
 **Commit Review Trigger:** Android-18 ping for commit `a5ae4f4c` review
