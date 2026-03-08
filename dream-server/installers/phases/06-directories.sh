@@ -94,15 +94,25 @@ else
         log "Installed OpenClaw config: $OPENCLAW_CONFIG -> openclaw.json (model: $OPENCLAW_MODEL)"
         mkdir -p "$INSTALL_DIR/data/openclaw/home/agents/main/sessions"
         # Generate OpenClaw home config with local llama-server provider
-        OPENCLAW_TOKEN=$(openssl rand -hex 24 2>/dev/null || od -An -tx1 /dev/urandom | tr -d ' \n' | head -c 48)
+        if command -v openssl &>/dev/null; then
+            OPENCLAW_TOKEN=$(openssl rand -hex 24)
+        elif [ -r /dev/urandom ]; then
+            OPENCLAW_TOKEN=$(od -An -tx1 /dev/urandom | tr -d ' \n' | head -c 48)
+        else
+            OPENCLAW_TOKEN=""
+        fi
         if [ -z "$OPENCLAW_TOKEN" ]; then
-            log_error "Failed to generate OpenClaw token (openssl not available, od fallback failed)"
+            log_error "Failed to generate OpenClaw token (openssl unavailable, /dev/urandom unreadable)"
             exit 1
         fi
         # Escape token for JSON insertion (handle quotes, backslashes, JSON control chars)
-        # Uses Python for complete JSON-safe escaping (handles all control chars including \uXXXX)
-        OPENCLAW_TOKEN_JSON=$(python3 -c "import json,sys; print(json.dumps(sys.argv[1])[1:-1])" "$OPENCLAW_TOKEN" 2>/dev/null || \
-            printf '%s' "$OPENCLAW_TOKEN" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g; s/\n/\\n/g; s/\r/\\r/g; s/\b/\\b/g; s/\f/\\f/g')
+        # Primary: Python's json.dumps() handles all control chars including \uXXXX
+        # Fallback: sed with complete control char escaping (\b, \f, \t, \n, \r)
+        if command -v python3 &>/dev/null; then
+            OPENCLAW_TOKEN_JSON=$(python3 -c "import json,sys; print(json.dumps(sys.argv[1])[1:-1])" "$OPENCLAW_TOKEN" 2>/dev/null)
+        else
+            OPENCLAW_TOKEN_JSON=$(printf '%s' "$OPENCLAW_TOKEN" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g; s/\n/\\n/g; s/\r/\\r/g; s/\b/\\b/g; s/\f/\\f/g')
+        fi
 
         cat > "$INSTALL_DIR/data/openclaw/home/openclaw.json" << OCLAW_EOF
 {
