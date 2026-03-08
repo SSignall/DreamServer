@@ -1,9 +1,9 @@
 schema_version: dream.services.v1
 
 service:
-  id: piper-audio
+  id: piper-tts
   name: Piper TTS
-  aliases: [piper, tts-local]
+  aliases: [piper, tts-local, piper-audio]
   container_name: piper-tts
   host_env: PIPER_HOST
   default_host: piper-tts

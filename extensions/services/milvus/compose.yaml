@@ -1,26 +1,25 @@
-name: xtts
+name: milvus
 
 services:
-  xtts:
-    image: ghcr.io/coqui-ai/xtts-streaming-server:v1.0.0
-    container_name: dream-xtts
+  milvus:
+    image: milvusdb/milvus:v2.4.5
+    container_name: dream-milvus
     ports:
-      - "${XTTS_PORT:-8100}:80"
+      - "${MILVUS_PORT:-19530}:19530"
     volumes:
-      - ./data/xtts:/app/tts_models
+      - ./data/milvus:/var/lib/milvus
     environment:
-      - COQUI_TOS_AGREED=1
-      - PORT=80
+      - ETCD_ENDPOINTS=etcd:2379
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
     deploy:
       resources:
-        reservations:
-          devices:
-            - capabilities: ["gpu"]
+        limits:
+          cpus: '2'
+          memory: 8G
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
       interval: 30s
       timeout: 10s
       retries: 3
