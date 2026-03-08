@@ -1,3 +1,5 @@
+name: langflow
+
 services:
   langflow:
     image: langflowai/langflow:1.8.0
@@ -8,22 +10,13 @@ services:
     environment:
       - LANGFLOW_HOST=0.0.0.0
       - LANGFLOW_PORT=7860
-      - LANGFLOW_AUTO_LOGIN=${LANGFLOW_AUTO_LOGIN:-false}
-      - LANGFLOW_SUPERUSER=${LANGFLOW_SUPERUSER:-}
-      - LANGFLOW_SUPERUSER_PASSWORD=${LANGFLOW_SUPERUSER_PASSWORD:-}
-      - LANGFLOW_SECRET_KEY=${LANGFLOW_SECRET_KEY:-}
-      - LANGFLOW_NEW_USER_IS_ACTIVE=${LANGFLOW_NEW_USER_IS_ACTIVE:-false}
-      - LANGFLOW_AUTO_SAVING=${LANGFLOW_AUTO_SAVING:-true}
-      - LANGFLOW_AUTO_SAVING_INTERVAL=${LANGFLOW_AUTO_SAVING_INTERVAL:-10000}
-      - LANGFLOW_SAVE_WORK_IN_PROGRESS=${LANGFLOW_SAVE_WORK_IN_PROGRESS:-true}
-      - LANGFLOW_MVP_FEATURES=${LANGFLOW_MVP_FEATURES:-false}
-      - DO_NOT_TRACK=${LANGFLOW_DO_NOT_TRACK:-true}
+      - LLM_API_URL=${LLM_API_URL:-http://llama-server:8000}
     volumes:
-      - ./data/langflow:/root/.langflow:rw
+      - ./data/langflow:/app/data
     ports:
-      - "${LANGFLOW_PORT:-3004}:7860"
+      - "${LANGFLOW_PORT:-7860}:7860"
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:7860/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:7860/health"]
       interval: 30s
       timeout: 10s
       retries: 3
