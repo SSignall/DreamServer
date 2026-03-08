@@ -55,7 +55,7 @@
       },
       "id": "rvc-upload",
       "name": "RVC Upload",
-      "comment": "Requires RVC_HOST and RVC_PORT environment variables. Defaults to localhost:7865 if not set.",
+      "comment": "Requires RVC_HOST and RVC_PORT environment variables. In docker-compose, RVC service is at 'rvc:7865'.",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 1,
       "position": [650, 300]
@@ -74,7 +74,7 @@
         },
         "body": {
           "mimeType": "application/json",
-          "raw": "={{ JSON.stringify({ model: $('Validate Input').first().json.model, audio_path: $json.path || $('Validate Input').first().json.audio_path, pitch: $('Validate Input').first().json.pitch, f0_method: $('Validate Input').first().json.f0_method }) }}"
+          "raw": "={{ JSON.stringify({ model: $('Validate Input').first().json.model, audio_path: $('Validate Input').first().json.audio_path || $json.path || '', pitch: $('Validate Input').first().json.pitch, f0_method: $('Validate Input').first().json.f0_method }) }}"
         },
         "options": {
           "timeout": 300000
