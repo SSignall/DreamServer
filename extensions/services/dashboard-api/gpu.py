@@ -164,106 +164,57 @@ def get_gpu_info_nvidia() -> Optional[GPUInfo]:
 def get_all_gpus() -> list[GPUInfo]:
     """Get all detected GPUs - NVIDIA and/or AMD."""
     gpus: list[GPUInfo] = []
+    gpu_backend = os.environ.get("GPU_BACKEND", "").lower()
 
-    # Detect NVIDIA GPUs
-    try:
-        # Check for multiple NVIDIA GPUs using nvidia-smi
-        result = subprocess.run([
-            "nvidia-smi",
-            "--query-gpu=index,name,memory.used,memory.total,utilization.gpu,temperature.gpu,power.draw",
-            "--format=csv,noheader,nounits"
-        ], capture_output=True, text=True, timeout=5)
-
-        if result.returncode == 0 and result.stdout.strip():
-            for line in result.stdout.strip().split("\n"):
-                if not line.strip():
-                    continue
-                parts = [p.strip() for p in line.split(",")]
-                try:
-                    gpu_idx = int(parts[0])
-                    mem_used = int(parts[2])
-                    mem_total = int(parts[3])
-                    power_w = None
-                    if len(parts) >= 7 and parts[6] not in ("[N/A]", "[Not Supported]", "N/A", "Not Supported", ""):
-                        try:
-                            power_w = round(float(parts[6]), 1)
-                        except (ValueError, TypeError):
-                            pass
-
-                    gpus.append(GPUInfo(
-                        name=parts[1],
-                        memory_used_mb=mem_used,
-                        memory_total_mb=mem_total,
-                        memory_percent=round(mem_used / mem_total * 100, 1) if mem_total > 0 else 0,
-                        utilization_percent=int(parts[4]),
-                        temperature_c=int(parts[5]),
-                        power_w=power_w,
-                        gpu_backend="nvidia",
-                        memory_type="discrete",
-                    ))
-                except (ValueError, IndexError):
-                    continue
-    except Exception:
-        pass
-
-    # Detect AMD GPUs
-    for device_path in _find_all_amd_gpu_sysfs():
-        hwmon = _find_hwmon_dir(device_path)
+    # Skip NVIDIA detection if GPU_BACKEND=amd (avoids slow/hanging nvidia-smi)
+    if gpu_backend != "amd":
         try:
-            vram_total_str = _read_sysfs(f"{device_path}/mem_info_vram_total")
-            vram_used_str = _read_sysfs(f"{device_path}/mem_info_vram_used")
-            gtt_total_str = _read_sysfs(f"{device_path}/mem_info_gtt_total")
-            gtt_used_str = _read_sysfs(f"{device_path}/mem_info_gtt_used")
-            gpu_busy_str = _read_sysfs(f"{device_path}/gpu_busy_percent")
+            # Check for multiple NVIDIA GPUs using nvidia-smi
+            result = subprocess.run([
+                "nvidia-smi",
+                "--query-gpu=index,name,memory.used,memory.total,utilization.gpu,temperature.gpu,power.draw",
+                "--format=csv,noheader,nounits"
+            ], capture_output=True, text=True, timeout=5)
 
-            if not vram_total_str or not vram_used_str:
-                continue
+            if result.returncode == 0 and result.stdout.strip():
+                for line in result.stdout.strip().split("\n"):
+                    if not line.strip():
+                        continue
+                    parts = [p.strip() for p in line.split(",")]
+                    try:
+                        mem_used = int(parts[2])
+                        mem_total = int(parts[3])
+                        power_w = None
+                        if len(parts) >= 7 and parts[6] not in ("[N/A]", "[Not Supported]", "N/A", "Not Supported", ""):
+                            try:
+                                power_w = round(float(parts[6]), 1)
+                            except (ValueError, TypeError):
+                                pass
 
-            vram_total = int(vram_total_str)
-            vram_used = int(vram_used_str)
-            gtt_total = int(gtt_total_str) if gtt_total_str else 0
-            gtt_used = int(gtt_used_str) if gtt_used_str else 0
-            gpu_busy = int(gpu_busy_str) if gpu_busy_str else 0
+                        gpus.append(GPUInfo(
+                            name=parts[1],
+                            memory_used_mb=mem_used,
+                            memory_total_mb=mem_total,
+                            memory_percent=round(mem_used / mem_total * 100, 1) if mem_total > 0 else 0,
+                            utilization_percent=int(parts[4]),
+                            temperature_c=int(parts[5]),
+                            power_w=power_w,
+                            gpu_backend="nvidia",
+                            memory_type="discrete",
+                        ))
+                    except (ValueError, IndexError):
+                        continue
+        except (subprocess.TimeoutExpired, OSError, subprocess.SubprocessError):
+            # nvidia-smi not available or failed - silently continue to AMD detection
+            pass
 
-            is_unified = gtt_total > vram_total * 4
-
-            if is_unified:
-                mem_total = gtt_total
-                mem_used = gtt_used
-            else:
-                mem_total = vram_total
-                mem_used = vram_used
-
-            temp = 0
-            power_w = None
-            if hwmon:
-                temp_str = _read_sysfs(f"{hwmon}/temp1_input")
-                if temp_str:
-                    temp = int(temp_str) // 1000
-
-                power_str = _read_sysfs(f"{hwmon}/power1_average")
-                if power_str:
-                    power_w = round(int(power_str) / 1e6, 1)
-
-            gpu_name = _read_sysfs(f"{device_path}/product_name") or f"AMD GPU {len(gpus)}"
-            memory_type = "unified" if is_unified else "discrete"
-
-            mem_used_mb = mem_used // (1024 * 1024)
-            mem_total_mb = mem_total // (1024 * 1024)
-
-            gpus.append(GPUInfo(
-                name=gpu_name,
-                memory_used_mb=mem_used_mb,
-                memory_total_mb=mem_total_mb,
-                memory_percent=round(mem_used_mb / mem_total_mb * 100, 1) if mem_total_mb > 0 else 0,
-                utilization_percent=gpu_busy,
-                temperature_c=temp,
-                power_w=power_w,
-                memory_type=memory_type,
-                gpu_backend="amd",
-            ))
-        except (ValueError, TypeError, IOError):
-            continue
+    # Skip AMD detection if GPU_BACKEND=nvidia
+    if gpu_backend != "nvidia":
+        # Use DRY: reuse get_gpu_info_amd_single() for each device
+        for device_path in _find_all_amd_gpu_sysfs():
+            gpu_info = get_gpu_info_amd_single(device_path)
+            if gpu_info:
+                gpus.append(gpu_info)
 
     return gpus
 
