@@ -14,17 +14,23 @@
       "comment": "Accepts JSON: { model (required), audio_path (optional), audio (optional, base64), channel (optional), api_key (optional header) }. Set RVC_API_KEY env var to enable authentication.",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
-      "position": [250, 300]
+      "position": [
+        250,
+        300
+      ]
     },
     {
       "parameters": {
-        "jsCode": "// API Key authentication check\nconst headers = $input.first().json.headers || {};\nconst providedKey = headers['x-api-key'] || $input.first().json.api_key;\nconst expectedKey = $env.RVC_API_KEY;\n\nif (expectedKey && providedKey !== expectedKey) {\n  throw new Error('Unauthorized: invalid or missing API key');\n}\n\nconst input = $input.first().json || {};\nconst model = input.model || '';\nconst audioPath = input.audio_path || '';\nconst audio = input.audio || '';\n\n// === ENHANCED PATH TRAVERSAL PROTECTION ===\n// Blocks: ../, ..\\, %2e%2e, %252e%252e (double encoded), \\x5c, \\x2e, null bytes, absolute paths\nconst pathTraversalPattern = /(\\.\\.[/\\\\]|%2e%2e[/\\\\]|%252e%252e|\\\\x5c|\\\\x2e|%00|\\\\x00|^\\/|^[a-zA-Z]:\\\\)/i;\n\n// Decode and normalize for Unicode NFC attack detection\nconst normalizedPath = decodeURIComponent(audioPath).normalize('NFC');\n\n// === MODEL VALIDATION ===\nconst validModelPattern = /^[a-zA-Z0-9_-]+$/;\n\n// === F0_METHOD ALLOWLIST ===\nconst validF0Methods = ['harvest', 'pm', 'dio', 'rmvpe', 'crepe', 'crepe-tiny', 'mangio-crepe', 'mangio-crepe-tiny'];\nconst f0Method = (input.f0_method || 'rmvpe').toLowerCase();\n\n// === PITCH VALIDATION ===\nconst pitch = parseInt(input.pitch, 10) || 0;\nif (pitch < -12 || pitch > 12) {\n  throw new Error('Invalid pitch: must be between -12 and +12 semitones');\n}\n\n// === REQUIRED FIELD CHECKS ===\nif (!model) {\n  throw new Error('Missing required field: model');\n}\nif (!audio && !audioPath) {\n  throw new Error('Missing required field: audio or audio_path');\n}\n\n// === PATH VALIDATION ===\nif (audioPath) {\n  if (pathTraversalPattern.test(audioPath) || pathTraversalPattern.test(normalizedPath)) {\n    throw new Error('Path traversal detected: audio_path contains invalid sequences');\n  }\n}\n\n// === MODEL VALIDATION ===\nif (!validModelPattern.test(model)) {\n  throw new Error('Invalid model name: must be alphanumeric, dash, or underscore only');\n}\nif (model.length > 100) {\n  throw new Error('Model name too long: max 100 characters');\n}\n\n// === F0_METHOD VALIDATION ===\nif (!validF0Methods.includes(f0Method)) {\n  throw new Error('Invalid f0_method: must be one of ' + validF0Methods.join(', '));\n}\n\nreturn [{\n  json: {\n    model: model,\n    audio: audio,\n    audio_path: audioPath,\n    channel: input.channel || '#general',\n    pitch: pitch,\n    f0_method: f0Method\n  }\n}];"
+        "jsCode": "// API Key authentication check - timing-safe comparison\nconst headers = $input.first().json.headers || {};\n\n// Case-insensitive header lookup (defense against platform normalization changes)\nconst headerKeys = Object.keys(headers);\nconst apiKeyHeader = headerKeys.find(k => k.toLowerCase() === 'x-api-key');\nconst providedKey = (apiKeyHeader ? headers[apiKeyHeader] : null) || $input.first().json.api_key;\nconst expectedKey = $env.RVC_API_KEY;\n\n// Timing-safe comparison using constant-time string comparison\nfunction timingSafeEqual(a, b) {\n  if (a === null || b === null) return false;\n  if (a.length !== b.length) return false;\n\n  let result = 0;\n  for (let i = 0; i < a.length; i++) {\n    result |= a.charCodeAt(i) ^ b.charCodeAt(i);\n  }\n  return result === 0;\n}\n\nif (expectedKey && !timingSafeEqual(providedKey || '', expectedKey)) {\n  throw new Error('Authentication failed');\n}\n\nconst input = $input.first().json || {};\nconst model = input.model || '';\nconst audioPath = input.audio_path || '';\nconst audio = input.audio || '';\n\n// === ENHANCED PATH TRAVERSAL PROTECTION ===\n// Blocks: ../, ..\\, %2e%2e, %252e%252e (double encoded), \\x5c, \\x2e, null bytes, absolute paths\nconst pathTraversalPattern = /(\\.\\.[/\\\\]|%2e%2e[/\\\\]|%252e%252e|\\\\x5c|\\\\x2e|%00|\\\\x00|^\\/|^[a-zA-Z]:\\\\)/i;\n\n// Decode and normalize for Unicode NFC attack detection\nconst normalizedPath = decodeURIComponent(audioPath).normalize('NFC');\n\n// === MODEL VALIDATION ===\nconst validModelPattern = /^[a-zA-Z0-9_-]+$/;\n\n// === F0_METHOD ALLOWLIST ===\nconst validF0Methods = ['harvest', 'pm', 'dio', 'rmvpe', 'crepe', 'crepe-tiny', 'mangio-crepe', 'mangio-crepe-tiny'];\nconst f0Method = (input.f0_method || 'rmvpe').toLowerCase();\n\n// === PITCH VALIDATION ===\nconst pitch = parseInt(input.pitch, 10) || 0;\nif (pitch < -12 || pitch > 12) {\n  throw new Error('Invalid pitch: must be between -12 and +12 semitones');\n}\n\n// === REQUIRED FIELD CHECKS ===\nif (!model) {\n  throw new Error('Missing required field: model');\n}\nif (!audio && !audioPath) {\n  throw new Error('Missing required field: audio or audio_path');\n}\n\n// === PATH VALIDATION ===\nif (audioPath) {\n  if (pathTraversalPattern.test(audioPath) || pathTraversalPattern.test(normalizedPath)) {\n    throw new Error('Path traversal detected: audio_path contains invalid sequences');\n  }\n}\n\n// === MODEL VALIDATION ===\nif (!validModelPattern.test(model)) {\n  throw new Error('Invalid model name: must be alphanumeric, dash, or underscore only');\n}\nif (model.length > 100) {\n  throw new Error('Model name too long: max 100 characters');\n}\n\n// === F0_METHOD VALIDATION ===\nif (!validF0Methods.includes(f0Method)) {\n  throw new Error('Invalid f0_method: must be one of ' + validF0Methods.join(', '));\n}\n\nreturn [{\n  json: {\n    model: model,\n    audio: audio,\n    audio_path: audioPath,\n    channel: input.channel || '#general',\n    pitch: pitch,\n    f0_method: f0Method\n  }\n}];"
       },
       "id": "validate-input",
       "name": "Validate Input",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
-      "position": [450, 300],
+      "position": [
+        450,
+        300
+      ],
       "comment": "API key auth (if RVC_API_KEY set). Validates model name, path traversal (../, null bytes, double encoding, absolute paths, unicode), pitch (-12 to 12), f0_method (allowlist)"
     },
     {
@@ -59,7 +65,10 @@
       "comment": "Requires RVC_HOST and RVC_PORT environment variables. Configure RVC_HOST to 'rvc' for docker-compose. 100MB max response size.",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 1,
-      "position": [650, 300]
+      "position": [
+        650,
+        300
+      ]
     },
     {
       "parameters": {
@@ -87,7 +96,10 @@
       "comment": "Uses validated inputs. Re-validates upload response path against strict /tmp/<alphanumeric>.<ext> pattern. 100MB max response, 5 min timeout.",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 1,
-      "position": [850, 300]
+      "position": [
+        850,
+        300
+      ]
     },
     {
       "parameters": {
@@ -97,30 +109,39 @@
       "name": "Process Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
-      "position": [1050, 300],
+      "position": [
+        1050,
+        300
+      ],
       "comment": "Uses validated inputs. Validates download_url for traversal. Wrapped in try/catch."
     },
     {
       "parameters": {
         "channel": "={{ $json.channel || '#general' }}",
-        "text": "={{ '*RVC Voice Conversion Complete* 🎙️\\n\\n**Model:** ' + ($json.model || 'unknown') + '\\n**Pitch Shift:** ' + ($json.pitch || 0) + ' semitones\\n**F0 Method:** ' + ($json.f0_method || 'rmvpe') + '\\n\\n**Download:** ' + ($json.download_url || 'N/A') + '\\n\\n✅ Voice conversion finished!' }}"
+        "text": "={{ '*RVC Voice Conversion Complete* \ud83c\udf99\ufe0f\\n\\n**Model:** ' + ($json.model || 'unknown') + '\\n**Pitch Shift:** ' + ($json.pitch || 0) + ' semitones\\n**F0 Method:** ' + ($json.f0_method || 'rmvpe') + '\\n\\n**Download:** ' + ($json.download_url || 'N/A') + '\\n\\n\u2705 Voice conversion finished!' }}"
       },
       "id": "discord-output",
       "name": "Discord Output",
       "type": "n8n-nodes-base.discord",
       "typeVersion": 1,
-      "position": [1250, 300]
+      "position": [
+        1250,
+        300
+      ]
     },
     {
       "parameters": {
         "channel": "={{ $('Webhook Trigger').first().json.channel || '#general' }}",
-        "text": "={{ '*RVC Conversion Failed* ❌\\n\\n**Error:** ' + (($input.all()[0]?.error?.message || $input.all()[0]?.error?.description || 'Unknown error')).toString().slice(0, 997).trimEnd() + '\\n\\nPlease check:\\n- RVC service is running\\n- Model name is valid (alphanumeric, dash, underscore)\\n- Audio file is provided\\n- Pitch is between -12 and 12\\n- f0_method is valid (harvest, pm, dio, rmvpe, crepe, etc.)\\n- GPU has sufficient VRAM' }}"
+        "text": "={{ '*RVC Conversion Failed* \u274c\\n\\n**Error:** ' + (($input.all()[0]?.error?.message || $input.all()[0]?.error?.description || 'Unknown error')).toString().slice(0, 997).trimEnd() + '\\n\\nPlease check:\\n- RVC service is running\\n- Model name is valid (alphanumeric, dash, underscore)\\n- Audio file is provided\\n- Pitch is between -12 and 12\\n- f0_method is valid (harvest, pm, dio, rmvpe, crepe, etc.)\\n- GPU has sufficient VRAM' }}"
       },
       "id": "discord-error",
       "name": "Discord Error",
       "type": "n8n-nodes-base.discord",
       "typeVersion": 1,
-      "position": [650, 500],
+      "position": [
+        650,
+        500
+      ],
       "comment": "Catches errors from all nodes. Uses Webhook Trigger for channel access."
     }
   ],
