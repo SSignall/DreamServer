@@ -36,6 +36,49 @@
     },
     {
       "parameters": {
+        "conditions": [
+          {
+            "id": "cond1",
+            "leftValue": "={{ $json.valid }}",
+            "operator": {
+              "operation": "equals",
+              "type": "boolean"
+            },
+            "rightValue": true
+          }
+        ],
+        "combineOperation": "all"
+      },
+      "id": "check-valid",
+      "name": "Check Valid",
+      "comment": "Branches based on validation result. True branch continues to Langflow API Call, false branch goes to Error Response.",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        600,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "statusCode": 400,
+        "body": "={{ JSON.stringify({ error: $json.error || 'Validation failed' }) }}",
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      },
+      "id": "error-response",
+      "name": "Error Response",
+      "comment": "Returns HTTP 400 for validation/auth failures.",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        600,
+        500
+      ]
+    },
+    {
+      "parameters": {
         "url": "={{ 'http://' + ($env.LANGFLOW_HOST || 'localhost') + ':' + ($env.LANGFLOW_PORT || '7860') + '/api/v1/run/' + $('Validate Input').first().json.flowId }}",
         "method": "POST",
         "headers": {
@@ -125,16 +168,25 @@
       "main": [
         [
           {
-            "node": "Langflow API Call",
+            "node": "Check Valid",
             "type": "main",
             "index": 0
           }
         ]
-      ],
-      "error": [
+      ]
+    },
+    "Check Valid": {
+      "main": [
         [
           {
-            "node": "Discord Error",
+            "node": "Langflow API Call",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error Response",
             "type": "main",
             "index": 0
           }
