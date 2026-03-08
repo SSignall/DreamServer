@@ -1,6 +1,6 @@
 services:
   dify:
-    image: difyai/dify:latest
+    image: difyai/dify:0.6.16
     container_name: dream-dify
     restart: unless-stopped
     security_opt:
@@ -26,7 +26,7 @@ services:
       - DEBUG=false
       - FLASK_DEBUG=false
       - ENABLE_REQUEST_LOGGING=False
-      - SECRET_KEY=dify-secure-key-${RANDOM:-123456}
+      - SECRET_KEY=${DIFY_SECRET_KEY:-dify-secure-key-change-me}
       - INIT_PASSWORD=
       - DEPLOY_ENV=PRODUCTION
       - CHECK_UPDATE_URL=https://updates.dify.ai
@@ -34,7 +34,6 @@ services:
       - OPENAI_API_KEY=dummy-key
       - EMBEDDING_PROVIDER=local
       - VECTOR_STORE=local
-      - LOG_FILE_MAX_SIZE=20
       - DB_TYPE=sqlite
       - WORKER_TYPE=gevent
     volumes:
