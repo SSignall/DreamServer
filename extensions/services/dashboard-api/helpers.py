@@ -138,24 +138,44 @@ async def check_service_health(service_id: str, config: dict) -> ServiceStatus:
         return await _check_host_service_health(service_id, config)
 
     host = config.get('host', 'localhost')
-    url = f"http://{host}:{config['port']}{config['health']}"
+    health_path = config.get('health', '/health')
+    
+    # Try multiple common health endpoints as fallback
+    endpoints = [health_path, '/health', '/api/health', '/status', '/']
+    
     status = "unknown"
     response_time = None
+    last_error = None
 
-    try:
-        start = asyncio.get_event_loop().time()
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=3)) as session:
-            async with session.get(url) as resp:
-                response_time = (asyncio.get_event_loop().time() - start) * 1000
-                status = "healthy" if resp.status < 500 else "unhealthy"
-    except aiohttp.ClientConnectorError as e:
-        if "Name or service not known" in str(e) or "nodename nor servname" in str(e):
-            status = "not_deployed"
-        else:
-            status = "down"
-    except Exception as e:
-        logger.debug(f"Health check failed for {service_id} at {url}: {e}")
-        status = "down"
+    for endpoint in endpoints:
+        url = f"http://{host}:{config['port']}{endpoint}"
+        try:
+            start = asyncio.get_event_loop().time()
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=3)) as session:
+                async with session.get(url) as resp:
+                    response_time = (asyncio.get_event_loop().time() - start) * 1000
+                    if resp.status < 500:
+                        # Use this endpoint for future checks
+                        if endpoint != health_path:
+                            logger.debug(f"Service {service_id} health check succeeded at {endpoint} (expected {health_path})")
+                        status = "healthy"
+                        break
+                    else:
+                        status = "unhealthy"
+        except aiohttp.ClientConnectorError as e:
+            if "Name or service not known" in str(e) or "nodename nor servname" in str(e):
+                status = "not_deployed"
+                break
+            else:
+                last_error = str(e)
+                continue
+        except Exception as e:
+            last_error = str(e)
+            logger.debug(f"Health check failed for {service_id} at {url}: {e}")
+            continue
+
+    if status == "unknown" and last_error:
+        logger.debug(f"Health check failed for {service_id} (tried {endpoints}): {last_error}")
 
     return ServiceStatus(
         id=service_id, name=config["name"], port=config["port"],
