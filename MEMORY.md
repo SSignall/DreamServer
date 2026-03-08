@@ -1069,7 +1069,26 @@ if (a.length !== b.length) return false;
 
 **Action:** No changes needed — all deployed extensions synced with latest commits
 
-**Next Session Priority:** Hardening wave (security fixes, pinned versions)
+---
+
+### 2026-03-08 — Dual GPU Detection Fix (Issue #55)
+
+**Issue:** User with RTX 3090 + 4090 reported installer only detecting one GPU despite `nvidia-smi` showing both.
+
+**Root Cause:** Two bugs in `dream-server/scripts/detect-hardware.sh`:
+
+1. **VRAM summing bug (comment only, code was correct)** — The comment incorrectly said "field 4" but the code used field 2, which is correct for `name,memory.total` format.
+
+2. **GPU name aggregation bug** — The loop only added names to `name_parts` array for `count > 1`, but for unique GPUs (`count=1`), it output to stdout directly. This meant the array was empty and `printf` produced an empty string.
+
+**Fix Applied:**
+- Always add GPU names to `name_parts` array (both `count=1` and `count>1`)
+- Added empty array check before `printf` to avoid empty names
+- Now joins unique models with " + " (e.g., "RTX 3090 + RTX 4090")
+
+**Git Activity:**
+- Commit: `f1e10480`
+- Status: All fixes committed and pushed to dev/main
 
 **Next Session Priorities** (per workstream order):
 1. GitHub issues — #55 (dual GPU), #32 (Windows), #33 (deployment verify)
@@ -1077,4 +1096,8 @@ if (a.length !== b.length) return false;
 3. Extensions — Wave 5 complete (Flowise/Langflow committed)
 4. Installer testing — coordinate with Bilal
 5. Upstream monitoring — verify no rot in deployed extensions (✅ completed)
+
+---
+
+### 2026-03-08 — Upstream Monitoring (Android-17 Handoff)
 
