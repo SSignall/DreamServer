@@ -188,9 +188,9 @@ generate_openclaw_config() {
     local sess_dir="${home_dir}/agents/main/sessions"
     mkdir -p "$agent_dir" "$sess_dir"
 
-    # Escape token for JSON insertion (handle quotes, backslashes, control chars)
+    # Escape token for JSON insertion (handle quotes, backslashes, JSON control chars per RFC 8259)
     local token_json
-    token_json=$(printf '%s' "$token" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g; s/\n/\\n/g; s/\r/\\r/g')
+    token_json=$(printf '%s' "$token" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g; s/\n/\\n/g; s/\r/\\r/g; s/\f/\\f/g; s/\b/\\b/g')
 
     # Home config
     cat > "${home_dir}/openclaw.json" << OCEOF
