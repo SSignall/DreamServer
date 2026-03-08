@@ -11,3 +11,9 @@ services:
         limits:
           cpus: '4.0'
           memory: 8G
+    networks:
+      - dream-network
+
+networks:
+  dream-network:
+    external: true
