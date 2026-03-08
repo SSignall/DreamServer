@@ -790,6 +790,31 @@ if (a.length !== b.length) return false;
 
 ---
 
+### 2026-03-08 — Security Fixes Pushed to dev/main (11:41 EDT)
+
+**Commits Pushed (all security fixes):**
+| Commit | Message | Issue Fixed |
+|--------|---------|-------------|
+| `cbd3d0e8` | fix(whisper): remove variable expansion in docker-entrypoint.sh | Shell expansion in perl/sed commands |
+| `0c06366b` | fix(whisper): hardcode DREAM_PATCHED marker | Variable expansion vulnerability |
+| `159dfdf1` | fix(whisper): hardcode DREAM_PATCHED marker | Duplicate fix (revert of 0c06366b) |
+| `da5c22cd` | fix(langflow): eliminate timing side-channel in safeCompare | Timing oracle vulnerability |
+
+**Security Fixes Verified:**
+- ✅ Whisper entrypoint — Uses hardcoded perl/sed patterns, no user input in commands
+- ✅ Langflow `safeCompare` — Removed `Math.max(a.length, b.length)` which allowed length oracle attack
+
+**Review Queue Status:** ✅ CLEAR
+
+**CI Status:** Awaiting push verification (pre-push hook confirmed up-to-date)
+
+**Next Session Priorities** (per workstream order):
+1. GitHub issues — #55 (dual GPU) is only open issue
+2. Hardening wave — Complete (all checklist items addressed or acceptable risk)
+3. Extensions — Wave 5 complete (Flowise/Langflow committed)
+4. Installer testing — Coordinate with Bilal
+5. Upstream monitoring — Verify no rot in deployed extensions
+
 ### 2026-03-08 — Android-18 Review Follow-up (n8n-rvc)
 
 **Commits:** `b749ae09`, `9f74223d`
