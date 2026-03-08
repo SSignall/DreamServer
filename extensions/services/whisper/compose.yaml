@@ -11,7 +11,10 @@ services:
       - /bin/sh
       - -c
       - |
-        sed -i 's/vad_filter=effective_vad_filter,/vad_filter=effective_vad_filter, vad_parameters={"threshold": 0.3, "min_silence_duration_ms": 400, "min_speech_duration_ms": 50, "speech_pad_ms": 200},/' /home/ubuntu/speaches/src/speaches/routers/stt.py
+        # Only patch if not already patched (avoid duplicate vad_parameters on restart)
+        if ! grep -q 'vad_parameters=' /home/ubuntu/speaches/src/speaches/routers/stt.py; then
+          sed -i 's/vad_filter=effective_vad_filter,/vad_filter=effective_vad_filter, vad_parameters={"threshold": 0.3, "min_silence_duration_ms": 400, "min_speech_duration_ms": 50, "speech_pad_ms": 200},/' /home/ubuntu/speaches/src/speaches/routers/stt.py
+        fi
         exec uvicorn --factory speaches.main:create_app
     volumes:
       - ./data/whisper:/home/ubuntu/.cache/huggingface/hub
