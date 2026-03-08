@@ -85,11 +85,11 @@ gpu_type = (gpu.get("type") or "none").lower()
 gpu_name = gpu.get("name") or "None"
 memory_type = (gpu.get("memory_type") or "none").lower()
 vram_mb = int(gpu.get("vram_mb") or 0)
-# Safe fallback for gpu.count: reject negative values and non-numeric strings
+# Safe fallback for gpu.count: handle booleans, floats, strings, and None robustly
 gpu_count_val = gpu.get("count")
 try:
     gpu_count = int(gpu_count_val) if gpu_count_val is not None else None
-    if gpu_count < 0:
+    if gpu_count is not None and gpu_count < 0:
         gpu_count = None
 except (ValueError, TypeError):
     gpu_count = None
