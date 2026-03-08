@@ -1,9 +1,9 @@
 {
-  "name": "Bark TTS Generation",
+  "name": "Bark TTS",
   "meta": {
-    "title": "Bark TTS Generation",
-    "description": "Generate expressive text-to-speech audio using Suno Bark",
-    "version": "1.0.0",
+    "title": "Bark TTS",
+    "description": "Generate speech using Bark TTS",
+    "version": "1.0.3",
     "type": "workflow"
   },
   "nodes": [
@@ -18,7 +18,7 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "bark-tts",
-        "responseMode": "responseNode",
+        "responseMode": "lastNode",
         "options": {}
       },
       "outputNodes": [],
@@ -51,13 +51,11 @@
       "parameters": {
         "conditions": {
           "options": {
-            "caseSensitive": true,
             "type": "boolean"
           },
           "conditions": [
             {
               "id": "cond1",
-              "leftValue": "={{ $json.valid }}",
               "operator": {
                 "name": "equal",
                 "type": "boolean"
@@ -113,7 +111,7 @@
       },
       "outputNodes": [],
       "notesInFlow": false,
-      "notes": "Call Bark TTS API to generate speech"
+      "notes": "Forward validated inputs to Bark TTS service"
     },
     {
       "id": "success_response",
@@ -132,7 +130,7 @@
       },
       "outputNodes": [],
       "notesInFlow": false,
-      "notes": "Return HTTP 200 with audio metadata"
+      "notes": "Return successful response with audio details"
     },
     {
       "id": "save_audio",
@@ -147,7 +145,7 @@
       },
       "outputNodes": [],
       "notesInFlow": false,
-      "notes": "Decode base64 and save audio file to disk"
+      "notes": "Save audio file to disk with path traversal protection"
     },
     {
       "id": 3,
@@ -159,83 +157,87 @@
       ],
       "parameters": {
         "webhookUrl": "={{ $env.DISCORD_WEBHOOK_URL || '' }}",
-        "text": "={{ 'Bark TTS complete! File: ' + $('Save Audio').item.json.filename + ' Size: ' + Math.round($('Save Audio').item.json.size_bytes / 1024) + 'KB' }}",
-        "username": "Bark TTS Bot"
+        "text": "={{ 'Bark TTS complete! File: ' + $('Save Audio').item.json.filename + ' Size: ' + Math.round($('Save Audio').item.json.size_bytes / 1024) + 'KB' }}"
       },
       "outputNodes": [],
       "notesInFlow": false,
-      "notes": "Send Discord notification with file info"
+      "notes": "Send Discord notification with audio file details"
     }
   ],
   "connections": {
-    "1": {
+    "Webhook": {
       "main": [
         [
           {
-            "node": "validate_input",
+            "node": "Validate Input",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "validate_input": {
+    "Validate Input": {
       "main": [
         [
           {
-            "node": "check_valid",
+            "node": "Check Valid",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "check_valid": {
+    "Check Valid": {
       "main": [
         [
           {
-            "node": 2,
+            "node": "Bark TTS Request",
             "type": "main",
             "index": 0
           }
-        ]
-      ],
-      "false": [
+        ],
         [
           {
-            "node": "error_response",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "2": {
-      "main": [
-        [
-          {
-            "node": "success_response",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "save_audio",
+            "node": "Error Response",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "save_audio": {
+    "Bark TTS Request": {
       "main": [
         [
           {
-            "node": 3,
+            "node": "Save Audio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Audio": {
+      "main": [
+        [
+          {
+            "node": "Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Success Response": {
+      "main": [
+        [
+          {
+            "node": "Discord Notification",
             "type": "main",
             "index": 0
           }
         ]
       ]
     }
-  }
+  },
+  "settings": {}
 }
