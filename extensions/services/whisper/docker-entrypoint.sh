@@ -41,7 +41,8 @@ apply_patch() {
         perl -i -pe "s/(vad_filter\s*=\s*effective_vad_filter)/\1,\n            vad_parameters={\"threshold\": 0.3, \"min_silence_duration_ms\": 400, \"min_speech_duration_ms\": 50, \"speech_pad_ms\": 200},  # $PATCH_MARKER/" "$STT_FILE"
     else
         # Fallback to sed with more flexible pattern
-        sed -i -E "s/vad_filter[[:space:]]*=[[:space:]]*effective_vad_filter[[:space:]]*,?[[:space:]]*/vad_filter = effective_vad_filter,\n            vad_parameters={\"threshold\": 0.3, \"min_silence_duration_ms\": 400, \"min_speech_duration_ms\": 50, \"speech_pad_ms\": 200},  # $PATCH_MARKER/" "$STT_FILE"
+        # Quote variables to prevent word splitting/path traversal
+        sed -i -E "s/vad_filter[[:space:]]*=[[:space:]]*effective_vad_filter[[:space:]]*,?[[:space:]]*/vad_filter = effective_vad_filter,\n            vad_parameters={\"threshold\": 0.3, \"min_silence_duration_ms\": 400, \"min_speech_duration_ms\": 50, \"speech_pad_ms\": 200},  # ${PATCH_MARKER}/" "$STT_FILE"
     fi
 
     # Verify patch applied
