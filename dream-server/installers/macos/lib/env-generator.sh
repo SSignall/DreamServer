@@ -196,14 +196,16 @@ generate_openclaw_config() {
 
     # Escape token for JSON insertion (handle quotes, backslashes, newlines)
     # Primary: Python's json.dumps() for proper escaping (via env to avoid exposing in ps)
-    # Fallback: sed for basic escapes (hex tokens only contain 0-9,a-f so control chars aren't possible)
+    # Fallback: sed for basic escapes (hex tokens contain 0-9,a-f,A-F; defense in depth: escape all control chars)
     local token_json
     if command -v python3 &>/dev/null; then
         token_json=$(OPENCLAW_TOKEN="$token" python3 -c "import json,sys,os; sys.stdout.write(json.dumps(os.environ['OPENCLAW_TOKEN'])[1:-1])" 2>/dev/null)
     fi
     # Fallback to sed if python3 failed or is not available
     if [ -z "$token_json" ]; then
-        token_json=$(printf '%s' "$token" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g; s/\n/\\n/g; s/\r/\\r/g')
+        # JSON mandatory escapes: \b \f \n \r \t plus backslash and quote
+        # Note: \b and \f use literal control chars in BSD sed (hex escape via $'...')
+        token_json=$(printf '%s' "$token" | sed 's/\\/\\\\/g; s/"/\\"/g; s/'$'\b''/\\b/g; s/'$'\f''/\\f/g; s/\t/\\t/g; s/\n/\\n/g; s/\r/\\r/g')
     fi
 
     # Home config

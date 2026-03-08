@@ -114,7 +114,8 @@ else
         # Fallback to sed if python3 failed or is not available
         if [ -z "$OPENCLAW_TOKEN_JSON" ]; then
             # JSON mandatory escapes: \b \f \n \r \t plus backslash and quote
-            OPENCLAW_TOKEN_JSON=$(printf '%s' "$OPENCLAW_TOKEN" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\b/\\b/g; s/\f/\\f/g; s/\t/\\t/g; s/\n/\\n/g; s/\r/\\r/g')
+            # Note: \b and \f use literal control chars in BSD sed (hex escape via $'...')
+            OPENCLAW_TOKEN_JSON=$(printf '%s' "$OPENCLAW_TOKEN" | sed 's/\\/\\\\/g; s/"/\\"/g; s/'$'\b''/\\b/g; s/'$'\f''/\\f/g; s/\t/\\t/g; s/\n/\\n/g; s/\r/\\r/g')
         fi
 
         cat > "$INSTALL_DIR/data/openclaw/home/openclaw.json" << OCLAW_EOF
