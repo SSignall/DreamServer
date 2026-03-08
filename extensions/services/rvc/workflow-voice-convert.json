@@ -38,7 +38,7 @@
       },
       "outputNodes": [],
       "notesInFlow": false,
-      "notes": "Validate inputs with enhanced path traversal protection, timing-safe API key auth (header only, no body fallback), f0_method allowlist, and pitch range validation"
+      "notes": "Validate inputs with enhanced path traversal protection, timing-safe API key auth (header only, no body fallback), f0_method allowlist, and pitch range validation. SECURITY: All validations fail hard - no fallback to user input."
     },
     {
       "id": "check_valid",
