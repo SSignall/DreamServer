@@ -92,11 +92,32 @@ detect_gpu() {
         local raw
         if raw=$(nvidia-smi --query-gpu=name,memory.total --format=csv,noheader 2>/dev/null) && [[ -n "$raw" ]]; then
             GPU_INFO="$raw"
-            GPU_NAME=$(echo "$GPU_INFO" | head -1 | cut -d',' -f1 | xargs)
-            # Sum VRAM for multi-GPU
-            GPU_VRAM=$(echo "$GPU_INFO" | awk -F',' '{gsub(/^ +| +$/,"",$2); sum+=$2} END {print sum}' | grep -oP '\d+')
-            # Count GPUs (assigned once here)
+            # Count GPUs and sum VRAM
             GPU_COUNT=$(echo "$GPU_INFO" | wc -l)
+            GPU_VRAM=$(echo "$GPU_INFO" | awk -F',' '{gsub(/^ +| +$/,"",$2); sum+=$2} END {print sum}' | grep -oP '\d+')
+
+            # Build GPU name: show model(s) with count and total VRAM
+            if [[ "$GPU_COUNT" -eq 1 ]]; then
+                GPU_NAME=$(echo "$GPU_INFO" | head -1 | cut -d',' -f1 | xargs)
+            else
+                # Multiple GPUs: extract unique models and count occurrences
+                local models
+                models=$(echo "$GPU_INFO" | cut -d',' -f1 | xargs -I{} basename "{}" 2>/dev/null | sort | uniq -c | sort -rn)
+                # Build compact representation: "RTX 3090 x2 (48GB)" or "RTX 3090 + RTX 4090 (48GB)"
+                local name_parts=()
+                while read -r count model; do
+                    if [[ "$count" -eq 1 ]]; then
+                        name_parts+=("$model")
+                    else
+                        name_parts+=("${model} x${count}")
+                    fi
+                done <<< "$models"
+                # Join with " + "
+                GPU_NAME=$(IFS=' + '; echo "${name_parts[*]}")
+                # Add vendor prefix if not present
+                [[ "$GPU_NAME" != NVIDIA* ]] && GPU_NAME="NVIDIA ${GPU_NAME}"
+            fi
+
             # Extract first PCI device ID (safest for compatibility)
             local pci_id
             pci_id=$(nvidia-smi --query-gpu=pci.device_id --format=csv,noheader 2>/dev/null | head -1 | xargs)
