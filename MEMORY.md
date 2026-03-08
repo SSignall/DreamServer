@@ -423,3 +423,26 @@ Pinned all services with floating tags to stable versions:
 **Push Status:** Committed and pushed to dev repo (`SSignall/Lighthouse-AI-Dev`)
 
 **Note:** The `session-manager.sh` has a bash -n limitation (heredoc in command substitution) — script runs fine despite warning. This is a known static analysis issue.
+
+**2026-03-08 20:00 EST - WAVE 2 IN PROGRESS**
+
+**Current Split:**
+- **Android-16 (me):** Extensions (#14-20 Wave 2), upstream monitoring, hardening (remaining items)
+- **Todd:** Extensions (#14-20 Wave 2), hardening items
+
+**Wave 2 Progress:**
+- #11 LibreChat ✅ (Todd)
+- #12 AnythingLLM ✅ (Todd)
+- #13 Flowise ✅ (Todd)
+- #14 Langflow ⏳ (Todd building)
+- #15 Open Interpreter — next up
+
+**Hardening Progress (6/6 done):**
+- ✅ Pin container image tags to stable versions (just completed)
+
+**Remaining Hardening Items:**
+- Generate SearXNG secret key at install time
+- Tighten OpenClaw auth defaults
+- Remove API key embedding from token-spy
+- Pin ComfyUI git clone to specific commit/tag
+- Remove `seccomp:unconfined` and `SYS_PTRACE` from ComfyUI AMD compose
