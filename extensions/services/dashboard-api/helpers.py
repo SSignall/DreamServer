@@ -1,0 +1,352 @@
+"""Shared helper functions for service health checking, metrics, and system info."""
+
+import asyncio
+import json
+import logging
+import os
+import shutil
+import time
+from pathlib import Path
+from typing import Optional
+
+import aiohttp
+import httpx
+
+from config import SERVICES, INSTALL_DIR, DATA_DIR
+from models import ServiceStatus, DiskUsage, ModelInfo, BootstrapStatus
+
+logger = logging.getLogger(__name__)
+
+
+# --- Token Tracking ---
+
+_TOKEN_FILE = Path(DATA_DIR) / "token_counter.json"
+_prev_tokens = {"count": 0, "time": 0.0, "tps": 0.0}
+
+
+def _update_lifetime_tokens(server_counter: float) -> int:
+    """Accumulate tokens across server restarts using a persistent file."""
+    data = {"lifetime": 0, "last_server_counter": 0}
+    try:
+        if _TOKEN_FILE.exists():
+            data = json.loads(_TOKEN_FILE.read_text())
+    except Exception:
+        pass
+
+    prev = data.get("last_server_counter", 0)
+    delta = server_counter if server_counter < prev else server_counter - prev
+
+    data["lifetime"] = int(data.get("lifetime", 0) + delta)
+    data["last_server_counter"] = server_counter
+
+    try:
+        _TOKEN_FILE.write_text(json.dumps(data))
+    except Exception:
+        pass
+
+    return data["lifetime"]
+
+
+def _get_lifetime_tokens() -> int:
+    try:
+        return json.loads(_TOKEN_FILE.read_text()).get("lifetime", 0)
+    except Exception:
+        return 0
+
+
+# --- LLM Metrics ---
+
+async def get_llama_metrics() -> dict:
+    """Get inference metrics from llama-server Prometheus /metrics endpoint."""
+    try:
+        host = SERVICES["llama-server"]["host"]
+        port = SERVICES["llama-server"]["port"]
+        model_name = await get_loaded_model() or ""
+        url = f"http://{host}:{port}/metrics"
+        params = {"model": model_name} if model_name else {}
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            resp = await client.get(url, params=params)
+
+        metrics = {}
+        for line in resp.text.split("\n"):
+            if line.startswith("#"):
+                continue
+            if "tokens_predicted_total" in line:
+                metrics["tokens_predicted_total"] = float(line.split()[-1])
+            if "tokens_predicted_seconds_total" in line:
+                metrics["tokens_predicted_seconds_total"] = float(line.split()[-1])
+
+        now = time.time()
+        curr = metrics.get("tokens_predicted_total", 0)
+        gen_secs = metrics.get("tokens_predicted_seconds_total", 0)
+        if _prev_tokens["time"] > 0 and curr > _prev_tokens["count"]:
+            delta_secs = gen_secs - _prev_tokens.get("gen_secs", 0)
+            if delta_secs > 0:
+                _prev_tokens["tps"] = round((curr - _prev_tokens["count"]) / delta_secs, 1)
+        _prev_tokens["count"] = curr
+        _prev_tokens["time"] = now
+        _prev_tokens["gen_secs"] = gen_secs
+
+        lifetime = _update_lifetime_tokens(curr)
+        return {"tokens_per_second": _prev_tokens["tps"], "lifetime_tokens": lifetime}
+    except Exception as e:
+        logger.warning(f"get_llama_metrics failed: {e}")
+        return {"tokens_per_second": 0, "lifetime_tokens": _get_lifetime_tokens()}
+
+
+async def get_loaded_model() -> Optional[str]:
+    """Query llama-server /v1/models for actually loaded model name."""
+    try:
+        host = SERVICES["llama-server"]["host"]
+        port = SERVICES["llama-server"]["port"]
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            resp = await client.get(f"http://{host}:{port}/v1/models")
+        models = resp.json().get("data", [])
+        for m in models:
+            status = m.get("status", {})
+            if isinstance(status, dict) and status.get("value") == "loaded":
+                return m.get("id")
+        if models:
+            return models[0].get("id")
+    except Exception:
+        pass
+    return None
+
+
+async def get_llama_context_size() -> Optional[int]:
+    """Query llama-server /props for the actual n_ctx."""
+    try:
+        host = SERVICES["llama-server"]["host"]
+        port = SERVICES["llama-server"]["port"]
+        loaded = await get_loaded_model()
+        url = f"http://{host}:{port}/props"
+        if loaded:
+            url += f"?model={loaded}"
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            resp = await client.get(url)
+        n_ctx = resp.json().get("default_generation_settings", {}).get("n_ctx")
+        return int(n_ctx) if n_ctx else None
+    except Exception:
+        return None
+
+
+# --- Service Health ---
+
+async def check_service_health(service_id: str, config: dict) -> ServiceStatus:
+    """Check if a service is healthy by hitting its health endpoint."""
+    if config.get("type") == "host-systemd":
+        return await _check_host_service_health(service_id, config)
+
+    host = config.get('host', 'localhost')
+    url = f"http://{host}:{config['port']}{config['health']}"
+    status = "unknown"
+    response_time = None
+
+    try:
+        start = asyncio.get_event_loop().time()
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=3)) as session:
+            async with session.get(url) as resp:
+                response_time = (asyncio.get_event_loop().time() - start) * 1000
+                status = "healthy" if resp.status < 500 else "unhealthy"
+    except aiohttp.ClientConnectorError as e:
+        if "Name or service not known" in str(e) or "nodename nor servname" in str(e):
+            status = "not_deployed"
+        else:
+            status = "down"
+    except Exception as e:
+        logger.debug(f"Health check failed for {service_id} at {url}: {e}")
+        status = "down"
+
+    return ServiceStatus(
+        id=service_id, name=config["name"], port=config["port"],
+        external_port=config.get("external_port", config["port"]),
+        status=status, response_time_ms=round(response_time, 1) if response_time else None
+    )
+
+
+async def _check_host_service_health(service_id: str, config: dict) -> ServiceStatus:
+    """Check health of a host-level service via HTTP."""
+    port = config.get("external_port", config["port"])
+    host = os.environ.get("HOST_GATEWAY", "host.docker.internal")
+    url = f"http://{host}:{port}{config['health']}"
+    status = "down"
+    response_time = None
+    try:
+        start = asyncio.get_event_loop().time()
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=3)) as session:
+            async with session.get(url) as resp:
+                response_time = (asyncio.get_event_loop().time() - start) * 1000
+                status = "healthy" if resp.status < 500 else "unhealthy"
+    except aiohttp.ClientConnectorError:
+        status = "down"
+    except Exception as e:
+        logger.debug(f"Host health check failed for {service_id} at {url}: {e}")
+        status = "down"
+    return ServiceStatus(
+        id=service_id, name=config["name"], port=config["port"],
+        external_port=config.get("external_port", config["port"]),
+        status=status, response_time_ms=round(response_time, 1) if response_time else None,
+    )
+
+
+async def get_all_services() -> list[ServiceStatus]:
+    """Get all service health statuses."""
+    tasks = [check_service_health(sid, cfg) for sid, cfg in SERVICES.items()]
+    return await asyncio.gather(*tasks)
+
+
+# --- System Metrics ---
+
+def get_disk_usage() -> DiskUsage:
+    """Get disk usage for the Dream Server install directory."""
+    path = INSTALL_DIR if os.path.exists(INSTALL_DIR) else os.path.expanduser("~")
+    total, used, free = shutil.disk_usage(path)
+    return DiskUsage(path=path, used_gb=round(used / (1024**3), 2), total_gb=round(total / (1024**3), 2), percent=round(used / total * 100, 1))
+
+
+def get_model_info() -> Optional[ModelInfo]:
+    """Get current model info from .env config."""
+    env_path = Path(INSTALL_DIR) / ".env"
+    if env_path.exists():
+        try:
+            with open(env_path) as f:
+                for line in f:
+                    if line.startswith("LLM_MODEL="):
+                        model_name = line.split("=", 1)[1].strip().strip('"\'')
+                        size_gb, context, quant = 15.0, 32768, None
+                        name_lower = model_name.lower()
+                        if "7b" in name_lower: size_gb = 4.0
+                        elif "14b" in name_lower: size_gb = 8.0
+                        elif "32b" in name_lower: size_gb = 16.0
+                        elif "70b" in name_lower: size_gb = 35.0
+                        if "awq" in name_lower: quant = "AWQ"
+                        elif "gptq" in name_lower: quant = "GPTQ"
+                        elif "gguf" in name_lower: quant = "GGUF"
+                        return ModelInfo(name=model_name, size_gb=size_gb, context_length=context, quantization=quant)
+        except Exception:
+            pass
+    return None
+
+
+def get_bootstrap_status() -> BootstrapStatus:
+    """Get bootstrap download progress if active."""
+    status_file = Path(DATA_DIR) / "bootstrap-status.json"
+    if not status_file.exists():
+        return BootstrapStatus(active=False)
+
+    try:
+        with open(status_file) as f:
+            data = json.load(f)
+
+        status = data.get("status", "")
+        if status == "complete":
+            return BootstrapStatus(active=False)
+        if status == "" and not data.get("bytesDownloaded") and not data.get("percent"):
+            return BootstrapStatus(active=False)
+
+        eta_str = data.get("eta", "")
+        eta_seconds = None
+        if eta_str and eta_str.strip() and eta_str.strip() != "calculating...":
+            try:
+                parts = [p.strip() for p in eta_str.replace("m", "").replace("s", "").split() if p.strip()]
+                if len(parts) == 2:
+                    eta_seconds = int(parts[0]) * 60 + int(parts[1])
+                elif len(parts) == 1:
+                    eta_seconds = int(parts[0])
+            except (ValueError, IndexError):
+                pass
+
+        bytes_downloaded = data.get("bytesDownloaded", 0)
+        bytes_total = data.get("bytesTotal", 0)
+        speed_bps = data.get("speedBytesPerSec", 0)
+
+        percent_raw = data.get("percent")
+        percent = None
+        if percent_raw is not None:
+            try:
+                percent = float(percent_raw)
+            except (ValueError, TypeError):
+                pass
+
+        return BootstrapStatus(
+            active=True, model_name=data.get("model"), percent=percent,
+            downloaded_gb=bytes_downloaded / (1024**3) if bytes_downloaded else None,
+            total_gb=bytes_total / (1024**3) if bytes_total else None,
+            speed_mbps=speed_bps / (1024**2) if speed_bps else None,
+            eta_seconds=eta_seconds
+        )
+    except Exception:
+        return BootstrapStatus(active=False)
+
+
+def get_uptime() -> int:
+    """Get system uptime in seconds."""
+    try:
+        with open("/proc/uptime") as f:
+            return int(float(f.read().split()[0]))
+    except Exception:
+        return 0
+
+
+def get_cpu_metrics() -> dict:
+    """Get CPU usage percentage and temperature."""
+    result = {"percent": 0, "temp_c": None}
+    try:
+        with open("/proc/stat") as f:
+            line = f.readline()
+        parts = line.split()
+        if len(parts) >= 8:
+            idle = int(parts[4]) + int(parts[5])
+            total = sum(int(p) for p in parts[1:8])
+            if not hasattr(get_cpu_metrics, "_prev"):
+                get_cpu_metrics._prev = (idle, total)
+            prev_idle, prev_total = get_cpu_metrics._prev
+            d_idle, d_total = idle - prev_idle, total - prev_total
+            get_cpu_metrics._prev = (idle, total)
+            if d_total > 0:
+                result["percent"] = round((1 - d_idle / d_total) * 100, 1)
+    except Exception:
+        pass
+
+    try:
+        import glob
+        for tz in sorted(glob.glob("/sys/class/thermal/thermal_zone*/type")):
+            with open(tz) as f:
+                zone_type = f.read().strip()
+            if any(k in zone_type.lower() for k in ("k10temp", "coretemp", "cpu", "soc", "tctl")):
+                with open(tz.replace("/type", "/temp")) as f:
+                    result["temp_c"] = int(f.read().strip()) // 1000
+                break
+        if result["temp_c"] is None:
+            for hwmon in sorted(glob.glob("/sys/class/hwmon/hwmon*/name")):
+                with open(hwmon) as f:
+                    name = f.read().strip()
+                if name in ("k10temp", "coretemp", "zenpower"):
+                    with open(hwmon.replace("/name", "/temp1_input")) as f:
+                        result["temp_c"] = int(f.read().strip()) // 1000
+                    break
+    except Exception:
+        pass
+    return result
+
+
+def get_ram_metrics() -> dict:
+    """Get RAM usage from /proc/meminfo."""
+    result = {"used_gb": 0, "total_gb": 0, "percent": 0}
+    try:
+        meminfo = {}
+        with open("/proc/meminfo") as f:
+            for line in f:
+                parts = line.split()
+                if len(parts) >= 2:
+                    meminfo[parts[0].rstrip(":")] = int(parts[1])
+        total = meminfo.get("MemTotal", 0)
+        available = meminfo.get("MemAvailable", 0)
+        used = total - available
+        result["total_gb"] = round(total / (1024 * 1024), 1)
+        result["used_gb"] = round(used / (1024 * 1024), 1)
+        if total > 0:
+            result["percent"] = round(used / total * 100, 1)
+    except Exception:
+        pass
+    return result
