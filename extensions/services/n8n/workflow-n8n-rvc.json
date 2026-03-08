@@ -97,7 +97,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Validate upload response path\nconst uploadResponse = $input.first().json || {};\nconst path = uploadResponse.path || '';\n\n// Must have a path from upload - no fallback to user input\nif (!path) {\n  return [{ json: { valid: false, error: 'No audio path returned from upload service' } }];\n}\n\n// Decode and validate the path\nlet decodedPath;\ntry {\n  decodedPath = decodeURIComponent(path).normalize('NFC');\n} catch (e) {\n  return [{ json: { valid: false, error: 'Invalid upload path: malformed URL encoding' } }];\n}\n\n// Strict validation: must be /tmp/<alphanumeric>.<audio_ext>\nconst validPathPattern = /^\\/tmp\\/[a-zA-Z0-9_-]+\\.(wav|mp3|ogg|flac|webm)$/i;\n\n// Path traversal check with URL-encoded variants\nconst traversalPattern = /(\\.\\.[/\\\\]|%2e%2e%2[fF]|%252e%252e%252[fF]|%2[fF]|%252[fF]|%00)/i;\n\n// Check for traversal in both raw and decoded path\nif (traversalPattern.test(path) || traversalPattern.test(decodedPath) || !validPathPattern.test(decodedPath)) {\n  return [{ json: { valid: false, error: 'Invalid upload response path: failed validation' } }];\n}\n\nreturn [{ json: { valid: true, path: path, from_upload: true } }];"
+        "jsCode": "// Validate upload response path\nconst uploadResponse = $input.first().json || {};\nconst path = uploadResponse.path || '';\n\n// Must have a path from upload - no fallback to user input\nif (!path) {\n  return [{ json: { valid: false, error: 'No audio path returned from upload service' } }];\n}\n\n// Decode and validate the path\nlet decodedPath;\ntry {\n  decodedPath = decodeURIComponent(path).normalize('NFC');\n} catch (e) {\n  return [{ json: { valid: false, error: 'Invalid upload path: malformed URL encoding' } }];\n}\n\n// Strict validation: must be /tmp/<alphanumeric>.<audio_ext>\nconst validPathPattern = /^\\/tmp\\/[a-zA-Z0-9_-]+\\.(wav|mp3|ogg|flac|webm)$/i;\n\n// Path traversal check with URL-encoded variants\nconst traversalPattern = /(\\.\\.[/\\\\]|%2e%2e%2[fF]|%252e%252e%252[fF]|%2[fF]|%252[fF]|%00)/i;\n\n// Check for traversal in both raw and decoded path\nif (traversalPattern.test(path) || traversalPattern.test(decodedPath) || !validPathPattern.test(decodedPath)) {\n  return [{ json: { valid: false, error: 'Invalid upload response path: failed validation' } }];\n}\n\nreturn [{ json: { valid: true, path: decodedPath, from_upload: true } }];"
       },
       "id": "validate-upload-path",
       "name": "Validate Upload Path",
@@ -107,7 +107,7 @@
         950,
         200
       ],
-      "comment": "Validates upload response path: decodes URL, checks for traversal (including %2f/%252f), validates /tmp/<alphanumeric>.<ext> pattern. No fallback to user input."
+      "comment": "Validates upload response path: decodes URL, checks for traversal (including %2f/%252f), validates /tmp/<alphanumeric>.<ext> pattern. Returns decodedPath (not raw path) to ensure downstream receives clean path without URL encoding."
     },
     {
       "parameters": {
