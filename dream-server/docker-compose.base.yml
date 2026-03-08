@@ -124,6 +124,10 @@ services:
     restart: unless-stopped
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    dns:
+      - 127.0.0.11
+      - 8.8.8.8
+      - 1.1.1.1
     ports:
       - "${DASHBOARD_API_PORT:-3002}:3002"
     security_opt:
@@ -183,6 +187,10 @@ services:
       - ./data:/data:ro
     ports:
       - "${DASHBOARD_PORT:-3001}:3001"
+    dns:
+      - 127.0.0.11
+      - 8.8.8.8
+      - 1.1.1.1
     deploy:
       resources:
         limits:
