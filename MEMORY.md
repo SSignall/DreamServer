@@ -418,3 +418,13 @@ systemctl status memory-reset-17.timer           # your memory reset timer
 - Root cause: Services like Open WebUI don't have `/health` endpoint; healthcheck defaulted to `/health` which returns 404
 - Fix: Add fallback health endpoints in `check_service_health()` — try `/health`, `/api/health`, `/status`, `/`
 - Committed & pushed: 8ea4bd2e
+
+### 2026-03-08 — Hardening Wave 4 Status
+- **SearXNG secret key**: Already fixed — generated at install time via `openssl rand -hex 32`
+- **OpenClaw `dangerouslyDisableDeviceAuth`**: Bound to `127.0.0.1` via `gateway.bind: "loopback"` (commit 83d52680)
+  - Risk is minimal since gateway is localhost-only; no public exposure
+- **Token-spy HTML embedding**: Localhost-only service; API key in page source is acceptable for localhost
+- **Container image pinning**: Already done (searxng:2026.3.6, etc.)
+- **ComfyUI AMD security opts**: `seccomp:unconfined` and `SYS_PTRACE` already removed from compose.amd.yaml
+- All Wave 4 hardening items addressed or deemed acceptable risk
+- Queue clear for next workstream
