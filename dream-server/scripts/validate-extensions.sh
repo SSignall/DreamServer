@@ -128,8 +128,14 @@ if not isinstance(s, dict):
     errors.append('service must be a mapping')
 else:
     for field in ('id', 'name', 'port', 'health'):
-        if not s.get(field) and s.get(field) != 0:
-            errors.append(f'missing required field: service.{field}')
+        val = s.get(field)
+        if field == 'health':
+            # health can be empty string "" for CLI tools (no HTTP endpoint)
+            if val is None:
+                errors.append(f'missing required field: service.{field}')
+        else:
+            if not val and val != 0:
+                errors.append(f'missing required field: service.{field}')
     info['id'] = s.get('id', '')
     info['category'] = s.get('category', '')
     info['type'] = s.get('type', 'docker')
@@ -257,7 +263,23 @@ header "5/8" "Healthchecks"
 
 for ext in "${extensions[@]}"; do
     compose="$EXT_DIR/$ext/compose.yaml"
+    manifest="$EXT_DIR/$ext/manifest.yaml"
     [[ ! -f "$compose" ]] && continue
+
+    # Check if this is a CLI tool (health: "" means no HTTP endpoint)
+    is_cli_tool=false
+    if [[ -f "$manifest" ]]; then
+        health_val=$(python3 -c "
+import yaml
+with open('$manifest') as f:
+    m = yaml.safe_load(f)
+s = m.get('service', {})
+print(s.get('health', 'MISSING'))
+" 2>/dev/null || echo "MISSING")
+        if [[ "$health_val" == "" ]]; then
+            is_cli_tool=true
+        fi
+    fi
 
     result=$(python3 -c "
 import yaml, sys
@@ -280,7 +302,12 @@ else:
     if [[ "$result" == "OK" ]]; then
         pass "Healthchecks present: $ext"
     elif [[ "$result" == MISSING:* ]]; then
-        fail "Missing healthcheck: $ext" "${result#MISSING:}"
+        if $is_cli_tool; then
+            # CLI tools don't need healthchecks (no HTTP endpoint)
+            pass "Healthcheck skipped (CLI tool): $ext"
+        else
+            fail "Missing healthcheck: $ext" "${result#MISSING:}"
+        fi
     fi
 done
 
