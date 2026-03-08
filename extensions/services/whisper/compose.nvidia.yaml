@@ -1,6 +1,6 @@
 services:
   whisper:
-    image: ghcr.io/speaches-ai/speaches:latest-cuda
+    image: ghcr.io/speaches-ai/speaches:v0.8.3-cuda
     container_name: dream-whisper
     restart: unless-stopped
     security_opt:
@@ -16,7 +16,7 @@ services:
           cpus: '4.0'
           memory: 8G
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
