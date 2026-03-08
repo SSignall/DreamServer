@@ -27,7 +27,7 @@
     },
     {
       "parameters": {
-        "url": "={{ 'http://' + ($env.LANGFLOW_HOST || 'langflow') + ':' + ($env.LANGFLOW_PORT || '7860') + '/api/v1/run/' + encodeURIComponent($json.flowId) }}",
+        "url": "={{ 'https://' + ($env.LANGFLOW_HOST || 'langflow') + ':' + ($env.LANGFLOW_PORT || '7860') + '/api/v1/run/' + encodeURIComponent($json.flowId) }}",
         "method": "POST",
         "headers": {
           "list": [
@@ -40,7 +40,8 @@
         "body": "={{ JSON.stringify({\n  input_value: $json.input_value,\n  input_type: $json.input_type,\n  output_type: $json.output_type,\n  tweaks: $json.tweaks\n}) }}",
         "options": {
           "timeout": 120000,
-          "continueOnFail": true
+          "continueOnFail": true,
+          "ignoreSslIssues": true
         }
       },
       "id": "langflow-api",
