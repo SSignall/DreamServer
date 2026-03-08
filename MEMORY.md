@@ -1174,7 +1174,38 @@ if (a.length !== b.length) return false;
 
 ---
 
-### 2026-03-08 — Dual GPU Detection Fix (Issue #55) - Follow-up
+### 2026-03-08 — Commit Review Session (10:47-11:00 EDT)
+
+**Commits Reviewed:**
+
+| Commit | Message | Status | Issues |
+|--------|---------|--------|--------|
+| `5ac03509` | fix(workflows): resolve critical security vulnerabilities in flowise/langflow templates | ✅ Fixed | Critical: timing-safe auth bypass, DoS vulnerability, SSL issues |
+| `e2530e6b` | fix(n8n-templates): address 18's review - names, auth, env vars, error handling | ✅ Fixed | All issues resolved (names, auth, env vars, error handling) |
+| `362afed9` | fix(amd): remove duplicate dashboard-api config from overlay | ✅ Fixed | Removed 37 lines of duplicate config, AMD overlay only adds DRM volume |
+| `1359de0a` | fix(open-interpreter): restore correct build context path | ✅ Fixed | Context now points to service directory instead of '.' |
+| `3737a17b` | fix(workflows): correct n8n templates from 025f3d84 review | ✅ Fixed | Added UUIDs, names, updated node versions, env var fallbacks |
+| `d64e36ee` | fix(whisper): correct sed pattern from 82e65a4d review | ✅ Fixed | Made trailing comma optional, removed garbage characters |
+
+**Critical Security Fixes Applied (5ac03509):**
+
+1. **Authentication bypass** — Reject keys >128 chars instead of truncating
+2. **DoS vulnerability** — Iterate only to actual string length, not fixed max
+3. **ignoreSslIssues** — Use HTTP for internal container networking (no TLS needed)
+4. **Error disclosure** — Return generic error messages, not internal details
+5. **Path traversal** — Removed dead code (regex already excludes dots/slashes)
+
+**QA Pattern - AMD Compose Overlay:**
+```
+# docker-compose.base.yml has full dashboard-api definition
+# docker-compose.amd.yml should ONLY add AMD-specific config:
+dashboard-api:
+  volumes:
+    - /sys/class/drm:/sys/class/drm:ro
+```
+This reduces maintenance burden and prevents config drift between base and overlay files.
+
+**Next Session Priorities** (per workstream order):
 
 **Fix Pushed:** `f1e10480` — `dream-server/scripts/detect-hardware.sh`
 
