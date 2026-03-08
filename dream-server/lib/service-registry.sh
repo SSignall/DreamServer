@@ -2,7 +2,18 @@
 # Service Registry — loads extension manifests and provides lookup functions.
 # Source this file: . "$SCRIPT_DIR/lib/service-registry.sh"
 
-EXTENSIONS_DIR="${SCRIPT_DIR:-$(pwd)}/extensions/services"
+# Resolve extensions dir: if SCRIPT_DIR is set, go up one level (we're in dream-server/)
+# Otherwise assume we're running from repo root or dream-server/
+if [[ -n "${SCRIPT_DIR:-}" ]]; then
+    EXTENSIONS_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)/extensions/services"
+else
+    # Try repo root first, then dream-server parent
+    if [[ -d "./extensions/services" ]]; then
+        EXTENSIONS_DIR="$(pwd)/extensions/services"
+    else
+        EXTENSIONS_DIR="$(cd "$(pwd)/.." && pwd)/extensions/services"
+    fi
+fi
 _SR_LOADED=false
 _SR_CACHE="/tmp/dream-service-registry.$$.sh"
 
