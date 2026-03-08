@@ -24,7 +24,7 @@
       "name": "Validate Input",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
-      "position": [350, 300],
+      "position": [450, 300],
       "comment": "Validates prompt is present and within limits. Clamps dimensions/steps/CFG to safe ranges."
     },
     {
@@ -48,42 +48,42 @@
       "name": "Queue Prompt",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 1,
-      "position": [450, 300]
+      "position": [650, 300]
     },
     {
       "parameters": {
-        "jsCode": "// Process ComfyUI response\n// $input.all() provides both Queue Prompt response and Webhook Trigger payload\nconst allInputs = $input.all();\nconst body = allInputs[0]?.json || {};\nconst webhookInput = allInputs[1]?.json || {};\n\nconst promptId = body.prompt_id || 'unknown';\nconst number = body.number || 0;\n\nreturn [{\n  json: {\n    success: !!promptId,\n    prompt_id: promptId,\n    queue_number: number,\n    timestamp: new Date().toISOString(),\n    channel: webhookInput.channel || '#general',\n    prompt: webhookInput.prompt || '',\n    width: webhookInput.width || 1024,\n    height: webhookInput.height || 1024,\n    steps: webhookInput.steps || 20,\n    cfg: webhookInput.cfg || 8.0,\n    seed: webhookInput.seed || 'random'\n  }\n}];"
+        "jsCode": "// Process ComfyUI response\nconst body = $input.first().json || {};\nconst validatedInput = $('Validate Input').first().json || {};\n\nconst promptId = body.prompt_id || 'unknown';\nconst number = body.number || 0;\n\nreturn [{\n  json: {\n    success: !!promptId && promptId !== 'unknown',\n    prompt_id: promptId,\n    queue_number: number,\n    timestamp: new Date().toISOString(),\n    channel: validatedInput.channel || '#general',\n    prompt: validatedInput.prompt || '',\n    width: validatedInput.width || 1024,\n    height: validatedInput.height || 1024,\n    steps: validatedInput.steps || 20,\n    cfg: validatedInput.cfg || 8.0,\n    seed: validatedInput.seed || 'random'\n  }\n}];"
       },
       "id": "process-response",
       "name": "Process Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
-      "position": [550, 300],
-      "comment": "Uses $('Validate Input') to access validated payload"
+      "position": [850, 300],
+      "comment": "Uses $('Validate Input') to access validated payload fields directly"
     },
     {
       "parameters": {
         "channel": "={{ $json.channel || '#general' }}",
-        "text": "={{ '*ComfyUI Image Queued*\n\n**Prompt:** ' + (($json.prompt || '').toString().slice(0, 100).trimEnd()) + '\n**Size:** ' + ($json.width || 1024) + 'x' + ($json.height || 1024) + '\n**Steps:** ' + ($json.steps || 20) + ' | **CFG:** ' + ($json.cfg || 8.0) + '\n**Seed:** ' + ($json.seed || 'random') + '\n\n**Prompt ID:** `' + ($json.prompt_id || 'unknown') + '`\n**Queue #:** ' + ($json.queue_number || 0) + '\n\n✅ Image generation started! Check ComfyUI for results.' }}"
+        "text": "={{ '*ComfyUI Image Queued* 🎨\\n\\n**Prompt:** ' + (($json.prompt || '').toString().slice(0, 97).trimEnd()) + (($json.prompt || '').length > 97 ? '...' : '') + '\\n**Size:** ' + ($json.width || 1024) + 'x' + ($json.height || 1024) + '\\n**Steps:** ' + ($json.steps || 20) + ' | **CFG:** ' + ($json.cfg || 8.0) + '\\n**Seed:** ' + ($json.seed || 'random') + '\\n\\n**Prompt ID:** `' + ($json.prompt_id || 'unknown') + '`\\n**Queue #:** ' + ($json.queue_number || 0) + '\\n\\n✅ Image generation started! Check ComfyUI for results.' }}"
       },
       "id": "discord-output",
       "name": "Discord Output",
       "type": "n8n-nodes-base.discord",
       "typeVersion": 1,
-      "position": [850, 300],
-      "comment": "Sends queue confirmation to Discord. Note: ComfyUI generates images asynchronously."
+      "position": [1050, 300],
+      "comment": "Sends queue confirmation with clean prompt truncation (ellipsis)"
     },
     {
       "parameters": {
         "channel": "={{ $('Validate Input').first().json.channel || '#general' }}",
-        "text": "={{ '*ComfyUI Generation Failed*\\n\\n**Error:** ' + (($input.all()[0]?.error?.message || $input.all()[0]?.error?.description || 'Unknown error')).toString().slice(0, 997).trimEnd() + '\\n\\nPlease check:\\n- ComfyUI service is running\\n- FLUX.1 model is loaded\\n- GPU has sufficient VRAM' }}"
+        "text": "={{ '*ComfyUI Generation Failed* ❌\\n\\n**Error:** ' + (($input.all()[0]?.error?.message || $input.all()[0]?.error?.description || 'Unknown error')).toString().slice(0, 997).trimEnd() + '\\n\\nPlease check:\\n- ComfyUI service is running\\n- FLUX.1 model is loaded\\n- GPU has sufficient VRAM' }}"
       },
       "id": "discord-error",
       "name": "Discord Error",
       "type": "n8n-nodes-base.discord",
       "typeVersion": 1,
-      "position": [450, 500],
-      "comment": "Sends error notification. Uses $input.all()[0].error to access error details from error flow."
+      "position": [650, 500],
+      "comment": "Uses $('Validate Input') for channel; $input.all()[0].error for error details"
     }
   ],
   "connections": {
@@ -91,14 +91,29 @@
       "main": [
         [
           {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
             "node": "Queue Prompt",
             "type": "main",
             "index": 0
-          },
+          }
+        ]
+      ],
+      "error": [
+        [
           {
-            "node": "Process Response",
+            "node": "Discord Error",
             "type": "main",
-            "index": 1
+            "index": 0
           }
         ]
       ]
