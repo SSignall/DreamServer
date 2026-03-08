@@ -27,7 +27,9 @@
             }
           ]
         },
-        "binaryProperty": "data",
+        "binary": {
+          "file": "={{ $binary.file ? $binary.file.data : null }}"
+        },
         "options": {
           "timeout": 120000
         }
