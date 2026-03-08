@@ -39,7 +39,7 @@
       },
       "outputNodes": [],
       "notesInFlow": false,
-      "notes": "SECURITY: Input validation with text length limit, voice preset whitelist, format whitelist. Timing-safe API key auth (header only, no body fallback, early length check prevents null-byte attacks).",
+      "notes": "SECURITY: Input validation with text length limit, voice preset whitelist, format whitelist. Timing-safe API key auth (header only, no body fallback, constant-time comparison with length check folded into result to prevent timing attacks)."
       "typeVersion": 1
     },
     {
