@@ -418,6 +418,7 @@ systemctl status memory-reset-17.timer           # your memory reset timer
 - Root cause: Services like Open WebUI don't have `/health` endpoint; healthcheck defaulted to `/health` which returns 404
 - Fix: Add fallback health endpoints in `check_service_health()` — try `/health`, `/api/health`, `/status`, `/`
 - Committed & pushed: 8ea4bd2e
+- Verified: Fix is in `dev/main` and deployed
 
 ### 2026-03-08 — Hardening Wave 4 Status
 - **SearXNG secret key**: Already fixed — generated at install time via `openssl rand -hex 32`
