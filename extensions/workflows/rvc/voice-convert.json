@@ -31,7 +31,7 @@
           "file": "={{ $binary.file ? $binary.file.data : null }}"
         },
         "parameters": {
-          "model": "={{ $json.model || 'index.pth' }}",
+          "model": "={{ (() => { const m = String($json.model || 'index.pth'); if (m.includes('..') || m.startsWith('/') || m.includes('\\\\') || m.includes('%2e') || m.includes('%2f') || m.includes('%5c')) throw new Error('Invalid model path'); if (!/^[a-zA-Z0-9._-]+$/.test(m)) throw new Error('Invalid model name'); if (m.length > 100) throw new Error('Model name too long'); return m; })() }}",
           "pitch": "={{ $json.pitch || 0 }}",
           "f0_method": "={{ $json.f0_method || 'rmvpe' }}"
         },
