@@ -342,7 +342,7 @@ function New-OpenClawConfig {
   "commands": {"native": "auto", "nativeSkills": "auto"},
   "gateway": {
     "mode": "local",
-    "bind": "lan",
+    "bind": "loopback",
     "controlUi": {"allowInsecureAuth": true},
     "auth": {"mode": "token", "token": "$Token"}
   }

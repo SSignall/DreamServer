@@ -244,7 +244,7 @@ generate_openclaw_config() {
   "commands": {"native": "auto", "nativeSkills": "auto"},
   "gateway": {
     "mode": "local",
-    "bind": "lan",
+    "bind": "loopback",
     "controlUi": {"allowInsecureAuth": true},
     "auth": {"mode": "token", "token": "${token_json}"}
   }
