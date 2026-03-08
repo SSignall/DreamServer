@@ -302,7 +302,7 @@ main() {
     local nvidia_out
     nvidia_out=$(detect_nvidia)
     if [[ -n "$nvidia_out" ]]; then
-        # Count GPUs and sum VRAM
+        # Count GPUs and sum VRAM (field 2 is memory.total in MB)
         local gpu_count
         gpu_count=$(echo "$nvidia_out" | wc -l)
         gpu_vram_mb=$(echo "$nvidia_out" | awk -F',' '{gsub(/^ +| +$/,"",$2); sum+=$2} END {print sum}')
@@ -321,15 +321,18 @@ main() {
                 local count model
                 count=$(echo "$line" | awk '{print $1}')
                 model=$(echo "$line" | awk '{$1=""; sub(/^[[:space:]]+/, ""); print}')
-                if [[ "$count" -eq 1 ]]; then
-                    name_parts+=("$model")
-                else
+                # Always add to array, with "xN" suffix for multiples
+                if [[ "$count" -gt 1 ]]; then
                     name_parts+=("${model} x${count}")
+                else
+                    name_parts+=("$model")
                 fi
             done <<< "$models"
             # Join with " + "
-            printf -v gpu_name "%s + " "${name_parts[@]}"
-            gpu_name="${gpu_name%+ }"  # Remove trailing " + "
+            if [[ ${#name_parts[@]} -gt 0 ]]; then
+                printf -v gpu_name "%s + " "${name_parts[@]}"
+                gpu_name="${gpu_name% + }"  # Remove trailing " + "
+            fi
         fi
         
         gpu_type="nvidia"
