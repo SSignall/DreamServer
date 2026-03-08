@@ -106,6 +106,7 @@ Examples:
     $0                           # Interactive setup
     $0 --tier 2 --voice          # Tier 2 with voice
     $0 --all --non-interactive   # Full stack, no prompts
+    $0 --core-only               # Core only, no prompts
     $0 --cloud                   # Cloud mode (no GPU needed, uses API keys)
     $0 --offline --all           # Fully offline (M1 mode) with all services
     $0 --dry-run                 # Preview installation
