@@ -1050,10 +1050,31 @@ if (a.length !== b.length) return false;
 - ✅ Consistent GPU naming via shared function
 - ✅ Proper return statement, no syntax errors
 
+---
+
+### 2026-03-08 — Upstream Monitoring (Android-17 Handoff)
+
+**Trigger:** Todd's handoff — "Pick upstream monitoring or hardening"
+
+**Services Monitored:** ComfyUI, Flowise, Ollama (all touched today)
+
+**Findings:**
+| Service | Local Commits | Upstream Drift | Status |
+|---------|---------------|----------------|--------|
+| ComfyUI | 3 (`9a62cf7b`, `8131d933`, `1fc9f2cc`) | None | ✅ Clean — ComfyUI fixes live |
+| Flowise | 4 (`5e117608`, `cdc0d453`, etc.) | None | ✅ Clean — n8n template fix live |
+| Ollama | 3 (`08109ef6`, `a5f20740`, `1fc9f2cc`) | None | ✅ Clean — config alignment live |
+
+**Git Status:** Working tree clean (`git status --short` returned empty)
+
+**Action:** No changes needed — all deployed extensions synced with latest commits
+
+**Next Session Priority:** Hardening wave (security fixes, pinned versions)
+
 **Next Session Priorities** (per workstream order):
 1. GitHub issues — #55 (dual GPU), #32 (Windows), #33 (deployment verify)
 2. Hardening wave — remaining checklist items
 3. Extensions — Wave 5 complete (Flowise/Langflow committed)
 4. Installer testing — coordinate with Bilal
-5. Upstream monitoring — verify no rot in deployed extensions
+5. Upstream monitoring — verify no rot in deployed extensions (✅ completed)
 
