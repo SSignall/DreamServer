@@ -7,18 +7,10 @@ services:
       - no-new-privileges:true
     environment:
       - WHISPER__TTL=86400
-    entrypoint:
-      - /bin/sh
-      - -c
-      - |
-        # Patch vad_filter to add vad_parameters (idempotent - only patches once)
-        # The marker DREAM_PATCHED ensures we don't double-patch on restart
-        if ! grep -q 'DREAM_PATCHED' /home/ubuntu/speaches/src/speaches/routers/stt.py; then
-          sed -i 's/vad_filter=effective_vad_filter,$/vad_filter=effective_vad_filter, vad_parameters={"threshold": 0.3, "min_silence_duration_ms": 400, "min_speech_duration_ms": 50, "speech_pad_ms": 200},  # DREAM_PATCHED/' /home/ubuntu/speaches/src/speaches/routers/stt.py
-        fi
-        exec uvicorn --factory speaches.main:create_app --host 0.0.0.0 --port 8000
+    entrypoint: ["/app/docker-entrypoint.sh"]
     volumes:
       - ./data/whisper:/home/ubuntu/.cache/huggingface/hub
+      - ./docker-entrypoint.sh:/app/docker-entrypoint.sh:ro
     ports:
       - "${WHISPER_PORT:-9000}:8000"
     deploy:

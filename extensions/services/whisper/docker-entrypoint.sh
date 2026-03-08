@@ -1,0 +1,61 @@
+#!/bin/sh
+# Robust VAD patch for Speaches STT service
+# Addresses: fragile sed patterns, silent failures, idempotency
+
+STT_FILE="/home/ubuntu/speaches/src/speaches/routers/stt.py"
+PATCH_MARKER="DREAM_PATCHED"
+
+# Check if file exists - explicit failure mode
+check_file() {
+    if [ ! -f "$STT_FILE" ]; then
+        echo "ERROR: Target file does not exist: $STT_FILE" >&2
+        echo "Container may not function correctly without patch" >&2
+        return 1
+    fi
+    return 0
+}
+
+# Apply patch idempotently
+apply_patch() {
+    # Already patched?
+    if grep -q "$PATCH_MARKER" "$STT_FILE" 2>/dev/null; then
+        echo "Patch already applied (marker found)"
+        return 0
+    fi
+
+    # Verify file exists
+    if ! check_file; then
+        return 1
+    fi
+
+    # Check if target pattern exists (robust: allow whitespace variations)
+    if ! grep -qE 'vad_filter\s*=\s*effective_vad_filter' "$STT_FILE"; then
+        echo "WARNING: Target pattern not found in $STT_FILE" >&2
+        echo "Patch may not be needed or upstream changed" >&2
+        return 0
+    fi
+
+    # Apply patch with flexible whitespace matching
+    # Uses perl for more robust pattern matching than sed
+    if command -v perl >/dev/null 2>&1; then
+        perl -i -pe "s/(vad_filter\s*=\s*effective_vad_filter)/\1,\n            vad_parameters={\"threshold\": 0.3, \"min_silence_duration_ms\": 400, \"min_speech_duration_ms\": 50, \"speech_pad_ms\": 200},  \/\/ $PATCH_MARKER/" "$STT_FILE"
+    else
+        # Fallback to sed with more flexible pattern
+        sed -i "s/vad_filter\s*=\s*effective_vad_filter\s*,*/vad_filter=effective_vad_filter,\n            vad_parameters={\"threshold\": 0.3, \"min_silence_duration_ms\": 400, \"min_speech_duration_ms\": 50, \"speech_pad_ms\": 200},  \/\/ $PATCH_MARKER/" "$STT_FILE"
+    fi
+
+    # Verify patch applied
+    if grep -q "$PATCH_MARKER" "$STT_FILE"; then
+        echo "Patch applied successfully"
+        return 0
+    else
+        echo "ERROR: Patch may not have been applied correctly" >&2
+        return 1
+    fi
+}
+
+# Main
+apply_patch
+
+# Always start uvicorn (patch failure is non-fatal but logged)
+exec uvicorn --factory speaches.main:create_app --host 0.0.0.0 --port 8000
