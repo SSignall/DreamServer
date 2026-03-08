@@ -770,7 +770,13 @@ if (a.length !== b.length) return false;
 
 ---
 
-### 2026-03-08 — Pre-Compaction Memory Flush (Evening)
+### 2026-03-08 — Security Authentication Bypass Fix
+
+**Authentication Bypass Vulnerability (CRITICAL):**
+- Issue: Fix `f13d0010` introduced vulnerability - only validates when client provides key
+- Fix: `if (expectedKey ? !timingSafeEqual(providedKey || '', expectedKey) : providedKey)`
+- Files: bark, ollama, rvc workflows (both direct and n8n variants)
+- Commit: `d370c497`
 
 **n8n Workflow Wave 5 — Final Fixes:**
 
