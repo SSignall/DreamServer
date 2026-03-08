@@ -203,9 +203,9 @@ generate_openclaw_config() {
     fi
     # Fallback to sed if python3 failed or is not available
     if [ -z "$token_json" ]; then
-        # Token is hex-only (0-9,a-f,A-F), so only escape backslash and quote
-        # (sed only sees hex chars, no control chars to escape)
-        token_json=$(printf '%s' "$token" | sed 's/\\/\\\\/g; s/"/\\"/g')
+        # JSON mandatory escapes: \b \f \n \r \t plus backslash and quote
+        # Note: \b and \f use literal control chars in BSD sed (hex escape via $'...')
+        token_json=$(printf '%s' "$token" | sed 's/\\/\\\\/g; s/"/\\"/g; s/'$'\b''/\\b/g; s/'$'\f''/\\f/g; s/\t/\\t/g; s/\n/\\n/g; s/\r/\\r/g')
     fi
 
     # Home config
