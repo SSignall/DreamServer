@@ -89,12 +89,28 @@ detect_gpu() {
 
     # Try NVIDIA first
     if command -v nvidia-smi &> /dev/null; then
+        # First, count GPUs using nvidia-smi -L (most reliable method)
+        local gpu_list_count
+        gpu_list_count=$(nvidia-smi -L 2>/dev/null | grep -c "^GPU [0-9]" || echo "0")
+
         local raw
         if raw=$(nvidia-smi --query-gpu=name,memory.total --format=csv,noheader 2>/dev/null) && [[ -n "$raw" ]]; then
             GPU_INFO="$raw"
             # Count GPUs and sum VRAM
             GPU_COUNT=$(echo "$GPU_INFO" | wc -l)
             GPU_VRAM=$(echo "$GPU_INFO" | awk -F',' '{gsub(/^ +| +$/,"",$2); sum+=$2} END {print sum}' | grep -oP '\d+')
+
+            # Debug: warn if GPU counts don't match (helps diagnose driver issues)
+            if [[ "$gpu_list_count" -ne "$GPU_COUNT" ]]; then
+                log "GPU count mismatch: nvidia-smi -L shows $gpu_list_count, query shows $GPU_COUNT"
+                log "Raw nvidia-smi output:"
+                log "$raw"
+                # Trust the list count if it's higher (query might be filtered)
+                if [[ "$gpu_list_count" -gt "$GPU_COUNT" ]]; then
+                    warn "Detected $gpu_list_count GPUs but only got details for $GPU_COUNT"
+                    warn "This may indicate a driver initialization issue with the second GPU"
+                fi
+            fi
 
             # Build GPU name: show model(s) with count and total VRAM
             if [[ "$GPU_COUNT" -eq 1 ]]; then

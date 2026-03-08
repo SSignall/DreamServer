@@ -249,19 +249,35 @@ check_service() {
 }
 
 # Show hardware summary — CRT monospace box
+# Usage: show_hardware_summary "$GPU_NAME" "$((GPU_VRAM / 1024))" "$CPU_INFO" "$RAM_GB" "$DISK_AVAIL" "$GPU_COUNT" "$GPU_DETAILS"
 show_hardware_summary() {
     local gpu_name="$1"
     local gpu_vram="$2"
     local cpu_info="$3"
     local ram_gb="$4"
     local disk_gb="$5"
+    local gpu_count="${6:-1}"
+    local gpu_details="${7:-}"
 
     echo ""
     echo -e "${GRN}+-------------------------------------------------------------+${NC}"
     echo -e "${GRN}|${NC}  ${BGRN}HARDWARE SCAN RESULTS${NC}                                      ${GRN}|${NC}"
     echo -e "${GRN}+-------------------------------------------------------------+${NC}"
-    printf "${GRN}|${NC}  GPU:    %-50s ${GRN}|${NC}\n" "${gpu_name:-Not detected}"
-    [[ -n "$gpu_vram" ]] && printf "${GRN}|${NC}  VRAM:   %-50s ${GRN}|${NC}\n" "${gpu_vram}GB"
+
+    if [[ "$gpu_count" -gt 1 && -n "$gpu_details" ]]; then
+        # Multi-GPU: show summary line + individual details
+        printf "${GRN}|${NC}  GPU:    %-50s ${GRN}|${NC}\n" "${gpu_name:-Not detected}"
+        printf "${GRN}|${NC}  VRAM:   %-50s ${GRN}|${NC}\n" "${gpu_vram}GB total (${gpu_count} GPUs)"
+        # Show individual GPU breakdown on separate lines
+        while IFS= read -r line; do
+            [[ -n "$line" ]] && printf "${GRN}|${NC}         %-50s ${GRN}|${NC}\n" "  → $line"
+        done <<< "$gpu_details"
+    else
+        # Single GPU or no details: simple display
+        printf "${GRN}|${NC}  GPU:    %-50s ${GRN}|${NC}\n" "${gpu_name:-Not detected}"
+        [[ -n "$gpu_vram" ]] && printf "${GRN}|${NC}  VRAM:   %-50s ${GRN}|${NC}\n" "${gpu_vram}GB"
+    fi
+
     printf "${GRN}|${NC}  CPU:    %-50s ${GRN}|${NC}\n" "${cpu_info:-Unknown}"
     printf "${GRN}|${NC}  RAM:    %-50s ${GRN}|${NC}\n" "${ram_gb}GB"
     printf "${GRN}|${NC}  Disk:   %-50s ${GRN}|${NC}\n" "${disk_gb}GB available"
