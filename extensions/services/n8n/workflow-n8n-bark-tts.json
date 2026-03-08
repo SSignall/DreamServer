@@ -1,7 +1,9 @@
 {
   "name": "Bark TTS Speech Generation",
   "active": true,
-  "settings": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
   "nodes": [
     {
       "parameters": {
@@ -11,6 +13,7 @@
       },
       "id": "bark-webhook-trigger",
       "name": "Webhook Trigger",
+      "comment": "Accepts JSON: { text, voice_preset (optional), output_format (optional), channel (optional, defaults to #general) }",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
       "position": [250, 300]
@@ -38,6 +41,7 @@
       },
       "id": "bark-api-call",
       "name": "Bark API Call",
+      "comment": "Requires BARK_HOST and BARK_EXTERNAL_PORT environment variables. Defaults to localhost:9200 if not set.",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 1,
       "position": [450, 300]
@@ -61,7 +65,8 @@
       "name": "Discord Output",
       "type": "n8n-nodes-base.discord",
       "typeVersion": 1,
-      "position": [850, 300]
+      "position": [850, 300],
+      "comment": "Sends success notification to the channel specified in the webhook input (or #general if not provided)"
     },
     {
       "parameters": {
@@ -72,7 +77,8 @@
       "name": "Discord Error",
       "type": "n8n-nodes-base.discord",
       "typeVersion": 1,
-      "position": [450, 500]
+      "position": [450, 500],
+      "comment": "Sends error notification to the channel specified in the webhook input (or #general if not provided)"
     }
   ],
   "connections": {
