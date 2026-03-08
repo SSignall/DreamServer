@@ -494,3 +494,52 @@ systemctl status memory-reset-17.timer           # your memory reset timer
 - **Hardening impact**: Prevents injection attacks via arbitrary `voice_preset` values; whitelist covers all documented Bark v2 voices
 
 ### 2026-03-08 — OpenClaw Bind Mode Schema (Definitive)
+
+### 2026-03-10 — Pre-Compaction Memory Flush
+
+**GitHub Issues Status**:
+- **#33** (Dashboard offline) — Fix committed (`8ea4bd2e`), pending deployment verification
+- **#55** (Dual GPU detection) — NEW; user reports only one GPU detected on 3090+4090 system
+- **#32** (Windows install) — Unassigned
+- **#22** (OpenClaw gateway security) — Not a bug (gateway binding to `127.0.0.1` is intentional)
+
+**Recent Commits Reviewed** (Last 15 to dev/main):
+- `952a59b5` — Restored literal backslash check in RVC path validation (HIGH from 18)
+- `fd7c65c3` — Added `OPENCLAW_TOKEN_JSON` with Python3 `json.dumps` escaping
+- `84021dde` — macOS installer: Python3 `json.dumps` for robust token escaping
+- `97540fed` — LocalAI extension: fixed `external_port_env` mismatch (`LOCALAI_PORT` → `LOCALAI_EXTERNAL_PORT`)
+- `48418c13` — Memory update commit
+
+**JSON Escaping Fix**:
+- Primary: `python3 json.dumps()` for RFC 8259 compliance
+- Fallback: `sed` with proper control char handling
+- Applied to: token generation (Linux/macOS), installer token escaping
+
+**LocalAI Extension**:
+- `external_port_env` mismatch corrected
+- Healthcheck now only checks `/healthz` (removed root path fallback)
+
+**RVC Security**:
+- Path traversal protection restored with literal backslash validation
+
+**Workstream Progress**:
+- ✅ GitHub issue review (33, 55, 32, 22)
+- ✅ Hardening wave progress (JSON escaping, RVC, LocalAI)
+- ✅ Extension work (LocalAI n8n workflow template draft)
+
+**Next Session Priorities** (per workstream order):
+1. GitHub issues — #32 (Windows), #22 (gateway), #55 (dual GPU), #33 (deployment verify)
+2. Hardening wave — remaining checklist items
+3. Extensions — complete LocalAI with n8n workflow
+4. Installer testing — coordinate with Bilal
+5. Upstream monitoring — verify no rot in deployed extensions
+
+**Git Workflow (Dev Server)**:
+- Push all work to `dev/main` branch only
+- Use `git push dev main`
+- NEVER push to origin, create PRs, or feature branches for public repo
+
+**Dev/Test Server (.143)**:
+- Tower 2 (192.168.0.143) is free for testing Dream Server changes
+- No Guardian protection — sandbox environment
+- Coordinate loosely with other agents
