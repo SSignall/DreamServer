@@ -1,7 +1,7 @@
 """
 === GENERATED TEST FILE — NEEDS REVIEW ===
-Generated: 2026-03-08T02:01:06.777357+00:00
-Source: extensions/services/privacy-shield/proxy.py
+Generated: 2026-03-08T02:34:20.074474+00:00
+Source: extensions/services/privacy_shield/proxy.py
 Generator: Qwen3-Coder (local GPU)
 
 This file was auto-generated and has NOT been reviewed or run.
@@ -12,231 +12,274 @@ Review before using. May need fixture adjustments or mock updates.
 import pytest
 import os
 import asyncio
-import hashlib
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock, MagicMock, patch, Mock
 from fastapi.testclient import TestClient
 from fastapi import HTTPException
-from fastapi.security import HTTPAuthorizationCredentials
-import httpx
+from httpx import Response as HttpxResponse
+import hashlib
+import secrets
 
-# Mock the pii_scrubber module before importing proxy
-pii_scrubber_mock = MagicMock()
-PrivacyShield_mock = MagicMock()
-pii_scrubber_mock.PrivacyShield = PrivacyShield_mock
-with patch.dict('sys.modules', {'pii_scrubber': pii_scrubber_mock}):
-    from extensions.services.privacy_shield import proxy
+# Mock dependencies before importing the module
+with patch('pii_scrubber.PrivacyShield'):
+    with patch('cachetools.TTLCache'):
+        from extensions.services.privacy_shield.proxy import (
+            app,
+            SHIELD_API_KEY,
+            verify_api_key,
+            get_session,
+            CachedPrivacyShield,
+            sessions,
+            CACHE_ENABLED,
+            CACHE_SIZE,
+            TARGET_API_BASE,
+            TARGET_API_KEY,
+            PORT,
+            http_client
+        )
+
+# Create test client
+client = TestClient(app)
+
+
+class MockPrivacyShield:
+    def __init__(self, *args, **kwargs):
+        self.detector = MagicMock()
+        self.detector.scrub = MagicMock(return_value="scrubbed_text")
+        self.detector.get_stats = MagicMock(return_value={'unique_pii_count': 5})
+    
+    def process_request(self, text):
+        return "scrubbed_text", {"pii_found": True}
+    
+    def process_response(self, text):
+        return "restored_text"
+
+
+class MockCachedPrivacyShield:
+    def __init__(self, *args, **kwargs):
+        self.detector = MagicMock()
+        self.detector.scrub = MagicMock(return_value="cached_scrubbed_text")
+        self.detector.get_stats = MagicMock(return_value={'unique_pii_count': 3})
+    
+    def process_request(self, text):
+        return "cached_scrubbed_text", {"pii_found": False}
+    
+    def process_response(self, text):
+        return "cached_restored_text"
 
 
 @pytest.fixture(autouse=True)
 def reset_globals():
     """Reset global state before each test."""
+    # Clear sessions cache
+    sessions.clear()
+    
     # Reset environment variables
-    original_env = os.environ.copy()
-    os.environ.clear()
-    os.environ.update({
-        "SHIELD_API_KEY": "test-api-key-123",
-        "TARGET_API_URL": "http://test-server:8000/v1",
-        "SHIELD_PORT": "8085",
-        "PII_CACHE_ENABLED": "true",
-        "PII_CACHE_SIZE": "1000",
-        "PII_CACHE_TTL": "300",
-        "SHIELD_SESSION_MAXSIZE": "10000",
-        "SHIELD_SESSION_TTL": "3600"
-    })
-    
-    # Reset global objects
-    proxy.sessions.clear()
-    proxy.http_client = httpx.AsyncClient(
-        limits=httpx.Limits(max_keepalive_connections=100, max_connections=200),
-        timeout=httpx.Timeout(60.0, connect=5.0)
-    )
-    
-    yield
-    
-    # Restore environment
-    os.environ.clear()
-    os.environ.update(original_env)
+    os.environ['SHIELD_API_KEY'] = 'test-api-key-123'
+    os.environ['TARGET_API_URL'] = 'http://test-api:8000/v1'
+    os.environ['TARGET_API_KEY'] = 'target-key-456'
+    os.environ['SHIELD_PORT'] = '8085'
+    os.environ['PII_CACHE_ENABLED'] = 'true'
+    os.environ['PII_CACHE_SIZE'] = '100'
+    os.environ['PII_CACHE_TTL'] = '300'
+    os.environ['SHIELD_SESSION_MAXSIZE'] = '10000'
+    os.environ['SHIELD_SESSION_TTL'] = '3600'
 
 
 @pytest.fixture
-def client():
-    """Create test client with mocked dependencies."""
-    with patch('extensions.services.privacy_shield.proxy.app'):
-        with patch('extensions.services.privacy_shield.proxy.uvicorn.run'):
-            # Reinitialize the app
-            proxy.app = proxy.FastAPI(title="API Privacy Shield", version="0.2.0")
-            # Re-register routes
-            proxy.app.add_api_route("/health", proxy.health, methods=["GET"])
-            proxy.app.add_api_route("/stats", proxy.stats, methods=["GET"])
-            proxy.app.add_api_route("/{path:path}", proxy.proxy, methods=["GET", "POST"])
-            
-            return TestClient(proxy.app)
+def mock_http_client():
+    """Mock httpx.AsyncClient."""
+    with patch('extensions.services.privacy_shield.proxy.http_client') as mock_client:
+        yield mock_client
 
 
-class TestHealthEndpoint:
-    def test_health_endpoint_returns_ok(self, client):
-        response = client.get("/health")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "ok"
-        assert data["service"] == "api-privacy-shield"
-        assert data["version"] == "0.2.0"
-        assert data["target_api"] == "http://test-server:8000/v1"
-        assert data["cache_enabled"] is True
-        assert data["active_sessions"] == 0
+@pytest.fixture
+def mock_privacy_shield():
+    """Mock CachedPrivacyShield."""
+    with patch('extensions.services.privacy_shield.proxy.CachedPrivacyShield', MockCachedPrivacyShield):
+        yield MockCachedPrivacyShield
 
 
-class TestStatsEndpoint:
-    def test_stats_endpoint_returns_zero_when_no_sessions(self, client):
-        response = client.get("/stats")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["active_sessions"] == 0
-        assert data["total_pii_scrubbed"] == 0
-        assert data["cache_enabled"] is True
-        assert data["cache_size"] == 1000
+def test_health_endpoint():
+    """Test health check endpoint returns expected structure."""
+    response = client.get("/health")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "ok"
+    assert data["service"] == "api-privacy-shield"
+    assert data["version"] == "0.2.0"
+    assert data["target_api"] == "http://test-api:8000/v1"
+    assert data["cache_enabled"] is True
+    assert "active_sessions" in data
 
 
-class TestAPIKeyAuthentication:
-    def test_valid_api_key_succeeds(self, client):
-        response = client.get("/health", headers={"Authorization": "Bearer test-api-key-123"})
-        assert response.status_code == 200
+def test_stats_endpoint():
+    """Test stats endpoint returns expected structure."""
+    response = client.get("/stats")
+    assert response.status_code == 200
+    data = response.json()
+    assert "active_sessions" in data
+    assert "total_pii_scrubbed" in data
+    assert data["cache_enabled"] is True
+    assert data["cache_size"] == 100
+
+
+def test_verify_api_key_valid():
+    """Test API key verification with valid credentials."""
+    from extensions.services.privacy_shield.proxy import security_scheme
     
-    def test_invalid_api_key_fails(self, client):
-        response = client.get("/health", headers={"Authorization": "Bearer invalid-key"})
-        assert response.status_code == 403
+    # Create a request with valid credentials
+    request = MagicMock()
+    request.headers = {"authorization": "Bearer test-api-key-123"}
     
-    def test_missing_authorization_header_fails(self, client):
-        response = client.get("/health")
-        assert response.status_code == 403
+    async def run():
+        credentials = await security_scheme(request)
+        return await verify_api_key(credentials)
     
-    def test_missing_api_key_generates_temporary_key(self, client, monkeypatch):
-        # Remove API key from environment
-        monkeypatch.delenv("SHIELD_API_KEY", raising=False)
-        
-        # Reinitialize the module
-        import importlib
-        importlib.reload(proxy)
-        
-        # Create new test client with reloaded module
-        test_client = TestClient(proxy.app)
-        
-        # Should still work because temporary key is generated
-        response = test_client.get("/health")
-        assert response.status_code == 200
+    result = asyncio.run(run())
+    assert result == "test-api-key-123"
 
 
-class TestProxyEndpoint:
-    def test_proxy_forwards_post_request(self, client):
-        # Mock the httpx client
-        mock_response = MagicMock()
-        mock_response.content = b'{"text": "Hello world"}'
+def test_verify_api_key_invalid():
+    """Test API key verification with invalid credentials."""
+    from extensions.services.privacy_shield.proxy import security_scheme
+    
+    # Create a request with invalid credentials
+    request = MagicMock()
+    request.headers = {"authorization": "Bearer invalid-key"}
+    
+    async def run():
+        credentials = await security_scheme(request)
+        await verify_api_key(credentials)
+    
+    with pytest.raises(HTTPException) as exc_info:
+        asyncio.run(run())
+    
+    assert exc_info.value.status_code == 403
+    assert "Invalid API key" in exc_info.value.detail
+
+
+def test_verify_api_key_missing_credentials():
+    """Test API key verification with missing credentials."""
+    from extensions.services.privacy_shield.proxy import security_scheme
+    
+    # Create a request with no authorization header
+    request = MagicMock()
+    request.headers = {}
+    
+    async def run():
+        credentials = await security_scheme(request)
+        await verify_api_key(credentials)
+    
+    with pytest.raises(HTTPException) as exc_info:
+        asyncio.run(run())
+    
+    assert exc_info.value.status_code == 403
+
+
+def test_proxy_post_request_success(mock_http_client, mock_privacy_shield):
+    """Test successful POST request through proxy."""
+    # Setup mock response
+    mock_response = MagicMock(spec=HttpxResponse)
+    mock_response.status_code = 200
+    mock_response.content = b'{"text": "Hello, world!"}'
+    mock_response.headers = {"content-type": "application/json"}
+    mock_http_client.post.return_value = mock_response
+    
+    # Make request with auth header
+    response = client.post(
+        "/chat/completions",
+        json={"message": "Hello"},
+        headers={"Authorization": "Bearer test-api-key-123"}
+    )
+    
+    assert response.status_code == 200
+    data = response.json()
+    assert "restored_text" in str(data) or "cached_restored_text" in str(data)
+    assert "X-Privacy" in response.headers
+
+
+def test_proxy_get_request_success(mock_http_client, mock_privacy_shield):
+    """Test successful GET request through proxy."""
+    # Setup mock response
+    mock_response = MagicMock(spec=HttpxResponse)
+    mock_response.status_code = 200
+    mock_response.content = b'{"data": "test"}'
+    mock_response.headers = {"content-type": "application/json"}
+    mock_http_client.get.return_value = mock_response
+    
+    # Make request with auth header
+    response = client.get(
+        "/models",
+        headers={"Authorization": "Bearer test-api-key-123"}
+    )
+    
+    assert response.status_code == 200
+    data = response.json()
+    assert "data" in data
+
+
+def test_proxy_missing_auth_header():
+    """Test proxy endpoint without authentication."""
+    response = client.post("/chat/completions", json={"message": "test"})
+    assert response.status_code == 403
+
+
+def test_proxy_invalid_auth_header():
+    """Test proxy endpoint with invalid authentication."""
+    response = client.post(
+        "/chat/completions",
+        json={"message": "test"},
+        headers={"Authorization": "Bearer invalid-key"}
+    )
+    assert response.status_code == 403
+
+
+def test_proxy_target_api_url():
+    """Test that target API URL is correctly constructed."""
+    os.environ['TARGET_API_URL'] = 'http://custom-api:9000/api'
+    
+    # Need to reinitialize app to pick up new env vars
+    with patch('extensions.services.privacy_shield.proxy.http_client') as mock_client:
+        mock_response = MagicMock(spec=HttpxResponse)
         mock_response.status_code = 200
+        mock_response.content = b'{"result": "ok"}'
+        mock_client.post.return_value = mock_response
         
-        with patch.object(proxy.http_client, 'post', new=AsyncMock(return_value=mock_response)):
-            with patch.object(proxy.CachedPrivacyShield, 'process_request', return_value=("", {})):
-                with patch.object(proxy.CachedPrivacyShield, 'process_response', return_value='{"text": "Hello world"}'):
-                    response = client.post(
-                        "/chat/completions",
-                        json={"message": "Hello"},
-                        headers={"Authorization": "Bearer test-api-key-123"}
-                    )
-                    assert response.status_code == 200
-    
-    def test_proxy_forwards_get_request(self, client):
-        # Mock the httpx client
-        mock_response = MagicMock()
-        mock_response.content = b'{"status": "ok"}'
-        mock_response.status_code = 200
+        response = client.post(
+            "/chat/completions",
+            json={"message": "test"},
+            headers={"Authorization": "Bearer test-api-key-123"}
+        )
         
-        with patch.object(proxy.http_client, 'get', new=AsyncMock(return_value=mock_response)):
-            with patch.object(proxy.CachedPrivacyShield, 'process_request', return_value=("", {})):
-                with patch.object(proxy.CachedPrivacyShield, 'process_response', return_value='{"status": "ok"}'):
-                    response = client.get(
-                        "/models",
-                        headers={"Authorization": "Bearer test-api-key-123"}
-                    )
-                    assert response.status_code == 200
-    
-    def test_proxy_preserves_headers(self, client):
-        # Mock the httpx client
-        mock_response = MagicMock()
-        mock_response.content = b'{"text": "Hello world"}'
-        mock_response.status_code = 200
-        
-        with patch.object(proxy.http_client, 'post', new=AsyncMock(return_value=mock_response)) as mock_post:
-            with patch.object(proxy.CachedPrivacyShield, 'process_request', return_value=("", {})):
-                with patch.object(proxy.CachedPrivacyShield, 'process_response', return_value='{"text": "Hello world"}'):
-                    client.post(
-                        "/chat/completions",
-                        json={"message": "Hello"},
-                        headers={
-                            "Authorization": "Bearer test-api-key-123",
-                            "Content-Type": "application/json",
-                            "X-Custom-Header": "value"
-                        }
-                    )
-                    
-                    # Check that headers were forwarded (except host and content-length)
-                    call_kwargs = mock_post.call_args.kwargs
-                    headers = call_kwargs.get('headers', {})
-                    assert "Content-Type" in headers
-                    assert "X-Custom-Header" in headers
-                    assert "host" in headers
-    
-    def test_proxy_handles_target_api_key(self, client, monkeypatch):
-        # Set target API key
-        monkeypatch.setenv("TARGET_API_KEY", "target-key-456")
-        
-        # Reinitialize the module
-        import importlib
-        importlib.reload(proxy)
-        
-        # Create new test client with reloaded module
-        test_client = TestClient(proxy.app)
-        
-        # Mock the httpx client
-        mock_response = MagicMock()
-        mock_response.content = b'{"text": "Hello world"}'
-        mock_response.status_code = 200
-        
-        with patch.object(proxy.http_client, 'post', new=AsyncMock(return_value=mock_response)) as mock_post:
-            with patch.object(proxy.CachedPrivacyShield, 'process_request', return_value=("", {})):
-                with patch.object(proxy.CachedPrivacyShield, 'process_response', return_value='{"text": "Hello world"}'):
-                    test_client.post(
-                        "/chat/completions",
-                        json={"message": "Hello"},
-                        headers={"Authorization": "Bearer test-api-key-123"}
-                    )
-                    
-                    # Check that Authorization header was set for target
-                    call_kwargs = mock_post.call_args.kwargs
-                    headers = call_kwargs.get('headers', {})
-                    assert headers.get("Authorization") == "Bearer target-key-456"
+        # Verify the target URL used in the request
+        call_args = mock_client.post.call_args
+        assert call_args[0][0] == "http://custom-api:9000/api/chat/completions"
 
 
-class TestSessionManagement:
-    def test_session_created_for_authorization_header(self, client):
-        auth_header = "Bearer test-token"
-        expected_hash = hashlib.sha256(auth_header.encode()).hexdigest()
-        
-        # Mock the httpx client
-        mock_response = MagicMock()
-        mock_response.content = b'{"text": "Hello world"}'
-        mock_response.status_code = 200
-        
-        with patch.object(proxy.http_client, 'post', new=AsyncMock(return_value=mock_response)):
-            with patch.object(proxy.CachedPrivacyShield, 'process_request', return_value=("", {})):
-                with patch.object(proxy.CachedPrivacyShield, 'process_response', return_value='{"text": "Hello world"}'):
-                    client.post(
-                        "/chat/completions",
-                        json={"message": "Hello"},
-                        headers={"Authorization": auth_header}
-                    )
-                    
-                    # Check that session was created
-                    assert expected_hash in proxy.sessions
+def test_proxy_target_api_key_header(mock_http_client):
+    """Test that target API key is correctly set in headers."""
+    os.environ['TARGET_API_KEY'] = 'custom-target-key'
     
-    def test_session_created_for_client_ip_when_no_auth(self, client):
-        # Mock client info
-        with patch('fastapi.Request.client', new=MagicMock(host="192.168.1.1")):
+    mock_response = MagicMock(spec=HttpxResponse)
+    mock_response.status_code = 200
+    mock_response.content = b'{"result": "ok"}'
+    mock_http_client.post.return_value = mock_response
+    
+    response = client.post(
+        "/chat/completions",
+        json={"message": "test"},
+        headers={"Authorization": "Bearer test-api-key-123"}
+    )
+    
+    # Verify the Authorization header was set for target API
+    call_args = mock_client.post.call_args
+    headers = call_args[1]['headers']
+    assert headers.get("Authorization") == "Bearer custom-target-key"
+
+
+def test_proxy_no_target_api_key(mock_http_client):
+    """Test that no target API key is set when not configured."""
+    os.environ['TARGET_API_KEY'] = 'not-needed'
+    
+    mock_response = MagicMock(spec=HttpxResponse)
+    mock_response.status_code =
