@@ -6,13 +6,17 @@
   },
   "nodes": [
     {
-      "id": "f6a7b8c9-d0e1-2345-fa78-901234567890",
+      "id": "webhook-process-data",
       "name": "Webhook",
       "parameters": {
         "path": "process-data",
         "responseMode": "responseNode",
         "options": {
-          "webhookSuffix": ""
+          "webhookSuffix": "",
+          "headerAuth": {
+            "name": "X-Webhook-Auth",
+            "value": "={{ $env.WEBHOOK_AUTH_TOKEN }}"
+          }
         }
       },
       "type": "n8n-nodes-base.webhook",
@@ -21,8 +25,8 @@
       "webhookId": "process-data-webhook"
     },
     {
-      "id": "a7b8c9d0-e1f2-3456-ab90-123456789012",
-      "name": "Code",
+      "id": "code-process",
+      "name": "Process",
       "parameters": {
         "jsCode": "return [{ json: { processed: true, timestamp: new Date().toISOString() } }];"
       },
@@ -31,12 +35,14 @@
       "position": [450, 300]
     },
     {
-      "id": "b8c9d0e1-f2a3-4567-bc12-345678901234",
-      "name": "HTTP Request",
+      "id": "http-health-check",
+      "name": "Health Check",
       "parameters": {
         "method": "GET",
         "url": "={{ $env.DREAM_SERVER_URL || 'http://host.docker.internal:3002' }}/api/v1/health",
-        "options": {}
+        "options": {
+          "continueOnFail": true
+        }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
@@ -48,18 +54,18 @@
       "main": [
         [
           {
-            "node": "Code",
+            "node": "Process",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Code": {
+    "Process": {
       "main": [
         [
           {
-            "node": "HTTP Request",
+            "node": "Health Check",
             "type": "main",
             "index": 0
           }

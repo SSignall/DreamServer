@@ -28,7 +28,9 @@
       "parameters": {
         "method": "GET",
         "url": "={{ $env.DREAM_SERVER_URL || 'http://host.docker.internal:8000' }}/health",
-        "options": {}
+        "options": {
+          "continueOnFail": true
+        }
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
