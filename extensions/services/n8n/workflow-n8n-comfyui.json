@@ -1,0 +1,152 @@
+{
+  "name": "ComfyUI Image Generation",
+  "active": true,
+  "settings": {},
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "comfyui-generate",
+        "options": {}
+      },
+      "id": "comfyui-webhook-trigger",
+      "name": "Webhook Trigger",
+      "comment": "Accepts JSON: { prompt (required), width (optional, default 1024), height (optional, default 1024), steps (optional, default 20), cfg (optional, default 8.0), seed (optional, random if not set), channel (optional) }",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{ 'http://' + ($env.COMFYUI_HOST || 'localhost') + ':' + ($env.COMFYUI_EXTERNAL_PORT || '8188') + '/prompt' }}",
+        "method": "POST",
+        "headers": {
+          "list": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "body": "={{ { \"prompt\": { \"3\": { \"inputs\": { \"seed\": $json.seed || Math.floor(Math.random() * 9999999999), \"steps\": $json.steps || 20, \"cfg\": $json.cfg || 8.0, \"sampler_name\": \"euler\", \"scheduler\": \"normal\", \"denoise\": 1.0, \"model\": [\"4\", 0], \"positive\": [\"6\", 0], \"negative\": [\"7\", 0], \"latent_image\": [\"5\", 0] }, \"class_type\": \"KSampler\" }, \"4\": { \"inputs\": { \"ckpt_name\": \"flux1-dev.safetensors\" }, \"class_type\": \"CheckpointLoaderSimple\" }, \"5\": { \"inputs\": { \"width\": $json.width || 1024, \"height\": $json.height || 1024, \"batch_size\": 1 }, \"class_type\": \"EmptyLatentImage\" }, \"6\": { \"inputs\": { \"text\": $json.prompt || 'beautiful landscape', \"clip\": [\"4\", 1] }, \"class_type\": \"CLIPTextEncode\" }, \"7\": { \"inputs\": { \"text\": \"text, watermark, blurry, low quality\", \"clip\": [\"4\", 1] }, \"class_type\": \"CLIPTextEncode\" }, \"8\": { \"inputs\": { \"samples\": [\"3\", 0], \"vae\": [\"4\", 2] }, \"class_type\": \"VAEDecode\" }, \"9\": { \"inputs\": { \"filename_prefix\": \"n8n_output\", \"images\": [\"8\", 0] }, \"class_type\": \"SaveImage\" } }, \"client_id\": 'n8n_' + Date.now() } }}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "comfyui-queue-prompt",
+      "name": "Queue Prompt",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process ComfyUI response
+// $input.all() provides both Queue Prompt response and Webhook Trigger payload
+const allInputs = $input.all();
+const body = allInputs[0]?.json || {};
+const webhookInput = allInputs[1]?.json || {};
+
+const promptId = body.prompt_id || 'unknown';
+const number = body.number || 0;
+
+return [{
+  json: {
+    success: !!promptId,
+    prompt_id: promptId,
+    queue_number: number,
+    timestamp: new Date().toISOString(),
+    channel: webhookInput.channel || '#general',
+    prompt: webhookInput.prompt || '',
+    width: webhookInput.width || 1024,
+    height: webhookInput.height || 1024,
+    steps: webhookInput.steps || 20,
+    cfg: webhookInput.cfg || 8.0,
+    seed: webhookInput.seed || 'random'
+  }
+}];"
+      },
+      "id": "process-response",
+      "name": "Process Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "channel": "={{ $json.channel || '#general' }}",
+        "text": "={{ '*ComfyUI Image Queued*\uD83C\uDFA8\n\n**Prompt:** ' + ($json.prompt || '').toString().slice(0, 100) + '\n**Size:** ' + ($json.width || 1024) + 'x' + ($json.height || 1024) + '\n**Steps:** ' + ($json.steps || 20) + ' | **CFG:** ' + ($json.cfg || 8.0) + '\n**Seed:** ' + ($json.seed || 'random') + '\n\n**Prompt ID:** `' + ($json.prompt_id || 'unknown') + '`\n**Queue #:** ' + ($json.queue_number || 0) + '\n\n✅ Image generation started! Check ComfyUI for results.' }}"
+      },
+      "id": "discord-output",
+      "name": "Discord Output",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [850, 300],
+      "comment": "Sends queue confirmation to Discord. Note: ComfyUI generates images asynchronously."
+    },
+    {
+      "parameters": {
+        "channel": "={{ $('Webhook Trigger').first().json.channel || '#general' }}",
+        "text": "={{ '*ComfyUI Generation Failed*\n\n**Error:** ' + (($json.message || $json.error || (typeof $json === 'string' ? $json : 'Unknown error')).toString().slice(0, 1000)) + '\n**Status:** ' + (($json.statusCode || $json.code || 'N/A').toString().slice(0, 100) || 'N/A') + '\n\nPlease check:\n- ComfyUI service is running\n- FLUX.1 model is loaded\n- GPU has sufficient VRAM' }}"
+      },
+      "id": "discord-error",
+      "name": "Discord Error",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [450, 500],
+      "comment": "Sends error notification. Uses $('Webhook Trigger') to access original input since error flow receives error object."
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Queue Prompt",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Process Response",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Queue Prompt": {
+      "main": [
+        [
+          {
+            "node": "Process Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "error": [
+        [
+          {
+            "node": "Discord Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Response": {
+      "main": [
+        [
+          {
+            "node": "Discord Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "meta": {
+    "instanceId": "comfyui-workflow-v1"
+  }
+}
