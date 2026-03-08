@@ -109,6 +109,10 @@ def load_extension_manifests(manifest_dir: Path, gpu_backend: str) -> tuple[dict
             logger.warning("Failed loading manifest %s: %s", path, e)
 
     logger.info("Loaded %d extension manifests (%d services, %d features)", loaded, len(services), len(features))
+    if services:
+        logger.info("Services loaded: %s", ", ".join(services.keys()))
+    else:
+        logger.error("No services loaded from manifests in %s — dashboard will have no services", manifest_dir)
     return services, features
 
 
