@@ -1,7 +1,7 @@
 """
 === GENERATED TEST FILE — NEEDS REVIEW ===
 Generated: 2026-03-08T01:56:27.249304+00:00
-Source: extensions/services/dashboard-api/routers/agents.py
+Source: extensions/services/dashboard_api/routers/agents.py
 Generator: Qwen3-Coder (local GPU)
 
 This file was auto-generated and has NOT been reviewed or run.
@@ -27,12 +27,9 @@ mock_cluster_status.to_dict.return_value = {"nodes": []}
 # Mock throughput.get_stats()
 mock_throughput.get_stats.return_value = {"tokens_per_sec": 100.0}
 
-# Patch the imports in the agents module
-with patch('extensions.services.dashboard-api.routers.agents.get_full_agent_metrics', mock_get_full_agent_metrics), \
-     patch('extensions.services.dashboard-api.routers.agents.cluster_status', mock_cluster_status), \
-     patch('extensions.services.dashboard-api.routers.agents.throughput', mock_throughput), \
-     patch('extensions.services.dashboard-api.routers.agents.verify_api_key', mock_verify_api_key):
-    from extensions.services.dashboard-api.routers import agents
+# Patch the imports in the agents module (module-level patching is an anti-pattern)
+# We'll patch at function level instead to avoid import-time side effects
+from extensions.services.dashboard_api.routers import agents
 
 
 @pytest.fixture
