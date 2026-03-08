@@ -123,11 +123,77 @@
       "notes": "Upload source audio to RVC. Requires RVC_HOST env var (no fallback)."
     },
     {
+      "id": "validate_upload",
+      "type": "code",
+      "name": "Validate Upload Path",
+      "position": [
+        800,
+        300
+      ],
+      "parameters": {
+        "jsCode": "const uploadResponse = $input.first().json || {};\nconst path = uploadResponse.path || '';\n\n// Must have a path from upload - no fallback to user input\nif (!path) {\n  return [{ json: { valid: false, error: 'No audio path returned from upload service' } }];\n}\n\n// Strict validation: must be /tmp/<alphanumeric>.<ext>\nconst validPathPattern = /^\\/tmp\\/[a-zA-Z0-9_-]+\\.(wav|mp3|ogg|flac|webm)$/i;\n\n// Path traversal check\nconst traversalPattern = /(\\.\\.[/\\\\]|%2e%2e%2[fF]|%252e%252e%252[fF]|%2[fF]|%252[fF]|%00)/i;\n\nif (traversalPattern.test(path) || !validPathPattern.test(path)) {\n  return [{ json: { valid: false, error: 'Invalid upload response path: failed validation' } }];\n}\n\nreturn [{ json: { valid: true, path: path } }];"
+      },
+      "outputNodes": [],
+      "notesInFlow": false,
+      "notes": "Validates upload response path: must be /tmp/<alphanumeric>.<ext>, no traversal. No fallback to user input."
+    },
+    {
+      "id": "check_upload_valid",
+      "type": "if",
+      "name": "Check Upload Valid",
+      "position": [
+        850,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "type": "boolean"
+          },
+          "conditions": [
+            {
+              "id": "cond1",
+              "leftValue": "={{ $json.valid }}",
+              "operator": {
+                "name": "equal",
+                "type": "boolean"
+              },
+              "rightValue": true
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "outputNodes": [],
+      "notesInFlow": false,
+      "notes": "Branch based on upload path validation"
+    },
+    {
+      "id": "upload_error_response",
+      "type": "respondToWebhook",
+      "name": "Upload Error Response",
+      "position": [
+        850,
+        500
+      ],
+      "parameters": {
+        "statusCode": 400,
+        "body": "={{ JSON.stringify({ error: $('Validate Upload Path').item.json.error || 'Upload validation failed' }) }}",
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      },
+      "outputNodes": [],
+      "notesInFlow": false,
+      "notes": "Return HTTP 400 for upload path validation failures"
+    },
+    {
       "id": 3,
       "type": "httpRequest",
       "name": "RVC Convert",
       "position": [
-        900,
+        1000,
         300
       ],
       "parameters": {
@@ -136,7 +202,7 @@
         "path": "/convert",
         "body": {
           "mimeType": "application/json",
-          "raw": "={{ JSON.stringify({ model: $('Check Valid').item.json.model || 'default', audio_path: $json.path, pitch: $('Check Valid').item.json.pitch || 0, f0_method: $('Check Valid').item.json.f0_method || 'rmvpe' }) }}"
+          "raw": "={{ JSON.stringify({ model: $('Check Valid').item.json.model || 'default', audio_path: $('Check Upload Valid').item.json.path, pitch: $('Check Valid').item.json.pitch || 0, f0_method: $('Check Valid').item.json.f0_method || 'rmvpe' }) }}"
         },
         "options": {
           "timeout": 300000,
@@ -145,14 +211,14 @@
       },
       "outputNodes": [],
       "notesInFlow": false,
-      "notes": "Convert uploaded voice using RVC model. Hard-fails if upload path is suspicious (no fallback to user input)."
+      "notes": "Convert uploaded voice using RVC model. Uses validated upload path only."
     },
     {
       "id": "success_response",
       "type": "respondToWebhook",
       "name": "Success Response",
       "position": [
-        1100,
+        1200,
         300
       ],
       "parameters": {
@@ -171,7 +237,7 @@
       "type": "Discord",
       "name": "Discord Notification",
       "position": [
-        1100,
+        1200,
         500
       ],
       "parameters": {
@@ -231,7 +297,38 @@
       "main": [
         [
           {
+            "node": "validate_upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "validate_upload": {
+      "main": [
+        [
+          {
+            "node": "check_upload_valid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check_upload_valid": {
+      "main": [
+        [
+          {
             "node": 3,
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "false": [
+        [
+          {
+            "node": "upload_error_response",
             "type": "main",
             "index": 0
           }
