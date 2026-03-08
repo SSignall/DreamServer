@@ -40,7 +40,7 @@
     },
     {
       "parameters": {
-        "functionCode": "// Process Bark TTS response\nconst body = $json;\nconst audioBase64 = body.audio_base64 || '';\nconst sampleRate = body.sample_rate || 24000;\nconst format = body.format || 'wav';\n\nreturn [{\n  json: {\n    success: audioBase64.length > 0,\n    sample_rate: sampleRate,\n    format: format,\n    audio_size_bytes: audioBase64.length,\n    timestamp: new Date().toISOString()\n  },\n  binary: {\n    data: {\n      data: audioBase64,\n      mimeType: 'audio/' + format\n    }\n  }\n}];"
+        "jsCode": "// Process Bark TTS response\nconst body = $json;\nconst audioBase64 = body.audio_base64 || '';\nconst sampleRate = body.sample_rate || 24000;\nconst format = body.format || 'wav';\n\nreturn [{\n  json: {\n    success: audioBase64.length > 0,\n    sample_rate: sampleRate,\n    format: format,\n    audio_size_bytes: audioBase64.length,\n    timestamp: new Date().toISOString()\n  },\n  binary: {\n    data: {\n      data: audioBase64,\n      mimeType: 'audio/' + format\n    }\n  }\n}];"
       },
       "id": "process-bark-response",
       "name": "Process Bark Response",

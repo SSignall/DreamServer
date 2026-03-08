@@ -31,7 +31,7 @@
     },
     {
       "parameters": {
-        "functionCode": "// Process voices list\nconst voices = $json;\nconst language = $json.language || 'english';\nconst voiceList = voices[language] || voices.english || [];\n\nreturn [{\n  json: {\n    language: language,\n    total_voices: voiceList.length,\n    voices: voiceList,\n    available_languages: Object.keys(voices),\n    timestamp: new Date().toISOString()\n  }\n}];"
+        "jsCode": "// Process voices list\nconst voices = $json;\nconst language = $json.language || 'english';\nconst voiceList = voices[language] || voices.english || [];\n\nreturn [{\n  json: {\n    language: language,\n    total_voices: voiceList.length,\n    voices: voiceList,\n    available_languages: Object.keys(voices),\n    timestamp: new Date().toISOString()\n  }\n}];"
       },
       "id": "process-voices-response",
       "name": "Process Voices Response",

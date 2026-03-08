@@ -31,7 +31,7 @@
     },
     {
       "parameters": {
-        "functionCode": "// Process models list\nconst body = $json;\nconst models = body.data || [];\n\nreturn [{\n  json: {\n    total_models: models.length,\n    models: models.map(m => ({\n      id: m.id,\n      object: m.object,\n      owned_by: m.owned_by\n    })),\n    timestamp: new Date().toISOString()\n  }\n}];"
+        "jsCode": "// Process models list\nconst body = $json;\nconst models = body.data || [];\n\nreturn [{\n  json: {\n    total_models: models.length,\n    models: models.map(m => ({\n      id: m.id,\n      object: m.object,\n      owned_by: m.owned_by\n    })),\n    timestamp: new Date().toISOString()\n  }\n}];"
       },
       "id": "process-models-response",
       "name": "Process Models Response",

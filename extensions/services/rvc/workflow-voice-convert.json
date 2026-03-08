@@ -63,7 +63,7 @@
       "position": [1000, 300],
       "parameters": {
         "webhookUrl": "={{ $env.DISCORD_WEBHOOK_URL || '' }}",
-        "text": "Voice conversion complete! Download: `{{ $item().json.download_url }}`",
+        "text": "={{ 'Voice conversion complete! Download: ' + ($item().json.download_url || 'N/A') }}",
         "username": "RVC Bot"
       },
       "outputNodes": [],

@@ -40,7 +40,7 @@
     },
     {
       "parameters": {
-        "functionCode": "// Process chat completion response\nconst body = $json;\nconst choice = body.choices && body.choices[0] ? body.choices[0] : null;\nconst message = choice ? choice.message : null;\nconst content = message ? message.content : '';\nconst usage = body.usage || {};\n\nreturn [{\n  json: {\n    success: content.length > 0,\n    content: content,\n    role: message ? message.role : 'assistant',\n    model: body.model || 'unknown',\n    prompt_tokens: usage.prompt_tokens || 0,\n    completion_tokens: usage.completion_tokens || 0,\n    total_tokens: usage.total_tokens || 0,\n    finish_reason: choice ? choice.finish_reason : 'unknown',\n    timestamp: new Date().toISOString()\n  }\n}];"
+        "jsCode": "// Process chat completion response\nconst body = $json;\nconst choice = body.choices && body.choices[0] ? body.choices[0] : null;\nconst message = choice ? choice.message : null;\nconst content = message ? message.content : '';\nconst usage = body.usage || {};\n\nreturn [{\n  json: {\n    success: content.length > 0,\n    content: content,\n    role: message ? message.role : 'assistant',\n    model: body.model || 'unknown',\n    prompt_tokens: usage.prompt_tokens || 0,\n    completion_tokens: usage.completion_tokens || 0,\n    total_tokens: usage.total_tokens || 0,\n    finish_reason: choice ? choice.finish_reason : 'unknown',\n    timestamp: new Date().toISOString()\n  }\n}];"
       },
       "id": "process-textgen-response",
       "name": "Process TextGen Response",

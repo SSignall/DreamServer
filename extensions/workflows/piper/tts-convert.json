@@ -40,7 +40,7 @@
     },
     {
       "parameters": {
-        "functionCode": "// Process TTS audio response\nconst body = $json;\nconst audioBase64 = body.audio || body.audio_base64 || '';\nconst duration = body.duration || 0;\nconst speaker = body.speaker || 'default';\n\nreturn [{\n  json: {\n    success: audioBase64.length > 0,\n    speaker: speaker,\n    duration_seconds: duration,\n    audio_size_bytes: audioBase64.length,\n    timestamp: new Date().toISOString()\n  },\n  binary: {\n    data: {\n      data: audioBase64,\n      mimeType: 'audio/wav'\n    }\n  }\n}];"
+        "jsCode": "// Process TTS audio response\nconst body = $json;\nconst audioBase64 = body.audio || body.audio_base64 || '';\nconst duration = body.duration || 0;\nconst speaker = body.speaker || 'default';\n\nreturn [{\n  json: {\n    success: audioBase64.length > 0,\n    speaker: speaker,\n    duration_seconds: duration,\n    audio_size_bytes: audioBase64.length,\n    timestamp: new Date().toISOString()\n  },\n  binary: {\n    data: {\n      data: audioBase64,\n      mimeType: 'audio/wav'\n    }\n  }\n}];"
       },
       "id": "process-tts-response",
       "name": "Process TTS Response",
