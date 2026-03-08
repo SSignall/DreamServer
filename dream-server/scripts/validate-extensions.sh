@@ -18,7 +18,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-EXT_DIR="$PROJECT_DIR/extensions/services"
+# Extensions live at repo root, not inside dream-server/
+EXT_DIR="$(dirname "$PROJECT_DIR")/extensions/services"
 STRICT=false
 
 [[ "${1:-}" == "--strict" ]] && STRICT=true

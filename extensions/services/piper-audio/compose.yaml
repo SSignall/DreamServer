@@ -22,6 +22,14 @@ services:
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
     healthcheck:
       test: ["CMD-SHELL", "echo '{\"type\": \"describe\"}' | nc localhost 10200 || exit 1"]
       interval: 30s

@@ -15,7 +15,12 @@ services:
       - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3}
     deploy:
       resources:
+        limits:
+          cpus: '4'
+          memory: 8G
         reservations:
+          cpus: '1'
+          memory: 2G
           devices:
             - driver: nvidia
               count: all

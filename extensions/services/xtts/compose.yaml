@@ -16,7 +16,12 @@ services:
       - no-new-privileges:true
     deploy:
       resources:
+        limits:
+          cpus: '2'
+          memory: 4G
         reservations:
+          cpus: '0.5'
+          memory: 1G
           devices:
             - capabilities: ["gpu"]
     healthcheck:

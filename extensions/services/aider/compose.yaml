@@ -24,13 +24,15 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2.0'
-          memory: 2G
-        reservations:
-          cpus: '0.5'
+          cpus: '1'
           memory: 512M
     networks:
       - dream-network
+    healthcheck:
+      test: ["CMD", "true"]
+      interval: 30s
+      timeout: 5s
+      retries: 1
     command: ["sh", "-c", "echo 'Run: docker compose run --rm aider <files>'"]
 
 networks:
