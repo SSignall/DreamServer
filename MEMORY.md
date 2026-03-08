@@ -1045,6 +1045,34 @@ if (a.length !== b.length) return false;
 
 ---
 
+### 2026-03-08 — Flip-flop Follow-up (QA Ping)
+
+**Trigger:** Todd's follow-up QA check
+
+**Issue 1: `6e21d80b` Flip-flop** — ✅ FIXED IN HEAD
+
+| Commit | Action | Status |
+|--------|--------|--------|
+| `ba6a8fcf` | Removed dangerous `.gitconfig`/`.ssh` mounts | ✅ |
+| `6e21d80b` | Re-added dangerous mounts (flip-flop) | ❌ |
+| HEAD | Mounts commented out | ✅ Fixed |
+
+**Root Cause:** 16 should check working tree before committing to avoid re-adding changes that were previously reverted.
+
+**Issue 2: `ba6a8fcf` Missing jupyter fix** — ✅ ALREADY FIXED
+
+- Commit message claimed to fix jupyter
+- Actual fix was in separate commit `c7723a49`
+- Verification: `./data/jupyter/workspace` present in HEAD
+- No `/home/michael/DreamServer` mount present
+
+**Current State:**
+- Aider: Mounts commented out ✅
+- Jupyter: Workspace subdirectory present ✅
+- All security issues resolved ✅
+
+---
+
 ### 2026-03-08 — Android-18 Review Follow-up (GPU Detection)
 
 **Commit Review Trigger:** Android-18 ping for commit `a5ae4f4c` review
