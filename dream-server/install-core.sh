@@ -67,6 +67,7 @@ INTERACTIVE=true
 DREAM_MODE="${DREAM_MODE:-local}"
 OFFLINE_MODE=false   # M1 integration: fully air-gapped operation
 SUMMARY_JSON_FILE="${SUMMARY_JSON_FILE:-}"
+INSTALL_CHOICE=""    # 1=Full Stack, 2=Core Only, 3=Custom (auto-set in non-interactive mode)
 
 usage() {
     cat << EOF
@@ -86,6 +87,7 @@ Options:
     --openclaw        Enable OpenClaw AI agent framework
     --all             Enable all optional services
     --non-interactive Run without prompts (use defaults or flags)
+    --core-only       Non-interactive with Core Only install (no optional services)
     --offline         M1 mode: Configure for fully offline/air-gapped operation
     --summary-json P  Write machine-readable install summary JSON to path P
     -h, --help        Show this help
@@ -124,7 +126,8 @@ while [[ $# -gt 0 ]]; do
         --rag) ENABLE_RAG=true; shift ;;
         --openclaw) ENABLE_OPENCLAW=true; shift ;;
         --all) ENABLE_VOICE=true; ENABLE_WORKFLOWS=true; ENABLE_RAG=true; ENABLE_OPENCLAW=true; shift ;;
-        --non-interactive) INTERACTIVE=false; shift ;;
+        --non-interactive) INTERACTIVE=false; INSTALL_CHOICE=1; shift ;;
+        --core-only) INTERACTIVE=false; INSTALL_CHOICE=2; shift ;;
         --offline) OFFLINE_MODE=true; shift ;;
         --summary-json) SUMMARY_JSON_FILE="$2"; shift 2 ;;
         -h|--help) usage ;;
@@ -135,6 +138,29 @@ done
 # Detect distro + package manager (after arg parsing so --help still shows
 # the correct VERSION before /etc/os-release overwrites it)
 detect_pkg_manager
+
+#=============================================================================
+# Apply INSTALL_CHOICE defaults in non-interactive mode
+#=============================================================================
+if [[ -n "$INSTALL_CHOICE" ]]; then
+    case "$INSTALL_CHOICE" in
+        1) # Full Stack - all features enabled
+            ENABLE_VOICE=true
+            ENABLE_WORKFLOWS=true
+            ENABLE_RAG=true
+            ENABLE_OPENCLAW=true
+            ;;
+        2) # Core Only - no optional services
+            ENABLE_VOICE=false
+            ENABLE_WORKFLOWS=false
+            ENABLE_RAG=false
+            ENABLE_OPENCLAW=false
+            ;;
+        3) # Custom - use explicit flags
+            # Keep defaults or flags
+            ;;
+    esac
+fi
 
 #=============================================================================
 # Splash
