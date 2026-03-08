@@ -9,7 +9,7 @@
   "nodes": [
     {
       "id": "webhook",
-      "type": "webhook",
+      "type": "n8n-nodes-base.webhook",
       "name": "Webhook",
       "position": [
         400,
@@ -23,11 +23,12 @@
       },
       "outputNodes": [],
       "notesInFlow": false,
-      "notes": "Trigger Bark TTS via webhook. Expected JSON: { text, voice_preset?, output_format? }. API key via X-API-Key header only (no body fallback). Set BARK_API_KEY env var to enable auth."
+      "notes": "Trigger Bark TTS via webhook. Expected JSON: { text, voice_preset?, output_format? }. API key via X-API-Key header only (no body fallback). Set BARK_API_KEY env var to enable auth.",
+      "typeVersion": 1
     },
     {
       "id": "validate_input",
-      "type": "code",
+      "type": "n8n-nodes-base.code",
       "name": "Validate Input",
       "position": [
         550,
@@ -38,42 +39,44 @@
       },
       "outputNodes": [],
       "notesInFlow": false,
-      "notes": "SECURITY: Input validation with text length limit, voice preset whitelist, format whitelist. Timing-safe API key auth (header only, no body fallback, early length check prevents null-byte attacks)."
+      "notes": "SECURITY: Input validation with text length limit, voice preset whitelist, format whitelist. Timing-safe API key auth (header only, no body fallback, early length check prevents null-byte attacks).",
+      "typeVersion": 1
     },
     {
       "id": "check_valid",
-      "type": "if",
+      "type": "n8n-nodes-base.if",
       "name": "Check Valid",
       "position": [
         700,
         300
       ],
       "parameters": {
-        "conditions": {
-          "options": {
-            "type": "boolean"
-          },
-          "conditions": [
-            {
-              "id": "cond1",
-              "leftValue": "={{ $json.valid }}",
-              "operator": {
-                "name": "equal",
-                "type": "boolean"
-              },
-              "rightValue": true
-            }
-          ],
-          "combinator": "and"
+        "conditions": [
+          {
+            "id": "cond1",
+            "leftValue": "={{ $json.valid }}",
+            "operator": {
+              "operation": "equals",
+              "type": "boolean"
+            },
+            "rightValue": true
+          }
+        ],
+        "combineOperation": "all",
+        "options": {
+          "caseSensitive": true,
+          "leftValue": "",
+          "typeValidation": "strict"
         }
       },
       "outputNodes": [],
       "notesInFlow": false,
-      "notes": "Branch based on validation result. True branch continues to Bark TTS Request, false branch goes to Error Response."
+      "notes": "Branch based on validation result. True branch continues to Bark TTS Request, false branch goes to Error Response.",
+      "typeVersion": 1
     },
     {
       "id": "error_response",
-      "type": "respondToWebhook",
+      "type": "n8n-nodes-base.respondToWebhook",
       "name": "Error Response",
       "position": [
         700,
@@ -88,11 +91,12 @@
       },
       "outputNodes": [],
       "notesInFlow": false,
-      "notes": "Return HTTP 400 for validation errors. Configured as response node for webhook responseMode."
+      "notes": "Return HTTP 400 for validation errors. Configured as response node for webhook responseMode.",
+      "typeVersion": 1
     },
     {
       "id": "bark_request",
-      "type": "httpRequest",
+      "type": "n8n-nodes-base.httpRequest",
       "name": "Bark TTS Request",
       "position": [
         850,
@@ -112,11 +116,12 @@
       },
       "outputNodes": [],
       "notesInFlow": false,
-      "notes": "Forward validated inputs to Bark TTS service. 5 min timeout, 100MB max response."
+      "notes": "Forward validated inputs to Bark TTS service. 5 min timeout, 100MB max response.",
+      "typeVersion": 1
     },
     {
       "id": "save_audio",
-      "type": "code",
+      "type": "n8n-nodes-base.code",
       "name": "Save Audio",
       "position": [
         1000,
@@ -127,11 +132,12 @@
       },
       "outputNodes": [],
       "notesInFlow": false,
-      "notes": "Save audio file to disk with path traversal protection. Sanitizes filename, validates resolved path within output directory, enforces 100MB max size."
+      "notes": "Save audio file to disk with path traversal protection. Sanitizes filename, validates resolved path within output directory, enforces 100MB max size.",
+      "typeVersion": 1
     },
     {
       "id": "success_response",
-      "type": "respondToWebhook",
+      "type": "n8n-nodes-base.respondToWebhook",
       "name": "Success Response",
       "position": [
         1000,
@@ -146,23 +152,25 @@
       },
       "outputNodes": [],
       "notesInFlow": false,
-      "notes": "Return successful response with audio details. Configured as response node for webhook responseMode. Returns immediately after Bark TTS Request (parallel to Save Audio)."
+      "notes": "Return successful response with audio details. Configured as response node for webhook responseMode. Returns immediately after Bark TTS Request (parallel to Save Audio).",
+      "typeVersion": 1
     },
     {
       "id": "discord_notify",
-      "type": "discord",
+      "type": "n8n-nodes-base.discord",
       "name": "Discord Notification",
       "position": [
         1150,
         300
       ],
       "parameters": {
-        "channel": "={{ '#' + ($('Webhook').first().json.channel || 'general').replace(/^[#]+/, '') }}",
-        "text": "={{ 'Bark TTS complete! File: ' + $('Save Audio').item.json.filename + ' Size: ' + Math.round($('Save Audio').item.json.size_bytes / 1024) + 'KB' }}"
+        "webhookUri": "={{ $env.DISCORD_WEBHOOK_URL || \"\" }}",
+        "text": "={{ \"Bark TTS complete! File: \" + $(\"Save Audio\").item.json.filename + \" Size: \" + Math.round($(\"Save Audio\").item.json.size_bytes / 1024) + \"KB\" }}"
       },
       "outputNodes": [],
       "notesInFlow": false,
-      "notes": "Send Discord notification with audio file details."
+      "notes": "Send Discord notification with audio file details.",
+      "typeVersion": 1
     }
   ],
   "connections": {

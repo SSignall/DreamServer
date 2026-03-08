@@ -133,7 +133,8 @@
     {
       "parameters": {
         "channel": "={{ $json.channel || 'general' }}",
-        "text": "={{ '*RVC Voice Conversion Complete* \ud83c\udf99\ufe0f\\n\\n**Model:** ' + ($json.model || 'unknown') + '\\n**Pitch Shift:** ' + ($json.pitch || 0) + ' semitones\\n**F0 Method:** ' + ($json.f0_method || 'rmvpe') + '\\n\\n**Download:** ' + ($json.download_url || 'N/A') + '\\n\\n\u2705 Voice conversion finished!' }}"
+        "text": "={{ '*RVC Voice Conversion Complete* \ud83c\udf99\ufe0f\\n\\n**Model:** ' + ($json.model || 'unknown') + '\\n**Pitch Shift:** ' + ($json.pitch || 0) + ' semitones\\n**F0 Method:** ' + ($json.f0_method || 'rmvpe') + '\\n\\n**Download:** ' + ($json.download_url || 'N/A') + '\\n\\n\u2705 Voice conversion finished!' }}",
+        "webhookUri": "={{ $json.channel || 'general' }}"
       },
       "id": "discord-output",
       "name": "Discord Output",
@@ -147,7 +148,8 @@
     {
       "parameters": {
         "channel": "={{ $('Webhook Trigger').first().json.channel || 'general' }}",
-        "text": "={{ '*RVC Conversion Failed* \u274c\\n\\n**Error:** ' + (($input.all()[0]?.error?.message || $input.all()[0]?.error?.description || 'Unknown error')).toString().slice(0, 997).trimEnd() + '\\n\\nPlease check:\\n- RVC service is running\\n- Model name is valid (alphanumeric, dash, underscore)\\n- Audio file is provided\\n- Pitch is between -12 and 12\\n- f0_method is valid (harvest, pm, dio, rmvpe, crepe, etc.)\\n- GPU has sufficient VRAM' }}"
+        "text": "={{ '*RVC Conversion Failed* \u274c\\n\\n**Error:** ' + (($input.all()[0]?.error?.message || $input.all()[0]?.error?.description || 'Unknown error')).toString().slice(0, 997).trimEnd() + '\\n\\nPlease check:\\n- RVC service is running\\n- Model name is valid (alphanumeric, dash, underscore)\\n- Audio file is provided\\n- Pitch is between -12 and 12\\n- f0_method is valid (harvest, pm, dio, rmvpe, crepe, etc.)\\n- GPU has sufficient VRAM' }}",
+        "webhookUri": "={{ $('Webhook Trigger').first().json.channel || 'general' }}"
       },
       "id": "discord-error",
       "name": "Discord Error",

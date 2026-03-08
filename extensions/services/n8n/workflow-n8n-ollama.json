@@ -83,7 +83,8 @@
     {
       "parameters": {
         "channel": "={{ $json.channel || '#general' }}",
-        "text": "={{ '*Ollama Response*\n\n**Model:** ' + ($json.model || 'unknown') + '\n**Tokens:** ' + ($json.tokens_used || 0) + ' | **Time:** ' + ($json.duration_seconds || 0) + 's\n\n' + ($json.response || '').toString().slice(0, 1750) }}"
+        "text": "={{ '*Ollama Response*\n\n**Model:** ' + ($json.model || 'unknown') + '\n**Tokens:** ' + ($json.tokens_used || 0) + ' | **Time:** ' + ($json.duration_seconds || 0) + 's\n\n' + ($json.response || '').toString().slice(0, 1750) }}",
+        "webhookUri": "={{ $json.channel || '#general' }}"
       },
       "id": "discord-output",
       "name": "Discord Output",
@@ -98,7 +99,8 @@
     {
       "parameters": {
         "channel": "={{ $('Webhook Trigger').first().json.channel || '#general' }}",
-        "text": "={{ '*Ollama Chat Failed*\n\n**Error:** ' + (($input.all()[0]?.error?.message || $input.all()[0]?.error?.description || 'Unknown error')).toString().slice(0, 997).trimEnd() + '\n\nPlease check the Ollama service and try again.' }}"
+        "text": "={{ '*Ollama Chat Failed*\n\n**Error:** ' + (($input.all()[0]?.error?.message || $input.all()[0]?.error?.description || 'Unknown error')).toString().slice(0, 997).trimEnd() + '\n\nPlease check the Ollama service and try again.' }}",
+        "webhookUri": "={{ $('Webhook Trigger').first().json.channel || '#general' }}"
       },
       "id": "discord-error",
       "name": "Discord Error",
@@ -176,6 +178,6 @@
     }
   },
   "meta": {
-    "instanceId": "ollama-workflow-v1"
+    "instanceId": "ollama-workflow-v2"
   }
 }

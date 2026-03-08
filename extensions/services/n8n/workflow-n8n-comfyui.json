@@ -14,7 +14,10 @@
       "comment": "Accepts JSON: { prompt (required), width (optional, default 1024), height (optional, default 1024), steps (optional, default 20), cfg (optional, default 8.0), seed (optional, random if not set), channel (optional) }",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
-      "position": [250, 300]
+      "position": [
+        250,
+        300
+      ]
     },
     {
       "parameters": {
@@ -24,7 +27,10 @@
       "name": "Validate Input",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
-      "position": [450, 300],
+      "position": [
+        450,
+        300
+      ],
       "comment": "Validates prompt is present and within limits. Clamps dimensions/steps/CFG to safe ranges."
     },
     {
@@ -48,7 +54,10 @@
       "name": "Queue Prompt",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 1,
-      "position": [650, 300]
+      "position": [
+        650,
+        300
+      ]
     },
     {
       "parameters": {
@@ -58,31 +67,42 @@
       "name": "Process Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
-      "position": [850, 300],
+      "position": [
+        850,
+        300
+      ],
       "comment": "Uses $('Validate Input') to access validated payload fields directly"
     },
     {
       "parameters": {
         "channel": "={{ $json.channel || '#general' }}",
-        "text": "={{ '*ComfyUI Image Queued* 🎨\\n\\n**Prompt:** ' + (($json.prompt || '').toString().slice(0, 97).trimEnd()) + (($json.prompt || '').length > 97 ? '...' : '') + '\\n**Size:** ' + ($json.width || 1024) + 'x' + ($json.height || 1024) + '\\n**Steps:** ' + ($json.steps || 20) + ' | **CFG:** ' + ($json.cfg || 8.0) + '\\n**Seed:** ' + ($json.seed || 'random') + '\\n\\n**Prompt ID:** `' + ($json.prompt_id || 'unknown') + '`\\n**Queue #:** ' + ($json.queue_number || 0) + '\\n\\n✅ Image generation started! Check ComfyUI for results.' }}"
+        "text": "={{ '*ComfyUI Image Queued* \ud83c\udfa8\\n\\n**Prompt:** ' + (($json.prompt || '').toString().slice(0, 97).trimEnd()) + (($json.prompt || '').length > 97 ? '...' : '') + '\\n**Size:** ' + ($json.width || 1024) + 'x' + ($json.height || 1024) + '\\n**Steps:** ' + ($json.steps || 20) + ' | **CFG:** ' + ($json.cfg || 8.0) + '\\n**Seed:** ' + ($json.seed || 'random') + '\\n\\n**Prompt ID:** `' + ($json.prompt_id || 'unknown') + '`\\n**Queue #:** ' + ($json.queue_number || 0) + '\\n\\n\u2705 Image generation started! Check ComfyUI for results.' }}",
+        "webhookUri": "={{ $json.channel || '#general' }}"
       },
       "id": "discord-output",
       "name": "Discord Output",
       "type": "n8n-nodes-base.discord",
       "typeVersion": 1,
-      "position": [1050, 300],
+      "position": [
+        1050,
+        300
+      ],
       "comment": "Sends queue confirmation with clean prompt truncation (ellipsis)"
     },
     {
       "parameters": {
         "channel": "={{ $('Webhook Trigger').first().json.channel || '#general' }}",
-        "text": "={{ '*ComfyUI Generation Failed* ❌\\n\\n**Error:** ' + (($input.all()[0]?.error?.message || $input.all()[0]?.error?.description || 'Unknown error')).toString().slice(0, 997).trimEnd() + '\\n\\nPlease check:\\n- ComfyUI service is running\\n- FLUX.1 model is loaded\\n- GPU has sufficient VRAM' }}"
+        "text": "={{ '*ComfyUI Generation Failed* \u274c\\n\\n**Error:** ' + (($input.all()[0]?.error?.message || $input.all()[0]?.error?.description || 'Unknown error')).toString().slice(0, 997).trimEnd() + '\\n\\nPlease check:\\n- ComfyUI service is running\\n- FLUX.1 model is loaded\\n- GPU has sufficient VRAM' }}",
+        "webhookUri": "={{ $('Webhook Trigger').first().json.channel || '#general' }}"
       },
       "id": "discord-error",
       "name": "Discord Error",
       "type": "n8n-nodes-base.discord",
       "typeVersion": 1,
-      "position": [650, 500],
+      "position": [
+        650,
+        500
+      ],
       "comment": "Uses $('Webhook Trigger') for channel (available when validation fails); $input.all()[0].error for error details"
     }
   ],
