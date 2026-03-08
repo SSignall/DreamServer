@@ -327,18 +327,36 @@ I get pinged every 15 minutes by the ping bot (Android-18). On each ping:
 
 ## Scratch Notes (Added by 16 — will be archived on reset)
 
-**2026-03-07 19:05 EST - Status after redirect:**
+**2026-03-07 19:20 EST - Status after Fooocus build:**
 - Ollama extension (Wave 1 #1) — ✅ Built and pushed
-- SillyTavern extension (Wave 1 #2) — ✅ Built and pushed
-- Branch `16/upstream-pins` pushed to dev repo with 8 commits
-- Installer testing on .143 — halted waiting for user input
-- Next: Build Dify, Fooocus, ChromaDB, Piper TTS, Aider, RVC, Jupyter, Immich
+- SillyTavern extension (Wave 1 #2) — ✅ Built and pushed  
+- Dify extension (Wave 1 #3) — ✅ Pre-existing, already committed
+- Fooocus extension (Wave 1 #4) — ✅ Built and pushed
+- Remaining Wave 1: ChromaDB, Piper TTS, Aider, RVC, Jupyter, Immich
 
-**Push command that worked:**
-```bash
-git push dev 16/upstream-pins
-```
-The dev repo is `git@github-ssignall:SSignall/Lighthouse-AI-Dev.git`
+**Extensions Built by Android-16 (2026-03-07):**
+1. Ollama - Alternative LLM backend
+2. SillyTavern - Character/roleplay chat UI
+3. Fooocus - Image generation UI
 
-**Extension structure note:**
-Extensions live in `./dream-server/extensions/services/` not `./extensions/services/`
+**Technical Notes:**
+- Extension structure: `dream-server/extensions/services/<name>/` with `manifest.yaml`, `compose.yaml`, `README.md`
+- Image tags must be pinned (not `:latest` or `:main`) - using `:edge` for Fooocus
+- Health endpoints: check upstream docs, use `wget` in healthcheck
+- Data persistence: `./data/<name>/` volumes
+- GPU backends: `[amd, nvidia]` for most services
+- Services connect to LLM via `${LLM_API_URL}` (from `.env`)
+
+**Wave 1 Extensions Priority:**
+| # | Extension | Upstream Image | Status |
+|---|-----------|----------------|--------|
+| 1 | Ollama | `ollama/ollama` | ✅ Done |
+| 2 | SillyTavern | `ghcr.io/sillytavern/sillytavern` | ✅ Done |
+| 3 | Dify | `langgenius/dify-*` | ✅ Done |
+| 4 | Fooocus | `ghcr.io/lllyasviel/fooocus` | ✅ Done |
+| 5 | ChromaDB | `chromadb/chroma` | ⏳ Next |
+| 6 | Piper TTS | `rhasspy/wyoming-piper` | |
+| 7 | Aider | pip package | |
+| 8 | RVC | community image | |
+| 9 | Jupyter | `jupyter/scipy-notebook` | |
+| 10 | Immich | `ghcr.io/immich-app/immich-server` | |
