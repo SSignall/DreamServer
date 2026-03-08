@@ -10,7 +10,7 @@ service:
   port: 8888
   external_port_env: JUPYTER_PORT
   external_port_default: 8888
-  health: /api
+  health: /tree
   type: docker
   gpu_backends: [amd, nvidia]
   compose_file: compose.yaml

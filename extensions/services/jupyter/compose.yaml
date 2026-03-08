@@ -9,7 +9,7 @@ services:
     volumes:
       - ./data/jupyter/workspaces:/home/jovyan/work
       - ./data/jupyter/notebooks:/home/jovyan/notebooks
-      - ${PWD}:/home/jovyan/workspace
+      - jupyter-workspace:/home/jovyan/workspace
     environment:
       - LLM_API_URL=${LLM_API_URL:-http://localhost:8000}
       - JUPYTER_TOKEN=${JUPYTER_TOKEN:-jupyter}
@@ -31,6 +31,9 @@ services:
       start_period: 60s
     networks:
       - dream-network
+
+volumes:
+  jupyter-workspace:
 
 networks:
   dream-network:

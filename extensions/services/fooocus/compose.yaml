@@ -18,6 +18,8 @@ services:
       timeout: 10s
       retries: 3
       start_period: 120s
+    networks:
+      - dream-network
     deploy:
       resources:
         limits:
@@ -26,3 +28,7 @@ services:
         reservations:
           cpus: '0.5'
           memory: 2G
+
+networks:
+  dream-network:
+    external: true

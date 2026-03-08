@@ -49,7 +49,7 @@ services:
     environment:
       - POSTGRES_DB=paperless
       - POSTGRES_USER=paperless
-      - POSTGRES_PASSWORD=paperless
+      - POSTGRES_PASSWORD=${PAPERLESS_DB_PASSWORD:-paperless}
     volumes:
       - ./data/paperless/postgres:/var/lib/postgresql/data
     ports:

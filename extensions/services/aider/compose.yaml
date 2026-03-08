@@ -6,8 +6,7 @@ services:
     container_name: aider
     volumes:
       - ./data/aider:/app
-      - ${HOME}/.gitconfig:/home/aider/.gitconfig:ro
-      - ${HOME}/.ssh:/home/aider/.ssh:ro
+      - aider-gitconfig:/home/aider/.gitconfig:ro
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
@@ -29,6 +28,9 @@ services:
     networks:
       - dream-network
     command: ["sh", "-c", "echo 'Run: docker compose run --rm aider <files>'"]
+
+volumes:
+  aider-gitconfig:
 
 networks:
   dream-network:
