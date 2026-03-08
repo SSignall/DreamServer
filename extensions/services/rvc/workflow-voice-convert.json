@@ -3,7 +3,7 @@
   "meta": {
     "title": "RVC Voice Conversion",
     "description": "Convert voices using RVC local AI",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "type": "workflow"
   },
   "nodes": [
@@ -15,7 +15,7 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "rvc-convert",
-        "responseMode": "lastNode",
+        "responseMode": "responseNode",
         "options": {}
       },
       "outputNodes": [],
@@ -28,17 +28,63 @@
       "name": "Validate Input",
       "position": [500, 300],
       "parameters": {
-        "jsCode": "const model = $input.first().json.model || '';\nconst audioPath = $input.first().json.audio_path || '';\n\n// Path traversal detection: check for ../, ..\\\\, and encoded variants\nconst pathTraversalPattern = /(\\.\\.[/\\\\]|%2e%2e[/\\\\]|\\.\\.\\\\x5c)/i;\n\n// Check model name (alphanumeric, dash, underscore only)\nconst validModelPattern = /^[a-zA-Z0-9_-]+$/;\n\nif (pathTraversalPattern.test(model) || pathTraversalPattern.test(audioPath)) {\n  return [{\n    json: {\n      error: 'Path traversal detected: model and audio_path must not contain directory traversal sequences',\n      status: 400\n    }\n  }];\n}\n\nif (model && !validModelPattern.test(model)) {\n  return [{\n    json: {\n      error: 'Invalid model name: must be alphanumeric, dash, or underscore only',\n      status: 400\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    model: model || 'default',\n    audio: $input.first().json.audio,\n    audio_path: audioPath\n  }\n}];"
+        "jsCode": "const model = $input.first().json.model || '';\nconst audioPath = $input.first().json.audio_path || '';\n\n// Path traversal detection: check for ../, ..\\\\, and encoded variants\nconst pathTraversalPattern = /(\\.\\.[/\\\\]|%2e%2e[/\\\\]|\\.\\.\\\\x5c)/i;\n\n// Check model name (alphanumeric, dash, underscore only - NO backslashes)\nconst validModelPattern = /^[a-zA-Z0-9_-]+$/;\n\nif (pathTraversalPattern.test(audioPath)) {\n  return [{\n    json: {\n      valid: false,\n      error: 'Path traversal detected: audio_path must not contain directory traversal sequences'\n    }\n  }];\n}\n\nif (model && !validModelPattern.test(model)) {\n  return [{\n    json: {\n      valid: false,\n      error: 'Invalid model name: must be alphanumeric, dash, or underscore only'\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    valid: true,\n    model: model || 'default',\n    audio: $input.first().json.audio,\n    audio_path: audioPath\n  }\n}];"
       },
       "outputNodes": [],
       "notesInFlow": false,
       "notes": "Validate inputs for path traversal and format"
     },
     {
+      "id": "check_valid",
+      "type": "if",
+      "name": "Check Valid",
+      "position": [600, 300],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "={{ $json.valid }}",
+            "type": "boolean"
+          },
+          "conditions": [
+            {
+              "id": "cond1",
+              "leftValue": "={{ $json.valid }}",
+              "operator": {
+                "name": "equal",
+                "type": "boolean"
+              },
+              "rightValue": true
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "outputNodes": [],
+      "notesInFlow": false,
+      "notes": "Branch based on validation result"
+    },
+    {
+      "id": "error_response",
+      "type": "respondToWebhook",
+      "name": "Error Response",
+      "position": [600, 500],
+      "parameters": {
+        "statusCode": 400,
+        "body": "={{ JSON.stringify({ error: $('Validate Input').item.json.error }) }}",
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      },
+      "outputNodes": [],
+      "notesInFlow": false,
+      "notes": "Return HTTP 400 for validation errors"
+    },
+    {
       "id": 2,
       "type": "httpRequest",
       "name": "RVC Upload Voice",
-      "position": [600, 300],
+      "position": [700, 300],
       "parameters": {
         "url": "={{ ($env.RVC_HOST || 'http://rvc:7865').replace(/\\/$/, '') }}",
         "method": "POST",
@@ -65,14 +111,14 @@
       "id": 3,
       "type": "httpRequest",
       "name": "RVC Convert",
-      "position": [800, 300],
+      "position": [900, 300],
       "parameters": {
         "url": "={{ ($env.RVC_HOST || 'http://rvc:7865').replace(/\\/$/, '') }}",
         "method": "POST",
         "path": "/convert",
         "body": {
           "mimeType": "application/json",
-          "raw": "={{ JSON.stringify({ model: $('Validate Input').item.json.model || 'default', audio_path: $('RVC Upload Voice').item.json.path || $('Validate Input').item.json.audio_path }) }}"
+          "raw": "={{ JSON.stringify({ model: $('Check Valid').item.json.model || 'default', audio_path: $('RVC Upload Voice').item.json.path || $('Check Valid').item.json.audio_path }) }}"
         },
         "options": {
           "timeout": 300000
@@ -83,13 +129,29 @@
       "notes": "Convert uploaded voice using RVC model (uses validated inputs)"
     },
     {
+      "id": "success_response",
+      "type": "respondToWebhook",
+      "name": "Success Response",
+      "position": [1100, 300],
+      "parameters": {
+        "statusCode": 200,
+        "body": "={{ JSON.stringify({ success: true, download_url: $json.download_url || $json.url || 'N/A' }) }}",
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      },
+      "outputNodes": [],
+      "notesInFlow": false,
+      "notes": "Return HTTP 200 with download URL"
+    },
+    {
       "id": 4,
       "type": "Discord",
       "name": "Discord Notification",
-      "position": [1000, 300],
+      "position": [1100, 500],
       "parameters": {
         "webhookUrl": "={{ $env.DISCORD_WEBHOOK_URL || '' }}",
-        "text": "={{ 'Voice conversion complete! Download: ' + ($json.download_url || 'N/A') }}",
+        "text": "={{ 'Voice conversion complete! Download: ' + ($json.download_url || $json.url || 'N/A') }}",
         "username": "RVC Bot"
       },
       "outputNodes": [],
@@ -113,7 +175,27 @@
       "main": [
         [
           {
-            "node": "2",
+            "node": "check_valid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check_valid": {
+      "main": [
+        [
+          {
+            "node": 2,
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "false": [
+        [
+          {
+            "node": "error_response",
             "type": "main",
             "index": 0
           }
@@ -124,7 +206,7 @@
       "main": [
         [
           {
-            "node": "3",
+            "node": 3,
             "type": "main",
             "index": 0
           }
@@ -135,7 +217,12 @@
       "main": [
         [
           {
-            "node": "4",
+            "node": "success_response",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": 4,
             "type": "main",
             "index": 0
           }
