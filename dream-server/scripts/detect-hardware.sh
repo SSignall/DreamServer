@@ -292,20 +292,25 @@ main() {
     local revision=""
 
     # Try NVIDIA first
-    local nvidia_out=$(detect_nvidia)
+    local nvidia_out
+    nvidia_out=$(detect_nvidia)
     if [[ -n "$nvidia_out" ]]; then
-        gpu_name=$(echo "$nvidia_out" | awk -F',' '{gsub(/^ +| +$/,"",$1); print $1}')
-        gpu_vram_mb=$(parse_nvidia_vram "$nvidia_out")
+        # Count GPUs and sum VRAM
+        local gpu_count
+        gpu_count=$(echo "$nvidia_out" | wc -l)
+        gpu_vram_mb=$(echo "$nvidia_out" | awk -F',' '{gsub(/^ +| +$/,"",$2); sum+=$2} END {print sum}')
+        
+        # Get first GPU name for display (all GPUs in a system are usually the same model)
+        gpu_name=$(echo "$nvidia_out" | awk -F',' '{gsub(/^ +| +$/,"",$1); print $1}' | head -1)
+        
         gpu_type="nvidia"
         gpu_architecture="cuda"
         memory_type="discrete"
-        # Extract PCI device ID from nvidia-smi
-        if command -v nvidia-smi &>/dev/null; then
-            local pci_id
-            pci_id=$(nvidia-smi --query-gpu=pci.device_id --format=csv,noheader 2>/dev/null | head -1 | xargs)
-            # nvidia-smi returns e.g. "0x26B110DE" — extract device portion (first 6 chars)
-            [[ -n "$pci_id" ]] && device_id="${pci_id:0:6}"
-        fi
+        
+        # Extract PCI device IDs for all GPUs
+        local pci_ids
+        pci_ids=$(nvidia-smi --query-gpu=pci.device_id --format=csv,noheader 2>/dev/null | xargs)
+        [[ -n "$pci_ids" ]] && device_id="${pci_ids:0:6}"
     fi
 
     # Try AMD if no NVIDIA
@@ -352,6 +357,7 @@ main() {
 
     # Determine tier
     # For unified memory AMD APUs, use system RAM — VRAM reports only GTT (unreliable)
+    # For multi-GPU, use total VRAM
     local tier tier_desc recommended_model
     if [[ "$memory_type" == "unified" && "$gpu_type" == "amd" ]]; then
         tier=$(get_strix_halo_tier "$ram")
@@ -361,10 +367,23 @@ main() {
     else
         tier=$(get_tier $gpu_vram_mb)
     fi
+    
+    # Override tier for multi-GPU setups (dual GPU = T4 minimum)
+    if [[ "$gpu_type" == "nvidia" && "$gpu_count" -ge 2 ]]; then
+        tier="T4"
+    fi
     tier_desc=$(tier_description $tier)
     recommended_model=$(tier_model $tier)
     local gpu_vram_gb=$((gpu_vram_mb / 1024))
 
+    # GPU count for display
+    local gpu_display_count
+    if [[ "$gpu_type" == "nvidia" && "$gpu_count" -gt 1 ]]; then
+        gpu_display_count="$gpu_count x"
+    else
+        gpu_display_count=""
+    fi
+    
     if $json_output; then
         cat <<EOF
 {
@@ -387,7 +406,8 @@ main() {
     "power_w": $gpu_power,
     "vulkan": $vulkan_available,
     "rocm": $rocm_available,
-    "driver_loaded": $driver_loaded
+    "driver_loaded": $driver_loaded,
+    "count": ${gpu_count:-1}
   },
   "tier": "$tier",
   "tier_description": "$tier_desc",
@@ -407,8 +427,11 @@ EOF
         echo ""
         echo -e "${GREEN}GPU:${NC}"
         if [[ -n "$gpu_name" ]]; then
-            echo "  Type:     $gpu_type"
-            echo "  Name:     $gpu_name"
+            if [[ "$gpu_type" == "nvidia" && "${gpu_count:-1}" -gt 1 ]]; then
+                echo "  Count:    ${gpu_display_count} $gpu_name"
+            else
+                echo "  Name:     $gpu_name"
+            fi
             if [[ "$memory_type" == "unified" ]]; then
                 echo -e "  Memory:   ${CYAN}${gpu_vram_gb}GB (Unified)${NC}"
             else
