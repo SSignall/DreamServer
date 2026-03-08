@@ -115,7 +115,6 @@ else
         if [ -z "$OPENCLAW_TOKEN_JSON" ]; then
             # JSON mandatory escapes: \b \f \n \r \t plus backslash and quote
             # Use printf for literal control chars (portable across bash/sh)
-            local BS FF
             BS=$(printf '\b')
             FF=$(printf '\f')
             OPENCLAW_TOKEN_JSON=$(printf '%s' "$OPENCLAW_TOKEN" | sed "s/\\/\\\\/g; s/\"/\\\"/g; s/${BS}/\\b/g; s/${FF}/\\f/g; s/\t/\\t/g; s/\n/\\n/g; s/\r/\\r/g")
