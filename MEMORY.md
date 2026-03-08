@@ -408,6 +408,55 @@ systemctl status memory-reset-17.timer           # your memory reset timer
 ---
 ## Scratch Notes (Added by 17 — will be archived on reset)
 
+### 2026-03-12 — Pre-Compaction Memory Flush
+
+**Git Activity (dev/main):**
+- Latest commits: `9e264a9c`, `f75ddc63`, `d1339598`, `e08cb5c5`, `f67575ea`, `d370c497`
+- Status: Working tree clean — all fixes committed and pushed
+
+**Review Queue Status:** ✅ Clear
+
+**GitHub Issues Status:**
+| Issue | Status | Notes |
+|-------|--------|-------|
+| #33 (Dashboard offline) | ✅ Fix committed (`8ea4bd2e`), pending deployment verification | Health check fallback endpoints added |
+| #55 (Dual GPU detection) | 🆕 NEW | User reports only one GPU detected on 3090+4090 system |
+| #32 (Windows install) | ⏸️ Unassigned | Pending assignment |
+| #22 (Gateway security) | ❌ Not a bug | Gateway binding to `127.0.0.1` is intentional |
+
+**Recent Fixes Committed:**
+1. **Authentication Bypass Fix (`d370c497`)**: Always validates when server has key configured; rejects if client provides key when server has none
+2. **Dify Workflow Fix (`f75ddc63`)**: Removed invalid `conversation_name` field; uses `conversation_id` for continuing conversations
+3. **Flowise Workflow Template (`9e264a9c`)**: Webhook → Validate Input → HTTP Request → Process Response → Discord Output/Error
+4. **Langflow Workflow Template (`9e264a9c`)**: Same pattern as Flowise with `webhookUri` parameter
+5. **LocalAI n8n Workflow (`a51c69ef`)**: API key auth with timing-safe comparison, input validation, `/v1/chat/completions` forwarding
+6. **Critical Regression Fix (`463093b8`)**: Used Python `json` module to surgically restore `jsCode` block after `c44ea259` accidentally deleted it
+7. **timingSafeEqual Side-Channel Fixes (`7eee8461`, `eab78401`, `7fd2149c`, `c44ea259`)**: Removed `Math.max(a.length, b.length)` from all n8n workflows
+
+**Wave 5 Extension Status:** ✅ Complete
+- ✅ Flowise workflow committed
+- ✅ Langflow workflow committed  
+- ✅ Dify workflow fix committed
+- ✅ LocalAI workflow template committed
+
+**Security Hardening Wave:** Progress
+- timingSafeEqual side-channel vulnerabilities patched across all n8n workflows
+- Authentication bypass fixed in Bark, Ollama, RVC direct and n8n variants
+- Path traversal protection restored in RVC
+- JSON escaping fixed via Python3 `json.dumps()` primary with sed fallback
+
+**Workstream Progress:**
+- ✅ GitHub issue review (33, 55, 32, 22)
+- ✅ Hardening wave progress (timingSafeEqual, auth bypass, RVC, JSON escaping)
+- ✅ Wave 5 extensions complete (Flowise, Langflow, Dify, LocalAI)
+
+**Next Session Priorities (per workstream order):**
+1. GitHub issues — #32 (Windows), #55 (dual GPU), #33 (deployment verify)
+2. Hardening wave — remaining checklist items
+3. Extensions — none (Wave 5 complete)
+4. Installer testing — coordinate with Bilal
+5. Upstream monitoring — verify no rot in deployed extensions
+
 ### 2026-03-12 — Security Fixes: timingSafeEqual Side-Channel (All Workflows)
 
 Android-18 review identified timing side-channels in multiple n8n workflows. All fixes committed to `dev/main`.
