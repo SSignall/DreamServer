@@ -1,0 +1,60 @@
+{
+  "name": "Webhook Trigger - Process & Notify",
+  "active": true,
+  "meta": {
+    "instanceId": "dream-server"
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "path": "process-data",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "process-data-webhook"
+    },
+    {
+      "parameters": {
+        "functionCode": "return [{ json: { processed: true, timestamp: new Date().toISOString() } }];"
+      },
+      "type": "n8n-nodes-base.functionItem",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://host.docker.internal:3002/api/v1/health",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [650, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Function",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Function": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
