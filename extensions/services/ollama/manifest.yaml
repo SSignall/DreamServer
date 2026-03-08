@@ -10,7 +10,7 @@ service:
   port: 11434
   external_port_env: OLLAMA_PORT
   external_port_default: 7804
-  health: /
+  health: /api/tags
   type: docker
   gpu_backends: [amd, nvidia]
   compose_file: compose.yaml
