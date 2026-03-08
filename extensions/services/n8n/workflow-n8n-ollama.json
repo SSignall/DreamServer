@@ -1,0 +1,181 @@
+{
+  "name": "Ollama LLM Chat",
+  "active": true,
+  "settings": {},
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ollama-chat",
+        "options": {}
+      },
+      "id": "ollama-webhook-trigger",
+      "name": "Webhook Trigger",
+      "comment": "Accepts JSON: { message, model (optional), system (optional), temperature (optional), max_tokens (optional), channel (optional) }",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// API Key authentication check - timing-safe comparison\nconst headers = $input.first().json.headers || {};\n\n// Case-insensitive header lookup\nconst headerKeys = Object.keys(headers);\nconst apiKeyHeader = headerKeys.find(k => k.toLowerCase() === 'x-api-key');\nconst providedKey = apiKeyHeader !== undefined ? headers[apiKeyHeader] : '';\nconst expectedKey = $env.OLLAMA_API_KEY;\n\n// Timing-safe comparison - prevents timing attacks on API key\nfunction timingSafeEqual(a, b) {\n  if (typeof a !== 'string' || typeof b !== 'string') return false;\n  const MAX_LEN = 256;\n  if (a.length > MAX_LEN || b.length > MAX_LEN) return false;\n  \n  let result = 0;\n  // Constant-time comparison: always iterate MAX_LEN, use 0 for out-of-bounds\n  for (let i = 0; i < MAX_LEN; i++) {\n    const charA = i < a.length ? a.charCodeAt(i) : 0;\n    const charB = i < b.length ? b.charCodeAt(i) : 0;\n    result |= charA ^ charB;\n  }\n  // Include length check in constant-time result\n  result |= (a.length === b.length) ? 0 : 1;\n  return result === 0;\n}\n\nif (expectedKey && !timingSafeEqual(providedKey, expectedKey)) {\n  throw new Error('Authentication failed');\n}\n\nconst input = $input.first().json || {};\nconst message = input.message || '';\nconst model = input.model || 'llama3.2';\nconst systemPrompt = input.system || '';\nconst temperature = input.temperature;\nconst maxTokens = input.max_tokens;\n\n// === MODEL VALIDATION ===\nconst validModelPattern = /^[a-zA-Z0-9._:-]+$/;\nif (!validModelPattern.test(model)) {\n  throw new Error('Invalid model name: must be alphanumeric, dot, dash, colon, or underscore only');\n}\nif (model.length > 100) {\n  throw new Error('Model name too long: max 100 characters');\n}\n\n// === MESSAGE LENGTH VALIDATION ===\nif (typeof message !== 'string') {\n  throw new Error('Invalid message: must be a string');\n}\nif (message.length > 32768) {\n  throw new Error('Message too long: max 32768 characters');\n}\nif (message.length === 0) {\n  throw new Error('Missing required field: message');\n}\n\n// === SYSTEM PROMPT VALIDATION ===\nif (typeof systemPrompt !== 'string') {\n  throw new Error('Invalid system: must be a string');\n}\nif (systemPrompt.length > 8192) {\n  throw new Error('System prompt too long: max 8192 characters');\n}\n\n// === TEMPERATURE VALIDATION ===\nconst tempValue = temperature !== undefined ? parseFloat(temperature) : 0.7;\nif (isNaN(tempValue) || tempValue < 0.0 || tempValue > 2.0) {\n  throw new Error('Invalid temperature: must be a number between 0.0 and 2.0');\n}\n\n// === MAX TOKENS VALIDATION ===\nconst tokensValue = maxTokens !== undefined ? parseInt(maxTokens, 10) : 2048;\nif (isNaN(tokensValue) || tokensValue < 100 || tokensValue > 8192) {\n  throw new Error('Invalid max_tokens: must be an integer between 100 and 8192');\n}\n\n// === CHANNEL VALIDATION ===\nconst channelRaw = (input.channel || 'general').replace(/^#+/, '').replace(/[<>@&]/g, '').slice(0, 100);\nif (!channelRaw.match(/^[a-zA-Z0-9_-]+$/)) {\n  throw new Error('Invalid channel: must be alphanumeric, dash, or underscore only');\n}\n\n// Build messages array\nconst messages = [];\nif (systemPrompt.trim()) {\n  messages.push({ role: 'system', content: systemPrompt });\n}\nmessages.push({ role: 'user', content: message });\n\nreturn [{\n  json: {\n    model: model,\n    messages: messages,\n    temperature: tempValue,\n    max_tokens: tokensValue,\n    stream: false,\n    channel: channelRaw\n  }\n}];"
+      },
+      "id": "validate-input",
+      "name": "Validate Input",
+      "comment": "Validates: API key auth, model name, message length, system prompt length, temperature (0.0-2.0), max_tokens (100-8192), channel name. Builds messages array with optional system prompt.",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        450,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ 'http://' + ($env.OLLAMA_HOST || 'localhost') + ':' + ($env.OLLAMA_EXTERNAL_PORT || '11434') + '/api/chat' }}",
+        "method": "POST",
+        "headers": {
+          "list": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "body": {
+          "model": "={{ $json.model }}",
+          "messages": "={{ $json.messages }}",
+          "temperature": "={{ $json.temperature }}",
+          "max_tokens": "={{ $json.max_tokens }}",
+          "stream": false
+        },
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "ollama-api-call",
+      "name": "Ollama API Call",
+      "comment": "Calls Ollama /api/chat endpoint. 5 min timeout for large models.",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        650,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process Ollama response\nconst body = $input.first().json || {};\nconst webhookInput = $input.all()[1]?.json || {};\n\nconst message = body.message?.content || '';\nconst model = body.model || webhookInput.model || 'unknown';\nconst done = body.done || false;\nconst evalCount = body.eval_count || 0;\nconst promptEvalCount = body.prompt_eval_count || 0;\nconst totalDuration = body.total_duration || 0;\n\n// Convert nanoseconds to seconds for readability\nconst durationSec = (totalDuration / 1e9).toFixed(2);\n\nreturn [{\n  json: {\n    success: done && !!message,\n    model: model,\n    response: message,\n    tokens_used: evalCount + promptEvalCount,\n    prompt_tokens: promptEvalCount,\n    completion_tokens: evalCount,\n    duration_seconds: durationSec,\n    timestamp: new Date().toISOString(),\n    channel: webhookInput.channel || 'general'\n  }\n}];"
+      },
+      "id": "process-response",
+      "name": "Process Response",
+      "comment": "Extracts response from Ollama format, calculates duration from nanoseconds.",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        850,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "channel": "={{ $json.channel || '#general' }}",
+        "text": "={{ '*Ollama Response*\n\n**Model:** ' + ($json.model || 'unknown') + '\n**Tokens:** ' + ($json.tokens_used || 0) + ' | **Time:** ' + ($json.duration_seconds || 0) + 's\n\n' + ($json.response || '').toString().slice(0, 1750) }}"
+      },
+      "id": "discord-output",
+      "name": "Discord Output",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [
+        1050,
+        300
+      ],
+      "comment": "Sends response to Discord. Truncates to 1750 chars to stay under Discord's 2000 char limit."
+    },
+    {
+      "parameters": {
+        "channel": "={{ $('Webhook Trigger').first().json.channel || '#general' }}",
+        "text": "={{ '*Ollama Chat Failed*\n\n**Error:** ' + (($input.all()[0]?.error?.message || $input.all()[0]?.error?.description || 'Unknown error')).toString().slice(0, 997).trimEnd() + '\n\nPlease check the Ollama service and try again.' }}"
+      },
+      "id": "discord-error",
+      "name": "Discord Error",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [
+        650,
+        500
+      ],
+      "comment": "Sends error notification from Validate Input or API call failures."
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "Ollama API Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "error": [
+        [
+          {
+            "node": "Discord Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama API Call": {
+      "main": [
+        [
+          {
+            "node": "Process Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "error": [
+        [
+          {
+            "node": "Discord Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Response": {
+      "main": [
+        [
+          {
+            "node": "Discord Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "meta": {
+    "instanceId": "ollama-workflow-v1"
+  }
+}
