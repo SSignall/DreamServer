@@ -162,10 +162,10 @@ if [[ "$OS" == "linux" || "$OS" == "wsl" ]]; then
             echo "$GPU_INFO" | while IFS=',' read -r name vram; do
                 echo "  - $name ($vram)"
             done
-            # Calculate total VRAM across all GPUs
-            TOTAL_VRAM_MB=$(echo "$GPU_INFO" | grep -oP '\d+(?= MiB)' | awk '{sum+=$1} END {print sum}' || echo "0")
-            if [[ "$TOTAL_VRAM_MB" -lt 8192 ]]; then
-                warn "Total GPU VRAM ($TOTAL_VRAM_MB MB) is less than 8GB. Some models may not fit."
+            # Find max VRAM across all GPUs (models must fit on single GPU)
+            MAX_VRAM_MB=$(echo "$GPU_INFO" | grep -oP '\d+(?= MiB)' | sort -n | tail -1 || echo "0")
+            if [[ "$MAX_VRAM_MB" -lt 8192 ]]; then
+                warn "Largest GPU has ${MAX_VRAM_MB}MB VRAM (less than 8GB). Some models may not fit."
                 echo "  Consider using a smaller model (7B) or cloud fallback."
             fi
         else
