@@ -11,7 +11,7 @@ services:
       - no-new-privileges:true
     ports:
       - "${TEXT_GEN_WEBUI_PORT:-7862}:7860"
-      - "5001:5001"  # OpenAI-compatible API
+      - "${TEXT_GEN_WEBUI_API_PORT:-5001}:5001"  # OpenAI-compatible API
     environment:
       - EXTRA_LAUNCH_ARGS=--api --listen --listen-port 7860 --api-port 5001 --extensions openai
     volumes:
@@ -22,7 +22,7 @@ services:
       - ./data/text-generation-webui/logs:/app/text-generation-webui/logs
       - ./data/text-generation-webui/extensions:/app/text-generation-webui/extensions
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:7860/"]
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:7860/"]
       interval: 30s
       timeout: 15s
       retries: 5

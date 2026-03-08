@@ -1,7 +1,7 @@
 """
 === GENERATED TEST FILE — NEEDS REVIEW ===
-Generated: 2026-03-08T02:00:21.090508+00:00
-Source: extensions/services/privacy-shield/pii_scrubber.py
+Generated: 2026-03-08T02:32:00.389460+00:00
+Source: extensions/services/privacy_shield/pii_scrubber.py
 Generator: Qwen3-Coder (local GPU)
 
 This file was auto-generated and has NOT been reviewed or run.
@@ -25,7 +25,7 @@ class TestPIIDetector:
             d.token_suffix = ">"
             d.pii_map = {}
             d.counter = 0
-            d.session_token = "fixed_session_token_12345"
+            d.session_token = "test_session_token_12345"
             d.PATTERNS = PIIDetector.PATTERNS.copy()
             return d
 
@@ -45,168 +45,149 @@ class TestPIIDetector:
         token2 = detector._generate_token(pii_type, original)
         
         assert token1 == token2
-        assert token1.startswith("<PII_email_")
-        assert token1.endswith(">")
-        # Token format: <PII_<type>_<hash>_<session_token>_<counter>>
-        # Hash length should be at least 8 characters for reasonable uniqueness
-        hash_start = len("<PII_email_")
-        hash_end = token1.find("_", hash_start)
-        hash_length = hash_end - hash_start if hash_end > hash_start else 0
-        assert hash_length >= 8, f"Hash length {hash_length} is too short for uniqueness"
+        assert token1.startswith(detector.token_prefix)
+        assert token1.endswith(detector.token_suffix)
+        assert pii_type in token1
 
     def test_generate_token_different_inputs(self, detector):
-        token1 = detector._generate_token("email", "a@b.com")
-        token2 = detector._generate_token("email", "c@d.com")
-        token3 = detector._generate_token("phone", "a@b.com")
+        token1 = detector._generate_token("email", "user1@example.com")
+        token2 = detector._generate_token("email", "user2@example.com")
+        token3 = detector._generate_token("phone", "123-456-7890")
         
-        assert token1 != token2
-        assert token1 != token3
-        assert token2 != token3
+        assert token1 != token2 != token3
 
     def test_scrub_email(self, detector):
         text = "Contact me at john.doe@example.com"
-        scrubbed = detector.scrub(text)
+        result = detector.scrub(text)
         
-        assert "john.doe@example.com" not in scrubbed
-        assert "<PII_email_" in scrubbed
-        assert len(detector.pii_map) == 1
+        assert "john.doe@example.com" not in result
+        assert "<PII_email_" in result
+        assert result.count("<PII_email_") == 1
 
     def test_scrub_phone(self, detector):
-        text = "Call me at 555-123-4567 or (555) 123-4567"
-        scrubbed = detector.scrub(text)
+        text = "Call me at 555-123-4567 or 1-800-555-1234"
+        result = detector.scrub(text)
         
-        assert "555-123-4567" not in scrubbed
-        assert "(555) 123-4567" not in scrubbed
-        assert "<PII_phone_" in scrubbed
-        assert len(detector.pii_map) == 2
+        assert "555-123-4567" not in result
+        assert "1-800-555-1234" not in result
+        assert result.count("<PII_phone_") == 2
 
     def test_scrub_ssn(self, detector):
-        text = "My SSN is 123-45-6789"
-        scrubbed = detector.scrub(text)
+        text = "My SSN is 123-45-6789 and yours is 987.65.4321"
+        result = detector.scrub(text)
         
-        assert "123-45-6789" not in scrubbed
-        assert "<PII_ssn_" in scrubbed
-        assert len(detector.pii_map) == 1
+        assert "123-45-6789" not in result
+        assert "987.65.4321" not in result
+        assert result.count("<PII_ssn_") == 2
 
     def test_scrub_ip_address(self, detector):
         text = "Server IP: 192.168.1.100 and 10.0.0.1"
-        scrubbed = detector.scrub(text)
+        result = detector.scrub(text)
         
-        assert "192.168.1.100" not in scrubbed
-        assert "10.0.0.1" not in scrubbed
-        assert "<PII_ip_address_" in scrubbed
-        assert len(detector.pii_map) == 2
+        assert "192.168.1.100" not in result
+        assert "10.0.0.1" not in result
+        assert result.count("<PII_ip_address_") == 2
 
-    def test_scrub_ipv6(self, detector):
+    def test_scrub_ipv6_address(self, detector):
         text = "IPv6: 2001:0db8:85a3:0000:0000:8a2e:0370:7334"
-        scrubbed = detector.scrub(text)
+        result = detector.scrub(text)
         
-        assert "2001:0db8:85a3:0000:0000:8a2e:0370:7334" not in scrubbed
-        assert "<PII_ip_address_" in scrubbed
-        assert len(detector.pii_map) == 1
+        assert "2001:0db8:85a3:0000:0000:8a2e:0370:7334" not in result
+        assert result.count("<PII_ip_address_") == 1
 
     def test_scrub_api_key(self, detector):
-        text = "API Key: sk-abc123xyz789abcdef"
-        scrubbed = detector.scrub(text)
+        text = "API Key: sk-abc123xyz789abcdef and apikey=secret1234567890"
+        result = detector.scrub(text)
         
-        assert "sk-abc123xyz789abcdef" not in scrubbed
-        assert "<PII_api_key_" in scrubbed
-        assert len(detector.pii_map) == 1
+        assert "sk-abc123xyz789abcdef" not in result
+        assert "secret1234567890" not in result
+        assert result.count("<PII_api_key_") == 2
 
     def test_scrub_credit_card(self, detector):
-        text = "Card: 4111-1111-1111-1111 or 4111 1111 1111 1111"
-        scrubbed = detector.scrub(text)
+        text = "Card: 1234-5678-9012-3456 and 1234 5678 9012 3456"
+        result = detector.scrub(text)
         
-        assert "4111-1111-1111-1111" not in scrubbed
-        assert "4111 1111 1111 1111" not in scrubbed
-        assert "<PII_credit_card_" in scrubbed
-        assert len(detector.pii_map) == 2
+        assert "1234-5678-9012-3456" not in result
+        assert "1234 5678 9012 3456" not in result
+        assert result.count("<PII_credit_card_") == 2
 
     def test_scrub_multiple_pii_types(self, detector):
         text = """
-        Email: john@example.com
+        Contact: john.doe@example.com
         Phone: 555-123-4567
         SSN: 123-45-6789
+        IP: 192.168.1.100
         """
-        scrubbed = detector.scrub(text)
+        result = detector.scrub(text)
         
-        assert "john@example.com" not in scrubbed
-        assert "555-123-4567" not in scrubbed
-        assert "123-45-6789" not in scrubbed
-        assert scrubbed.count("<PII_") == 3
-        assert len(detector.pii_map) == 3
+        assert "john.doe@example.com" not in result
+        assert "555-123-4567" not in result
+        assert "123-45-6789" not in result
+        assert "192.168.1.100" not in result
+        assert result.count("<PII_") == 4
 
-    def test_scrub_deterministic_same_pii(self, detector):
-        text1 = "Email: john@example.com"
-        text2 = "Contact john@example.com"
+    def test_scrub_duplicate_pii_same_token(self, detector):
+        text1 = "Email: user@example.com"
+        text2 = "Also: user@example.com"
         
-        scrubbed1 = detector.scrub(text1)
-        scrubbed2 = detector.scrub(text2)
+        result1 = detector.scrub(text1)
+        result2 = detector.scrub(text2)
         
-        # Extract the token from both scrubbed texts
-        token1 = re.search(r'<PII_email_[^>]+>', scrubbed1).group(0)
-        token2 = re.search(r'<PII_email_[^>]+>', scrubbed2).group(0)
+        # Extract the token from first result
+        token = re.search(r'<PII_email_[^>]+>', result1).group(0)
         
-        assert token1 == token2
-        assert len(detector.pii_map) == 1
+        assert token in result2
+        assert result2.count(token) == 1
 
     def test_restore(self, detector):
-        text = "Email: john@example.com"
+        original_text = "Contact: john.doe@example.com"
+        scrubbed = detector.scrub(original_text)
+        restored = detector.restore(scrubbed)
+        
+        assert restored == original_text
+
+    def test_restore_multiple_pii(self, detector):
+        text = "Email: john@example.com, Phone: 555-123-4567"
         scrubbed = detector.scrub(text)
         restored = detector.restore(scrubbed)
         
         assert restored == text
 
-    def test_restore_multiple_pii(self, detector):
-        text = """
-        Email: john@example.com
-        Phone: 555-123-4567
-        SSN: 123-45-6789
-        """
-        scrubbed = detector.scrub(text)
-        restored = detector.restore(scrubbed)
-        
-        assert restored.strip() == text.strip()
-
-    def test_restore_unknown_token(self, detector):
-        text = "Hello <PII_email_unknown123>"
+    def test_restore_with_unknown_token(self, detector):
+        text = "Contact: <PII_email_unknown12345678>"
         restored = detector.restore(text)
         
         # Unknown tokens should remain unchanged
         assert restored == text
 
     def test_get_stats(self, detector):
-        detector.pii_map = {
-            "<PII_email_abc123def456>": "john@example.com",
-            "<PII_phone_789xyz012abc>": "555-123-4567",
-            "<PII_ssn_def456ghi789>": "123-45-6789"
-        }
-        
+        text = "Email: john@example.com, Phone: 555-123-4567"
+        detector.scrub(text)
         stats = detector.get_stats()
         
-        assert stats['unique_pii_count'] == 3
-        assert set(stats['pii_types']) == {'email', 'phone', 'ssn'}
+        assert stats['unique_pii_count'] == 2
+        assert 'email' in stats['pii_types']
+        assert 'phone' in stats['pii_types']
 
     def test_get_stats_empty(self, detector):
         stats = detector.get_stats()
+        
         assert stats['unique_pii_count'] == 0
         assert stats['pii_types'] == []
 
-    def test_scrub_with_existing_tokens(self, detector):
-        # First scrub
-        text1 = "Email: john@example.com"
-        scrubbed1 = detector.scrub(text1)
+    def test_scrub_preserves_non_pii_text(self, detector):
+        text = "Hello world! This is a test without any PII."
+        result = detector.scrub(text)
         
-        # Second scrub with same PII
-        text2 = "Also: john@example.com"
-        scrubbed2 = detector.scrub(text2)
+        assert result == text
+
+    def test_scrub_case_insensitive_api_key(self, detector):
+        text = "APIKEY: secret1234567890 and Api-Key: anothersecret1234567890"
+        result = detector.scrub(text)
         
-        # Extract token from first scrub
-        token = re.search(r'<PII_email_[^>]+>', scrubbed1).group(0)
-        
-        # Verify same token used in second scrub
-        assert token in scrubbed2
-        assert len(detector.pii_map) == 1
+        assert "secret1234567890" not in result
+        assert "anothersecret1234567890" not in result
+        assert result.count("<PII_api_key_") == 2
 
 
 class TestPrivacyShield:
@@ -215,5 +196,13 @@ class TestPrivacyShield:
         return PrivacyShield()
 
     def test_process_request_scrubs_pii(self, shield):
-        prompt = "Email: john@example.com"
-        scrubbed, metadata = shield.process_request(prompt
+        prompt = "Contact: john@example.com"
+        scrubbed, metadata = shield.process_request(prompt)
+        
+        assert "john@example.com" not in scrubbed
+        assert metadata['scrubbed'] is True
+        assert metadata['pii_count'] == 1
+
+    def test_process_request_no_pii(self, shield):
+        prompt = "Hello world! No PII here."
+        scrubbed, metadata = shield.process_request(prompt)

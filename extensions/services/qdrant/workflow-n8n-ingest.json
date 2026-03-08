@@ -21,13 +21,13 @@
       },
       "id": "chunk-text",
       "name": "Chunk Text",
-      "type": "n8n-nodes-base.functions",
+      "type": "n8n-nodes-base.code",
       "typeVersion": 1,
       "position": [450, 300]
     },
     {
       "parameters": {
-        "url": "http://{{ $env.EMBEDDINGS_HOST | default('localhost') }}:{{ $env.EMBEDDINGS_PORT | default('8080') }}/embeddings",
+        "url": "={{ 'http://' + ($env.EMBEDDINGS_HOST || 'localhost') + ':' + ($env.EMBEDDINGS_PORT || '8080') + '/embeddings' }}",
         "method": "POST",
         "headers": {
           "list": [
@@ -53,7 +53,7 @@
     },
     {
       "parameters": {
-        "url": "http://{{ $env.QDRANT_HOST | default('localhost') }}:{{ $env.QDRANT_PORT | default('6333') }}/collections/dream-server/points",
+        "url": "={{ 'http://' + ($env.QDRANT_HOST || 'localhost') + ':' + ($env.QDRANT_PORT || '6333') + '/collections/dream-server/points' }}",
         "method": "PUT",
         "headers": {
           "list": [
@@ -87,7 +87,7 @@
       },
       "id": "summarize",
       "name": "Summary",
-      "type": "n8n-nodes-base.functions",
+      "type": "n8n-nodes-base.code",
       "typeVersion": 1,
       "position": [1050, 300]
     }
