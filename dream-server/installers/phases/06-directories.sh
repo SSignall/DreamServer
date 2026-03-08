@@ -107,13 +107,14 @@ else
         fi
         # Escape token for JSON insertion (handle quotes, backslashes, newlines)
         # Primary: Python's json.dumps() for proper escaping (via env to avoid exposing in ps)
-        # Fallback: sed for basic escapes (hex tokens only contain 0-9,a-f so control chars aren't possible)
+        # Escape token for JSON (defense in depth: handle all control chars even if hex-only now)
         if command -v python3 &>/dev/null; then
             OPENCLAW_TOKEN_JSON=$(OPENCLAW_TOKEN="$OPENCLAW_TOKEN" python3 -c "import json,sys,os; sys.stdout.write(json.dumps(os.environ['OPENCLAW_TOKEN'])[1:-1])" 2>/dev/null)
         fi
         # Fallback to sed if python3 failed or is not available
         if [ -z "$OPENCLAW_TOKEN_JSON" ]; then
-            OPENCLAW_TOKEN_JSON=$(printf '%s' "$OPENCLAW_TOKEN" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g; s/\n/\\n/g; s/\r/\\r/g')
+            # JSON mandatory escapes: \b \f \n \r \t plus backslash and quote
+            OPENCLAW_TOKEN_JSON=$(printf '%s' "$OPENCLAW_TOKEN" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\b/\\b/g; s/\f/\\f/g; s/\t/\\t/g; s/\n/\\n/g; s/\r/\\r/g')
         fi
 
         cat > "$INSTALL_DIR/data/openclaw/home/openclaw.json" << OCLAW_EOF
