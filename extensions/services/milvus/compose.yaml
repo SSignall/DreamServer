@@ -9,7 +9,7 @@ services:
     volumes:
       - ./data/milvus:/var/lib/milvus
     environment:
-      - ETCD_ENDPOINTS=etcd:2379
+      - MODE=standalone
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true

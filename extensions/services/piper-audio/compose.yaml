@@ -1,9 +1,9 @@
-name: piper-tts
+name: piper-audio
 
 services:
-  piper-tts:
+  piper-audio:
     image: lscr.io/linuxserver/piper:1.6.3
-    container_name: piper-tts
+    container_name: dream-piper-audio
     ports:
       - "${PIPER_PORT:-10200}:10200"
     volumes:
