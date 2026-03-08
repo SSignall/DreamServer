@@ -1,0 +1,179 @@
+{
+  "name": "Dify AI Agent",
+  "active": true,
+  "settings": {},
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "dify-agent",
+        "options": {}
+      },
+      "id": "dify-webhook-trigger",
+      "name": "Webhook Trigger",
+      "comment": "Accepts JSON: { message, inputs (optional JSON object), query (optional), channel (optional) }. API key via X-API-Key header only. Set DIFY_API_KEY env var to enable authentication.",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// API Key authentication check - timing-safe comparison\nconst headers = $input.first().json.headers || {};\n\n// Case-insensitive header lookup (defense against platform normalization changes)\nconst headerKeys = Object.keys(headers);\nconst apiKeyHeader = headerKeys.find(k => k.toLowerCase() === 'x-api-key');\nconst providedKey = apiKeyHeader !== undefined ? headers[apiKeyHeader] : '';\nconst expectedKey = $env.DIFY_API_KEY;\n\n// Timing-safe comparison - prevents timing attacks on API key\nfunction timingSafeEqual(a, b) {\n  if (typeof a !== 'string' || typeof b !== 'string') return false;\n  const MAX_LEN = 256;\n  if (a.length > MAX_LEN || b.length > MAX_LEN) return false;\n  \n  let result = 0;\n  // Constant-time comparison: always iterate MAX_LEN, use 0 for out-of-bounds\n  for (let i = 0; i < MAX_LEN; i++) {\n    const charA = i < a.length ? a.charCodeAt(i) : 0;\n    const charB = i < b.length ? b.charCodeAt(i) : 0;\n    result |= charA ^ charB;\n  }\n  // Include length check in constant-time result\n  result |= (a.length === b.length) ? 0 : 1;\n  return result === 0;\n}\n\nif (expectedKey && !timingSafeEqual(providedKey, expectedKey)) {\n  throw new Error('Authentication failed');\n}\n\nconst input = $input.first().json || {};\nconst message = input.message || '';\nconst inputs = input.inputs || {};\nconst query = input.query || '';\n\n// === MESSAGE VALIDATION ===\nif (typeof message !== 'string') {\n  throw new Error('Invalid message: must be a string');\n}\nif (message.length > 32768) {\n  throw new Error('Message too long: max 32768 characters');\n}\nif (message.length === 0) {\n  throw new Error('Missing required field: message');\n}\n\n// === INPUTS VALIDATION ===\nif (inputs && typeof inputs !== 'object') {\n  throw new Error('Invalid inputs: must be a JSON object');\n}\n\n// === QUERY VALIDATION ===\nif (query && typeof query !== 'string') {\n  throw new Error('Invalid query: must be a string');\n}\nif (query && query.length > 8192) {\n  throw new Error('Query too long: max 8192 characters');\n}\n\n// === CHANNEL VALIDATION ===\nconst channelRaw = (input.channel || 'general').replace(/^#+/, '').replace(/[<>@&]/g, '').slice(0, 100);\nif (!channelRaw.match(/^[a-zA-Z0-9_-]+$/)) {\n  throw new Error('Invalid channel: must be alphanumeric, dash, or underscore only');\n}\n\nreturn [{\n  json: {\n    message: message,\n    inputs: inputs,\n    query: query,\n    channel: channelRaw,\n    response_mode: 'blocking'\n  }\n}];"
+      },
+      "id": "validate-input",
+      "name": "Validate Input",
+      "comment": "Validates: API key auth (header only - X-API-Key), message length (max 32768), inputs (JSON object), query (optional string), channel name",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        450,
+        300
+      ],
+      "notes": "Validates: message (required, max 32768 chars), inputs (optional JSON), query (optional string, max 8192 chars), channel (alphanumeric, dash, underscore)"
+    },
+    {
+      "parameters": {
+        "url": "={{ 'http://' + ($env.DIFY_HOST || 'localhost') + ':' + ($env.DIFY_PORT || '80') + '/v1/chat-messages' }}",
+        "method": "POST",
+        "headers": {
+          "list": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "body": {
+          "mimeType": "application/json",
+          "raw": "={{ JSON.stringify({\n  inputs: $('Validate Input').first().json.inputs || {},\n  query: $('Validate Input').first().json.message,\n  response_mode: $('Validate Input').first().json.response_mode || 'blocking',\n  conversation_name: $('Validate Input').first().json.query || $('Validate Input').first().json.channel || 'general'\n}) }}"
+        },
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "dify-api-call",
+      "name": "Dify API Call",
+      "comment": "Calls Dify /v1/chat-messages endpoint with blocking mode. 5 min timeout for complex agent runs.",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        650,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process Dify response\nconst body = $input.first().json || {};\nconst webhookInput = $input.all()[1]?.json || {};\n\nconst answer = body.answer || '';\nconst conversationId = body.conversation_id || '';\nconst messageId = body.id || '';\nconst status = body.status || 'success';\nconst error = body.error || '';\n\n// Extract variables from output (if any)\nconst outputVariables = body.outputs || {};\nconst variables = Object.entries(outputVariables).map(([k, v]) => `${k}: ${v}`).join(', ') || 'none';\n\nreturn [{\n  json: {\n    success: status === 'success' && !!answer,\n    answer: answer,\n    conversation_id: conversationId,\n    message_id: messageId,\n    status: status,\n    variables: variables,\n    channel: webhookInput.channel || 'general',\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "process-response",
+      "name": "Process Response",
+      "comment": "Extracts answer from Dify format, handles conversation_id, message_id, and output variables.",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        850,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "webhookUri": "={{ $env.DISCORD_WEBHOOK_URL || '' }}",
+        "text": "={{ '*Dify Agent Response* 🤖\\n\\n**Status:** ' + ($json.status || 'unknown') + '\\n**Answer:** ' + ($json.answer || 'No response').toString().slice(0, 1750) + '\\n\\n**Conversation ID:** ' + ($json.conversation_id || 'N/A') + '\\n**Variables:** ' + ($json.variables || 'none') }}"
+      },
+      "id": "discord-output",
+      "name": "Discord Output",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [
+        1050,
+        300
+      ],
+      "comment": "Sends response to Discord webhook. Truncates answer to 1750 chars to stay under Discord's 2000 char limit."
+    },
+    {
+      "parameters": {
+        "webhookUri": "={{ $env.DISCORD_WEBHOOK_URL || '' }}",
+        "text": "={{ '*Dify Agent Failed* ❌\\n\\n**Error:** ' + (($input.all()[0]?.error?.message || $input.all()[0]?.error?.description || 'Unknown error')).toString().slice(0, 997).trimEnd() + '\\n\\nPlease check:\\n- Dify service is running\\n- API key is valid\\n- Agent is configured correctly\\n- Input message is not empty' }}"
+      },
+      "id": "discord-error",
+      "name": "Discord Error",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [
+        650,
+        500
+      ],
+      "comment": "Sends error notification from Validate Input or API call failures."
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "Dify API Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "error": [
+        [
+          {
+            "node": "Discord Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dify API Call": {
+      "main": [
+        [
+          {
+            "node": "Process Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "error": [
+        [
+          {
+            "node": "Discord Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Response": {
+      "main": [
+        [
+          {
+            "node": "Discord Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "meta": {
+    "instanceId": "dify-workflow-v1"
+  }
+}
