@@ -178,9 +178,15 @@ generate_openclaw_config() {
     local install_dir="$1"
     local llm_model="$2"
     local max_context="$3"
-    local token="$4"
+    local token="${4:-}"
     local provider_url="${5:-http://host.docker.internal:8080}"
     local provider_name="local-llama"
+
+    # Validate token is set
+    if [[ -z "$token" ]]; then
+        log_error "generate_openclaw_config: token is required but not provided"
+        return 1
+    fi
 
     # Create directories
     local home_dir="${install_dir}/data/openclaw/home"
@@ -192,8 +198,11 @@ generate_openclaw_config() {
     # Primary: Python's json.dumps() for proper escaping
     # Fallback: sed for basic escapes (hex tokens only contain 0-9,a-f so control chars aren't possible)
     local token_json
-    token_json=$(python3 -c "import json,sys; print(json.dumps(sys.argv[1])[1:-1])" "$token" 2>/dev/null || \
-        printf '%s' "$token" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g; s/\n/\\n/g; s/\r/\\r/g')
+    if command -v python3 &>/dev/null; then
+        token_json=$(python3 -c "import json,sys; print(json.dumps(sys.argv[1])[1:-1])" "$token" 2>/dev/null)
+    else
+        token_json=$(printf '%s' "$token" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g; s/\n/\\n/g; s/\r/\\r/g')
+    fi
 
     # Home config
     cat > "${home_dir}/openclaw.json" << OCEOF
