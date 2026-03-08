@@ -27,9 +27,7 @@
             }
           ]
         },
-        "binary": {
-          "file": "={{ $binary.file ? $binary.file : null }}"
-        },
+        "binaryProperty": "data",
         "options": {
           "timeout": 120000
         }
@@ -42,7 +40,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Process transcription response\nconst body = $json;\nconst text = body.text || body.transcription || '';\nconst language = body.language || 'unknown';\nconst duration = body.duration || 0;\n\nreturn [{\n  json: {\n    success: text.length > 0,\n    language: language,\n    duration_seconds: duration,\n    character_count: text.length,\n    transcript: text,\n    timestamp: new Date().toISOString()\n  }\n}];"
+        "functionCode": "// Process transcription response\nconst body = $json;\nconst text = body.text || body.transcription || '';\nconst language = body.language || 'unknown';\nconst duration = body.duration || 0;\n\nreturn [{\n  json: {\n    success: text.length > 0,\n    language: language,\n    duration_seconds: duration,\n    character_count: text.length,\n    transcript: text,\n    timestamp: new Date().toISOString()\n  }\n}];"
       },
       "id": "process-stt-response",
       "name": "Process STT Response",

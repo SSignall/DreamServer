@@ -30,11 +30,8 @@
             }
           ]
         },
-        "body": {
-          "file": "={{ $binary.file ? $binary.file.data : $json.file || $json.audio }}",
-          "model": "={{ (() => { const m = $json.model || 'index.pth'; if (m.includes('..') || m.startsWith('/') || m.includes('\\')) throw new Error('Invalid model path'); return m; })() }}",
-          "pitch": "={{ $json.pitch || 0 }}",
-          "f0_method": "={{ $json.f0_method || 'rmvpe' }}"
+        "binary": {
+          "file": "={{ $binary.file ? $binary.file : null }}"
         },
         "options": {
           "timeout": 120000
