@@ -13,10 +13,22 @@
       },
       "id": "bark-webhook-trigger",
       "name": "Webhook Trigger",
-      "comment": "Accepts JSON: { text, voice_preset (optional), output_format (optional), channel (optional, defaults to #general) }",
+      "comment": "Accepts JSON: { text, voice_preset (optional), output_format (optional), channel (optional), api_key (optional header) }. Set BARK_API_KEY env var to enable authentication.",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
       "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// API Key authentication check - timing-safe comparison\nconst headers = $input.first().json.headers || {};\n\n// Case-insensitive header lookup (defense against platform normalization changes)\nconst headerKeys = Object.keys(headers);\nconst apiKeyHeader = headerKeys.find(k => k.toLowerCase() === 'x-api-key');\nconst providedKey = apiKeyHeader !== undefined ? headers[apiKeyHeader] : $input.first().json.api_key;\nconst expectedKey = $env.BARK_API_KEY;\n\n// Timing-safe comparison - constant time regardless of input length\nfunction timingSafeEqual(a, b) {\n  // Both must be strings of same length to proceed\n  if (typeof a !== 'string' || typeof b !== 'string') return false;\n  const maxLen = Math.max(a.length, b.length);\n  let result = 0;\n  for (let i = 0; i < maxLen; i++) {\n    const charA = i < a.length ? a.charCodeAt(i) : 0;\n    const charB = i < b.length ? b.charCodeAt(i) : 0;\n    result |= charA ^ charB;\n  }\n  return result === 0 && a.length === b.length;\n}\n\nif (expectedKey && !timingSafeEqual(providedKey || '', expectedKey)) {\n  throw new Error('Authentication failed');\n}\n\nconst input = $input.first().json || {};\nconst text = input.text || '';\nconst voicePreset = input.voice_preset || '';\nconst outputFormat = input.output_format || '';\nconst channelRaw = (input.channel || 'general').replace(/^#+/, '').replace(/[<>@&]/g, '').slice(0, 100);\n\n// === TEXT VALIDATION ===\nif (!text || text.trim().length === 0) {\n  throw new Error('Missing required field: text');\n}\nif (text.length > 1024) {\n  throw new Error('Text too long: max 1024 characters');\n}\n\n// === VOICE_PRESET VALIDATION ===\n// Allow empty (will use default), but validate if provided\nif (voicePreset) {\n  const validVoicePattern = /^[a-zA-Z0-9_/-]+$/;\n  if (!validVoicePattern.test(voicePreset)) {\n    throw new Error('Invalid voice_preset: must be alphanumeric, underscore, slash, or dash only');\n  }\n  if (voicePreset.length > 50) {\n    throw new Error('voice_preset too long: max 50 characters');\n  }\n}\n\n// === OUTPUT_FORMAT VALIDATION ===\nconst validFormats = ['wav', 'mp3', 'ogg', 'flac', 'webm'];\nconst format = (outputFormat || 'wav').toLowerCase();\nif (!validFormats.includes(format)) {\n  throw new Error('Invalid output_format: must be one of ' + validFormats.join(', '));\n}\n\n// === CHANNEL VALIDATION ===\nif (!channelRaw.match(/^[a-zA-Z0-9_-]+$/)) {\n  throw new Error('Invalid channel: must be alphanumeric, dash, or underscore only');\n}\nconst channel = channelRaw;\n\nreturn [{\n  json: {\n    text: text.trim(),\n    voice_preset: voicePreset || 'v2/en_speaker_6',\n    output_format: format,\n    channel: channel\n  }\n}];"
+      },
+      "id": "validate-input",
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [450, 300],
+      "comment": "API key auth (if BARK_API_KEY set). Validates text length (max 1024), voice_preset pattern, output_format allowlist, channel format.",
+      "notes": "Validates: text (required, max 1024 chars), voice_preset (alphanumeric/slash/dash, optional), output_format (wav/mp3/ogg/flac/webm), channel (alphanumeric/dash/underscore)"
     },
     {
       "parameters": {
@@ -31,9 +43,9 @@
           ]
         },
         "body": {
-          "text": "={{ $json.text || 'Hello world' }}",
-          "voice_preset": "={{ $json.voice_preset || 'v2/en_speaker_6' }}",
-          "output_format": "={{ $json.output_format || 'wav' }}"
+          "text": "={{ $('Validate Input').first().json.text }}",
+          "voice_preset": "={{ $('Validate Input').first().json.voice_preset }}",
+          "output_format": "={{ $('Validate Input').first().json.output_format }}"
         },
         "options": {
           "timeout": 120000
@@ -41,44 +53,44 @@
       },
       "id": "bark-api-call",
       "name": "Bark API Call",
-      "comment": "Requires BARK_HOST and BARK_EXTERNAL_PORT environment variables. Defaults to localhost:9200 if not set.",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 1,
-      "position": [450, 300]
+      "position": [650, 300],
+      "comment": "Uses validated inputs. 120 second timeout."
     },
     {
       "parameters": {
-        "jsCode": "// Process Bark response - merge with original webhook input\n// $input.all() provides both Bark API response and Webhook Trigger payload\nconst allInputs = $input.all();\nconst barkResponse = allInputs[0]?.json || {};\nconst webhookInput = allInputs[1]?.json || {};\n\nconst audio_base64 = barkResponse.audio_base64 || '';\nconst sample_rate = barkResponse.sample_rate || 0;\nconst format = barkResponse.format || 'wav';\n\nreturn [{\n  json: {\n    success: !!audio_base64,\n    format: format,\n    sample_rate: sample_rate,\n    audio_size_bytes: audio_base64.length,\n    timestamp: new Date().toISOString(),\n    channel: webhookInput.channel || '#general',\n    text: webhookInput.text || '',\n    voice_preset: webhookInput.voice_preset || 'v2/en_speaker_6',\n    output_format: webhookInput.output_format || 'wav'\n  }\n}];"
+        "jsCode": "// Process Bark response - merge with original webhook input\n// $input.all() provides both Bark API response and Webhook Trigger payload\nconst allInputs = $input.all();\nconst barkResponse = allInputs[0]?.json || {};\nconst validatedInput = $('Validate Input').first().json || {};\n\nconst audio_base64 = barkResponse.audio_base64 || '';\nconst sample_rate = barkResponse.sample_rate || 0;\nconst format = barkResponse.format || validatedInput.output_format || 'wav';\n\nreturn [{\n  json: {\n    success: !!audio_base64,\n    format: format,\n    sample_rate: sample_rate,\n    audio_size_bytes: audio_base64.length,\n    timestamp: new Date().toISOString(),\n    channel: validatedInput.channel || 'general',\n    text: validatedInput.text || '',\n    voice_preset: validatedInput.voice_preset || 'v2/en_speaker_6',\n    output_format: validatedInput.output_format || 'wav'\n  }\n}];"
       },
       "id": "process-response",
       "name": "Process Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
-      "position": [650, 300]
+      "position": [850, 300]
     },
     {
       "parameters": {
-        "channel": "={{ $json.channel || '#general' }}",
+        "channel": "={{ $json.channel || 'general' }}",
         "text": "={{ '*Bark TTS Complete*\n\n**Format:** ' + ($json.format || 'unknown') + '\n**Sample Rate:** ' + ($json.sample_rate || 0) + ' Hz\n**Audio Size:** ' + Math.round(($json.audio_size_bytes || 0) / 1024) + ' KB**\n\n✅ Generation successful!' }}"
       },
       "id": "discord-output",
       "name": "Discord Output",
       "type": "n8n-nodes-base.discord",
       "typeVersion": 1,
-      "position": [850, 300],
-      "comment": "Sends success notification to the channel specified in the webhook input (or #general if not provided)"
+      "position": [1050, 300],
+      "comment": "Sends success notification to the channel specified in the validated input (or 'general' if not provided)"
     },
     {
       "parameters": {
-        "channel": "={{ $('Webhook Trigger').first().json.channel || '#general' }}",
-        "text": "={{ '*Bark TTS Failed*\n\n**Error:** ' + (($json.message || $json.error || $json.description || (typeof $json === 'string' ? $json : 'Unknown error')).toString().slice(0, 1000)) + '\n**Status:** ' + (($json.statusCode || $json.code || 'N/A').toString().slice(0, 100) || 'N/A') + '\n\nPlease check the Bark service and try again.' }}"
+        "channel": "={{ $('Validate Input').first().json.channel || 'general' }}",
+        "text": "={{ '*Bark TTS Failed*\n\n**Error:** ' + (($input.all()[0]?.error?.message || $input.all()[0]?.error?.description || 'Unknown error')).toString().slice(0, 997).trimEnd() + '\n\nPlease check:\n- Bark service is running\n- Text is provided and under 1024 characters\n- voice_preset is valid (alphanumeric, slash, dash)\n- output_format is valid (wav, mp3, ogg, flac, webm)\n- API key is correct (if configured)' }}"
       },
       "id": "discord-error",
       "name": "Discord Error",
       "type": "n8n-nodes-base.discord",
       "typeVersion": 1,
-      "position": [450, 500],
-      "comment": "Sends error notification to the channel specified in the webhook input. Uses $('Webhook Trigger') to access original input since error flow receives error object from failing node, not the original payload."
+      "position": [650, 500],
+      "comment": "Catches errors from all nodes. Uses Validate Input for channel access and shows validation requirements."
     }
   ],
   "connections": {
@@ -86,14 +98,29 @@
       "main": [
         [
           {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
             "node": "Bark API Call",
             "type": "main",
             "index": 0
-          },
+          }
+        ]
+      ],
+      "error": [
+        [
           {
-            "node": "Process Response",
+            "node": "Discord Error",
             "type": "main",
-            "index": 1
+            "index": 0
           }
         ]
       ]
@@ -127,10 +154,19 @@
             "index": 0
           }
         ]
+      ],
+      "error": [
+        [
+          {
+            "node": "Discord Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },
   "meta": {
-    "instanceId": "bark-tts-workflow-v1"
+    "instanceId": "bark-tts-workflow-v2"
   }
 }
