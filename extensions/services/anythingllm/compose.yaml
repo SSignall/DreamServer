@@ -5,11 +5,9 @@ services:
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
-    cap_add:
-      - SYS_ADMIN
     environment:
       - STORAGE_DIR=/app/server/storage
-      - JWT_SECRET=${ANYTHINGLLM_JWT_SECRET:-change-me-to-a-random-string-32-chars-min}
+      - JWT_SECRET=${ANYTHINGLLM_JWT_SECRET}
       - LLM_PROVIDER=${ANYTHINGLLM_LLM_PROVIDER:-ollama}
       - OLLAMA_BASE_PATH=${OLLAMA_BASE_PATH:-http://ollama:11434}
       - OLLAMA_MODEL_PREF=${OLLAMA_MODEL_PREF:-llama3.2}
