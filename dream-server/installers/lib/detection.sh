@@ -106,10 +106,11 @@ detect_gpu() {
                 # Build compact representation: "RTX 3090 x2 (48GB)" or "RTX 3090 + RTX 4090 (48GB)"
                 local name_parts=()
                 while read -r line; do
-                    # Extract count (first field) and model (rest of line) using awk
+                    # Extract count (first field) and model (rest of line)
+                    # uniq -c output has leading spaces: "  2 NVIDIA GeForce RTX 3090"
                     local count model
                     count=$(echo "$line" | awk '{print $1}')
-                    model=$(echo "$line" | awk '{$1=""; print substr($0,2)}')
+                    model=$(echo "$line" | awk '{$1=""; sub(/^[[:space:]]+/, ""); print}')
                     if [[ "$count" -eq 1 ]]; then
                         name_parts+=("$model")
                     else
