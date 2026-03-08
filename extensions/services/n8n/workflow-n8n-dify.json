@@ -81,7 +81,7 @@
     {
       "parameters": {
         "webhookUri": "={{ $env.DISCORD_WEBHOOK_URL || '' }}",
-        "text": "={{ '*Dify Agent Response* 🤖\\n\\n**Status:** ' + ($json.status || 'unknown') + '\\n**Answer:** ' + ($json.answer || 'No response').toString().slice(0, 1750) + '\\n\\n**Conversation ID:** ' + ($json.conversation_id || 'N/A') + '\\n**Variables:** ' + ($json.variables || 'none') }}"
+        "text": "={{ '*Dify Agent Response* \ud83e\udd16\\n\\n**Status:** ' + ($json.status || 'unknown') + '\\n**Answer:** ' + ($json.answer || 'No response').toString().slice(0, 1750) + '\\n\\n**Conversation ID:** ' + ($json.conversation_id || 'N/A') + '\\n**Variables:** ' + ($json.variables || 'none') }}"
       },
       "id": "discord-output",
       "name": "Discord Output",
@@ -96,7 +96,7 @@
     {
       "parameters": {
         "webhookUri": "={{ $env.DISCORD_WEBHOOK_URL || '' }}",
-        "text": "={{ '*Dify Agent Failed* ❌\\n\\n**Error:** ' + (($input.all()[0]?.error?.message || $input.all()[0]?.error?.description || 'Unknown error')).toString().slice(0, 997).trimEnd() + '\\n\\nPlease check:\\n- Dify service is running\\n- API key is valid\\n- Agent is configured correctly\\n- Input message is not empty' }}"
+        "text": "={{ '*Dify Agent Failed* \u274c\\n\\n**Error:** ' + (($input.all()[0]?.error?.message || $input.all()[0]?.error?.description || 'Unknown error')).toString().slice(0, 997).trimEnd() + '\\n\\nPlease check:\\n- Dify service is running\\n- API key is valid\\n- Agent is configured correctly\\n- Input message is not empty' }}"
       },
       "id": "discord-error",
       "name": "Discord Error",

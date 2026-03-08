@@ -810,7 +810,47 @@ if (a.length !== b.length) return false;
 
 ---
 
-### 2026-03-08 — Pre-Compaction Memory Flush (Morning)
+### 2026-03-09 — Pre-Compaction Memory Flush (Evening)
+
+**n8n Workflow Wave 5 — Final Fixes:**
+
+**Dify Workflow Fix (f75ddc63):**
+- Issue: Dify API call used `conversation_name` which is invalid for `/v1/chat-messages`
+- Fix: Removed `conversation_name` field from request body
+- Dify expects `conversation_id` for continuing conversations
+
+**Flowise Workflow Template (9e264a9c):**
+- File: `extensions/services/n8n/workflow-n8n-flowise.json`
+- Pattern: Webhook → Validate Input → HTTP Request → Process Response → Discord Output/Error
+- Uses `webhookUri` parameter (not `channel`)
+- Security: timingSafeEqual auth, chatflowId/Question validation, hard throws on failure
+
+**Langflow Workflow Template (9e264a9c):**
+- File: `extensions/services/n8n/workflow-n8n-langflow.json`
+- Pattern: Webhook → Validate Input → HTTP Request → Process Response → Discord Output/Error
+- Uses `webhookUri` parameter (not `channel`)
+- Security: timingSafeEqual auth, flowId/input_value validation, hard throws on failure
+
+**Review Pattern Verified:**
+- Both new workflows pass Android-17 QA checklist
+- All n8n Discord nodes use `webhookUri`
+- All workflows use 256-char constant-time timingSafeEqual
+- No insecure fallbacks to user input
+
+**Git Activity:**
+- Latest commits on `dev/main`: `9e264a9c`, `f75ddc63`, `d1339598`
+- Status: Working tree clean - all fixes committed and pushed
+
+**Next Session Priorities** (per workstream order):
+1. GitHub issues — #55 (dual GPU), #32 (Windows), #33 (deployment verify)
+2. Hardening wave — remaining checklist items
+3. Extensions — Wave 5 complete (Flowise/Langflow committed)
+4. Installer testing — coordinate with Bilal
+5. Upstream monitoring — verify no rot in deployed extensions
+
+---
+
+### 2026-03-09 — Pre-Compaction Memory Flush (Morning)
 
 **LocalAI n8n Workflow Template (a51c69ef):**
 - Created `extensions/services/localai/workflow-text-generation.json`

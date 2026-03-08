@@ -81,7 +81,7 @@
     {
       "parameters": {
         "webhookUri": "={{ $env.DISCORD_WEBHOOK_URL || '' }}",
-        "text": "={{ '*Langflow Response* 🤖\\n\\n**Latency:** ' + ($json.latency + 's' || 'N/A') + '\\n**Answer:** ' + ($json.text || 'No response').toString().slice(0, 1750) + '\\n\\n**Flow ID:** ' + ($json.flowId || 'N/A') }}"
+        "text": "={{ '*Langflow Response* \ud83e\udd16\\n\\n**Latency:** ' + ($json.latency + 's' || 'N/A') + '\\n**Answer:** ' + ($json.text || 'No response').toString().slice(0, 1750) + '\\n\\n**Flow ID:** ' + ($json.flowId || 'N/A') }}"
       },
       "id": "discord-output",
       "name": "Discord Output",
@@ -96,7 +96,7 @@
     {
       "parameters": {
         "webhookUri": "={{ $env.DISCORD_WEBHOOK_URL || '' }}",
-        "text": "={{ '*Langflow Failed* ❌\\n\\n**Error:** ' + (($input.all()[0]?.error?.message || $input.all()[0]?.error?.description || 'Unknown error')).toString().slice(0, 997).trimEnd() + '\\n\\nPlease check:\\n- Langflow service is running\\n- flowId is valid\\n- API key is correct\\n- Flow is deployed' }}"
+        "text": "={{ '*Langflow Failed* \u274c\\n\\n**Error:** ' + (($input.all()[0]?.error?.message || $input.all()[0]?.error?.description || 'Unknown error')).toString().slice(0, 997).trimEnd() + '\\n\\nPlease check:\\n- Langflow service is running\\n- flowId is valid\\n- API key is correct\\n- Flow is deployed' }}"
       },
       "id": "discord-error",
       "name": "Discord Error",

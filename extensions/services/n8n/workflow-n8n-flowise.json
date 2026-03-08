@@ -81,7 +81,7 @@
     {
       "parameters": {
         "webhookUri": "={{ $env.DISCORD_WEBHOOK_URL || '' }}",
-        "text": "={{ '*Flowise Response* 🤖\\n\\n**Latency:** ' + ($json.latency + 'ms' || 'N/A') + '\\n**Answer:** ' + ($json.text || 'No response').toString().slice(0, 1750) + '\\n\\n**Session ID:** ' + ($json.sessionId || 'N/A') }}"
+        "text": "={{ '*Flowise Response* \ud83e\udd16\\n\\n**Latency:** ' + ($json.latency + 'ms' || 'N/A') + '\\n**Answer:** ' + ($json.text || 'No response').toString().slice(0, 1750) + '\\n\\n**Session ID:** ' + ($json.sessionId || 'N/A') }}"
       },
       "id": "discord-output",
       "name": "Discord Output",
@@ -96,7 +96,7 @@
     {
       "parameters": {
         "webhookUri": "={{ $env.DISCORD_WEBHOOK_URL || '' }}",
-        "text": "={{ '*Flowise Failed* ❌\\n\\n**Error:** ' + (($input.all()[0]?.error?.message || $input.all()[0]?.error?.description || 'Unknown error')).toString().slice(0, 997).trimEnd() + '\\n\\nPlease check:\\n- Flowise service is running\\n- chatflowId is valid\\n- API key is correct\\n- Chatflow is deployed' }}"
+        "text": "={{ '*Flowise Failed* \u274c\\n\\n**Error:** ' + (($input.all()[0]?.error?.message || $input.all()[0]?.error?.description || 'Unknown error')).toString().slice(0, 997).trimEnd() + '\\n\\nPlease check:\\n- Flowise service is running\\n- chatflowId is valid\\n- API key is correct\\n- Chatflow is deployed' }}"
       },
       "id": "discord-error",
       "name": "Discord Error",
