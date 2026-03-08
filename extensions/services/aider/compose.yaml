@@ -21,11 +21,12 @@ services:
     restart: "no"  # One-shot CLI tool
     security_opt:
       - no-new-privileges:true
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: '1.0'
+    healthcheck:
+      test: ["CMD", "which", "aider"]
+      interval: 30s
+      timeout: 5s
+      retries: 1
+      start_period: 5s
     networks:
       - dream-network
     command: ["sh", "-c", "echo 'Run: docker compose run --rm aider <files>'"]

@@ -14,6 +14,11 @@ services:
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '2.0'
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8000/api/v1/heartbeat"]
       interval: 30s

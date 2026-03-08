@@ -17,6 +17,16 @@ services:
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+          cpus: '4.0'
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:7865"]
       interval: 30s
@@ -25,13 +35,6 @@ services:
       start_period: 120s
     networks:
       - dream-network
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
 
 networks:
   dream-network:
