@@ -18,6 +18,17 @@
     },
     {
       "parameters": {
+        "jsCode": "// Validate input and set defaults\nconst input = $input.first().json;\n\n// Validate prompt\nconst prompt = (input.prompt || '').toString().trim();\nif (!prompt) {\n  throw new Error('Missing required field: prompt');\n}\nif (prompt.length > 2000) {\n  throw new Error('Prompt too long: max 2000 characters');\n}\n\n// Validate dimensions\nconst width = Math.min(Math.max(parseInt(input.width) || 1024, 256), 2048);\nconst height = Math.min(Math.max(parseInt(input.height) || 1024, 256), 2048);\nconst steps = Math.min(Math.max(parseInt(input.steps) || 20, 1), 50);\nconst cfg = Math.min(Math.max(parseFloat(input.cfg) || 8.0, 1.0), 30.0);\nconst seed = parseInt(input.seed) || Math.floor(Math.random() * 9999999999);\n\nreturn [{\n  json: {\n    prompt: prompt,\n    width: width,\n    height: height,\n    steps: steps,\n    cfg: cfg,\n    seed: seed,\n    channel: input.channel || '#general'\n  }\n}];"
+      },
+      "id": "validate-input",
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [350, 300],
+      "comment": "Validates prompt is present and within limits. Clamps dimensions/steps/CFG to safe ranges."
+    },
+    {
+      "parameters": {
         "url": "={{ 'http://' + ($env.COMFYUI_HOST || 'localhost') + ':' + ($env.COMFYUI_EXTERNAL_PORT || '8188') + '/prompt' }}",
         "method": "POST",
         "headers": {
@@ -28,7 +39,7 @@
             }
           ]
         },
-        "body": "={{ { \"prompt\": { \"3\": { \"inputs\": { \"seed\": $json.seed || Math.floor(Math.random() * 9999999999), \"steps\": $json.steps || 20, \"cfg\": $json.cfg || 8.0, \"sampler_name\": \"euler\", \"scheduler\": \"normal\", \"denoise\": 1.0, \"model\": [\"4\", 0], \"positive\": [\"6\", 0], \"negative\": [\"7\", 0], \"latent_image\": [\"5\", 0] }, \"class_type\": \"KSampler\" }, \"4\": { \"inputs\": { \"ckpt_name\": $env.COMFYUI_MODEL_NAME || 'flux1-dev.safetensors' }, \"class_type\": \"CheckpointLoaderSimple\" }, \"5\": { \"inputs\": { \"width\": $json.width || 1024, \"height\": $json.height || 1024, \"batch_size\": 1 }, \"class_type\": \"EmptyLatentImage\" }, \"6\": { \"inputs\": { \"text\": ($json.prompt || 'beautiful landscape').substring(0, 500), \"clip\": [\"4\", 1] }, \"class_type\": \"CLIPTextEncode\" }, \"7\": { \"inputs\": { \"text\": \"text, watermark, blurry, low quality\", \"clip\": [\"4\", 1] }, \"class_type\": \"CLIPTextEncode\" }, \"8\": { \"inputs\": { \"samples\": [\"3\", 0], \"vae\": [\"4\", 2] }, \"class_type\": \"VAEDecode\" }, \"9\": { \"inputs\": { \"filename_prefix\": 'n8n_' + new Date().getTime(), \"images\": [\"8\", 0] }, \"class_type\": \"SaveImage\" } }, \"client_id\": 'n8n_' + new Date().getTime() } }}",
+        "body": "={{ { \"prompt\": { \"3\": { \"inputs\": { \"seed\": $json.seed, \"steps\": $json.steps, \"cfg\": $json.cfg, \"sampler_name\": \"euler\", \"scheduler\": \"normal\", \"denoise\": 1.0, \"model\": [\"4\", 0], \"positive\": [\"6\", 0], \"negative\": [\"7\", 0], \"latent_image\": [\"5\", 0] }, \"class_type\": \"KSampler\" }, \"4\": { \"inputs\": { \"ckpt_name\": $env.COMFYUI_MODEL_NAME || 'flux1-dev.safetensors' }, \"class_type\": \"CheckpointLoaderSimple\" }, \"5\": { \"inputs\": { \"width\": $json.width, \"height\": $json.height, \"batch_size\": 1 }, \"class_type\": \"EmptyLatentImage\" }, \"6\": { \"inputs\": { \"text\": $json.prompt, \"clip\": [\"4\", 1] }, \"class_type\": \"CLIPTextEncode\" }, \"7\": { \"inputs\": { \"text\": \"text, watermark, blurry, low quality\", \"clip\": [\"4\", 1] }, \"class_type\": \"CLIPTextEncode\" }, \"8\": { \"inputs\": { \"samples\": [\"3\", 0], \"vae\": [\"4\", 2] }, \"class_type\": \"VAEDecode\" }, \"9\": { \"inputs\": { \"filename_prefix\": 'n8n_' + new Date().getTime(), \"images\": [\"8\", 0] }, \"class_type\": \"SaveImage\" } }, \"client_id\": 'n8n_' + new Date().getTime() } }}",
         "options": {
           "timeout": 120000
         }
@@ -47,7 +58,8 @@
       "name": "Process Response",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
-      "position": [650, 300]
+      "position": [550, 300],
+      "comment": "Uses $('Validate Input') to access validated payload"
     },
     {
       "parameters": {
@@ -63,15 +75,15 @@
     },
     {
       "parameters": {
-        "channel": "={{ $('Webhook Trigger').first().json.channel || '#general' }}",
-        "text": "={{ '*ComfyUI Generation Failed*\n\n**Error:** ' + (($input.all()[0]?.error?.message || $json.message || $json.error || 'Unknown error').toString().slice(0, 1000)) + '\n**Status:** ' + (($json.statusCode || $json.code || 'N/A').toString().slice(0, 100) || 'N/A') + '\n\nPlease check:\n- ComfyUI service is running\n- FLUX.1 model is loaded\n- GPU has sufficient VRAM' }}"
+        "channel": "={{ $('Validate Input').first().json.channel || '#general' }}",
+        "text": "={{ '*ComfyUI Generation Failed*\\n\\n**Error:** ' + (($input.all()[0]?.error?.message || $input.all()[0]?.error?.description || 'Unknown error')).toString().slice(0, 997).trimEnd() + '\\n\\nPlease check:\\n- ComfyUI service is running\\n- FLUX.1 model is loaded\\n- GPU has sufficient VRAM' }}"
       },
       "id": "discord-error",
       "name": "Discord Error",
       "type": "n8n-nodes-base.discord",
       "typeVersion": 1,
       "position": [450, 500],
-      "comment": "Sends error notification. Uses $('Webhook Trigger') to access original input since error flow receives error object."
+      "comment": "Sends error notification. Uses $input.all()[0].error to access error details from error flow."
     }
   ],
   "connections": {

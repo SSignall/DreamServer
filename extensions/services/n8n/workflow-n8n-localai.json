@@ -75,14 +75,14 @@
     {
       "parameters": {
         "channel": "={{ $('Webhook Trigger').first().json.channel || '#general' }}",
-        "text": "={{ '*LocalAI Inference Failed*\\n\\n**Error:** ' + (($json.message || $json.error || (typeof $json === 'string' ? $json : 'Unknown error')).toString().slice(0, 1000)) + '\\n**Status:** ' + (($json.statusCode || $json.code || 'N/A').toString().slice(0, 100) || 'N/A') + '\\n\\nPlease check the LocalAI service and try again.' }}"
+        "text": "={{ '*LocalAI Inference Failed*\\n\\n**Error:** ' + (($input.all()[0]?.error?.message || $input.all()[0]?.error?.description || 'Unknown error')).toString().slice(0, 997).trimEnd() + '\\n\\nPlease check the LocalAI service and try again.' }}"
       },
       "id": "discord-error",
       "name": "Discord Error",
       "type": "n8n-nodes-base.discord",
       "typeVersion": 1,
       "position": [450, 500],
-      "comment": "Sends error notification. Uses $('Webhook Trigger') to access original input since error flow receives error object, not the original payload."
+      "comment": "Sends error notification. Uses $input.all()[0].error to access error details from error flow."
     }
   ],
   "connections": {
