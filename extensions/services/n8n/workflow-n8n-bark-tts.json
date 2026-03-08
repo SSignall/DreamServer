@@ -44,7 +44,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Process Bark response\nconst body = $json || {};\nconst audio_base64 = body.audio_base64 || '';\nconst sample_rate = body.sample_rate || 0;\nconst format = body.format || 'wav';\n\nreturn [{\n  json: {\n    success: !!audio_base64,\n    format: format,\n    sample_rate: sample_rate,\n    audio_size_bytes: audio_base64.length,\n    timestamp: new Date().toISOString()\n  }\n}];"
+        "jsCode": "// Process Bark response - merge with original webhook input\nconst body = $json || {};\nconst audio_base64 = body.audio_base64 || '';\nconst sample_rate = body.sample_rate || 0;\nconst format = body.format || 'wav';\n\n// Access original webhook input via $input.first().json\nconst originalInput = $input.first().json || {};\n\nreturn [{\n  json: {\n    success: !!audio_base64,\n    format: format,\n    sample_rate: sample_rate,\n    audio_size_bytes: audio_base64.length,\n    timestamp: new Date().toISOString(),\n    channel: originalInput.channel || '#general'\n  }\n}];"
       },
       "id": "process-response",
       "name": "Process Response",
@@ -55,13 +55,24 @@
     {
       "parameters": {
         "channel": "={{ $json.channel || '#general' }}",
-        "text": "={{ '*Bark TTS Complete*\\n\\n**Format:** ' + ($json.format || 'unknown') + '\\n**Sample Rate:** ' + ($json.sample_rate || 0) + ' Hz\\n**Audio Size:** ' + Math.round(($json.audio_size_bytes || 0) / 1024) + ' KB**\\n\\n✅ Generation successful!' }}"
+        "text": "={{ '*Bark TTS Complete*\n\n**Format:** ' + ($json.format || 'unknown') + '\n**Sample Rate:** ' + ($json.sample_rate || 0) + ' Hz\n**Audio Size:** ' + Math.round(($json.audio_size_bytes || 0) / 1024) + ' KB**\n\n✅ Generation successful!' }}"
       },
       "id": "discord-output",
       "name": "Discord Output",
       "type": "n8n-nodes-base.discord",
       "typeVersion": 1,
       "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "channel": "={{ $input.first().json.channel || '#general' }}",
+        "text": "={{ '❌ *Bark TTS Failed*\n\n**Error:** ' + ($json.message || 'Unknown error') + '\n**Status:** ' + ($json.statusCode || 'N/A') + '\n\nPlease check the Bark service and try again.' }}"
+      },
+      "id": "discord-error",
+      "name": "Discord Error",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [450, 500]
     }
   ],
   "connections": {
@@ -81,6 +92,15 @@
         [
           {
             "node": "Process Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "error": [
+        [
+          {
+            "node": "Discord Error",
             "type": "main",
             "index": 0
           }
