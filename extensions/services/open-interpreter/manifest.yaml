@@ -12,7 +12,7 @@ service:
   external_port_default: 8090
   health: /health
   type: docker
-  gpu_backends: []
+  gpu_backends: [none]
   category: optional
   depends_on: []
   compose_file: compose.yaml

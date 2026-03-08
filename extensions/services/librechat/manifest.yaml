@@ -12,7 +12,7 @@ service:
   external_port_default: 3080
   health: /health
   type: docker
-  gpu_backends: []
+  gpu_backends: [none]
   category: optional
   depends_on: [librechat-mongodb, librechat-meilisearch]
   description: |

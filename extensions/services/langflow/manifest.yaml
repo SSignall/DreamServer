@@ -12,7 +12,7 @@ service:
   external_port_default: 7860
   health: /health
   type: docker
-  gpu_backends: []
+  gpu_backends: [none]
   category: optional
   depends_on: []
   description: |

@@ -270,12 +270,12 @@ for ext in "${extensions[@]}"; do
     is_cli_tool=false
     if [[ -f "$manifest" ]]; then
         health_val=$(python3 -c "
-import yaml
-with open('$manifest') as f:
+import yaml, sys
+with open(sys.argv[1]) as f:
     m = yaml.safe_load(f)
 s = m.get('service', {})
 print(s.get('health', 'MISSING'))
-" 2>/dev/null || echo "MISSING")
+" "$manifest" 2>/dev/null || echo "MISSING")
         if [[ "$health_val" == "" ]]; then
             is_cli_tool=true
         fi
