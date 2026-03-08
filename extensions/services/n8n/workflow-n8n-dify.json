@@ -48,7 +48,7 @@
         },
         "body": {
           "mimeType": "application/json",
-          "raw": "={{ JSON.stringify({\n  inputs: $('Validate Input').first().json.inputs || {},\n  query: $('Validate Input').first().json.message,\n  response_mode: $('Validate Input').first().json.response_mode || 'blocking',\n  conversation_name: $('Validate Input').first().json.query || $('Validate Input').first().json.channel || 'general'\n}) }}"
+          "raw": "={{ JSON.stringify({\n  inputs: $('Validate Input').first().json.inputs || {},\n  query: $('Validate Input').first().json.message,\n  response_mode: $('Validate Input').first().json.response_mode || 'blocking'\n}) }}"
         },
         "options": {
           "timeout": 300000
