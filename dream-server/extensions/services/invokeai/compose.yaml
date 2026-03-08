@@ -1,6 +1,8 @@
+name: invokeai
+
 services:
   invokeai:
-    image: ghcr.io/invoke-ai/invokeai:v6.11.1
+    image: ghcr.io/invoke-ai/invokeai:v5.5.0
     container_name: dream-invokeai
     restart: unless-stopped
     security_opt:
@@ -12,11 +14,13 @@ services:
     ports:
       - "${INVOKEAI_PORT:-9090}:9090"
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 180s
+      start_period: 120s
+    networks:
+      - dream-network
     deploy:
       resources:
         limits:
@@ -25,3 +29,7 @@ services:
         reservations:
           cpus: '1.0'
           memory: 4G
+
+networks:
+  dream-network:
+    external: true
