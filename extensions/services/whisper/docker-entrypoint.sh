@@ -22,11 +22,11 @@ apply_patch() {
     fi
 
     # Check if target pattern exists (robust: allow whitespace variations)
-    if ! grep -qE 'vad_filter\s*=\s*effective_vad_filter' "$STT_FILE" 2>/dev/null; then
+    grep -qE 'vad_filter\s*=\s*effective_vad_filter' "$STT_FILE" 2>/dev/null || {
         echo "WARNING: Target pattern not found in $STT_FILE" >&2
         echo "Patch may not be needed or upstream changed" >&2
         return 0
-    fi
+    }
 
     # Apply patch with flexible whitespace matching
     # Uses perl for more robust pattern matching than sed
@@ -59,14 +59,10 @@ check_writable() {
 
 # Main
 # Check file exists, is writable, and has target pattern before patching
-if check_file && check_writable; then
-    if grep -qE 'vad_filter\s*=\s*effective_vad_filter' "$STT_FILE" 2>/dev/null; then
-        apply_patch
-    else
-        echo "WARNING: Patch skipped (target pattern not found)" >&2
-    fi
+if check_file && check_writable && grep -qE 'vad_filter\s*=\s*effective_vad_filter' "$STT_FILE" 2>/dev/null; then
+    apply_patch
 else
-    echo "WARNING: Patch skipped (file missing or not writable)" >&2
+    echo "WARNING: Patch skipped (file missing, not writable, or pattern not found)" >&2
 fi
 
 # Always start uvicorn (patch failure is non-fatal but logged)
