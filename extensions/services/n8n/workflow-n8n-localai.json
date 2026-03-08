@@ -11,6 +11,7 @@
       },
       "id": "localai-webhook-trigger",
       "name": "Webhook Trigger",
+      "comment": "Accepts JSON: { message, model (optional), temperature (optional), max_tokens (optional), channel (optional) }",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
       "position": [250, 300]
@@ -51,7 +52,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Process LocalAI response\nconst body = $json || {};\nconst message = body.choices?.[0]?.message?.content || body.message?.content || 'No response generated';\nconst model = body.model || 'unknown';\nconst usage = body.usage || {};\n\nreturn [{\n  json: {\n    success: !!message,\n    model: model,\n    response: message,\n    tokens_used: usage.total_tokens || 0,\n    prompt_tokens: usage.prompt_tokens || 0,\n    completion_tokens: usage.completion_tokens || 0,\n    timestamp: new Date().toISOString()\n  }\n}];"
+        "jsCode": "// Process LocalAI response - merge with original webhook input\n// $input.all() provides both LocalAI API response and Webhook Trigger payload\nconst allInputs = $input.all();\nconst body = allInputs[0]?.json || {};\nconst webhookInput = allInputs[1]?.json || {};\n\nconst message = body.choices?.[0]?.message?.content || body.message?.content || 'No response generated';\nconst model = body.model || webhookInput.model || 'unknown';\nconst usage = body.usage || {};\n\nreturn [{\n  json: {\n    success: !!message,\n    model: model,\n    response: message,\n    tokens_used: usage.total_tokens || 0,\n    prompt_tokens: usage.prompt_tokens || 0,\n    completion_tokens: usage.completion_tokens || 0,\n    timestamp: new Date().toISOString(),\n    channel: webhookInput.channel || '#general'\n  }\n}];"
       },
       "id": "process-response",
       "name": "Process Response",
@@ -62,13 +63,26 @@
     {
       "parameters": {
         "channel": "={{ $json.channel || '#general' }}",
-        "text": "={{ '*LocalAI Response*\\n\\n**Model:** ' + ($json.model || 'unknown') + '\\n**Tokens:** ' + ($json.tokens_used || 0) + '\\n\\n' + ($json.response || '') }}"
+        "text": "={{ '*LocalAI Response*\\n\\n**Model:** ' + ($json.model || 'unknown') + '\\n**Tokens:** ' + ($json.tokens_used || 0) + '\\n\\n' + ($json.response || '').toString().slice(0, 1800) }}"
       },
       "id": "discord-output",
       "name": "Discord Output",
       "type": "n8n-nodes-base.discord",
       "typeVersion": 1,
-      "position": [850, 300]
+      "position": [850, 300],
+      "comment": "Sends response to Discord. Truncates to 1800 chars to stay under Discord's 2000 char limit."
+    },
+    {
+      "parameters": {
+        "channel": "={{ $('Webhook Trigger').first().json.channel || '#general' }}",
+        "text": "={{ '*LocalAI Inference Failed*\\n\\n**Error:** ' + (($json.message || $json.error || (typeof $json === 'string' ? $json : 'Unknown error')).toString().slice(0, 1000)) + '\\n**Status:** ' + (($json.statusCode || $json.code || 'N/A').toString().slice(0, 100) || 'N/A') + '\\n\\nPlease check the LocalAI service and try again.' }}"
+      },
+      "id": "discord-error",
+      "name": "Discord Error",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 1,
+      "position": [450, 500],
+      "comment": "Sends error notification. Uses $('Webhook Trigger') to access original input since error flow receives error object, not the original payload."
     }
   ],
   "connections": {
@@ -79,6 +93,11 @@
             "node": "LocalAI API Call",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Process Response",
+            "type": "main",
+            "index": 1
           }
         ]
       ]
@@ -88,6 +107,15 @@
         [
           {
             "node": "Process Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "error": [
+        [
+          {
+            "node": "Discord Error",
             "type": "main",
             "index": 0
           }
