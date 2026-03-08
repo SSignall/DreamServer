@@ -5,6 +5,8 @@ services:
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
+    environment:
+      - WHISPER__TTL=86400
     entrypoint: ["/app/docker-entrypoint.sh"]
     volumes:
       - ./data/whisper:/home/ubuntu/.cache/huggingface/hub
