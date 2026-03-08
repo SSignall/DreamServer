@@ -56,12 +56,14 @@ Best when you want the LLM to adapt the ComfyUI workflow structure based on the 
 - `LLM_API_PORT` - LLM API port (default: 8080)
 - `COMFYUI_HOST` - ComfyUI host (default: localhost)
 - `COMFYUI_PORT` - ComfyUI port (default: 8188)
+- `COMFYUI_DYNAMIC_API_KEY` - Optional API key for webhook authentication
 
 #### Usage
 
 ```bash
 curl -X POST http://localhost:5678/webhook/comfyui-dynamic-workflow \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: your-api-key" \
   -d '{
     "prompt": "Create a photorealistic portrait of a cyberpunk samurai",
     "channel": "#art"
