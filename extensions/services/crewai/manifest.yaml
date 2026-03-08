@@ -7,10 +7,10 @@ service:
   container_name: dream-crewai
   host_env: CREWAI_HOST
   default_host: crewai
-  port: 8000
+  port: 8501
   external_port_env: CREWAI_PORT
-  external_port_default: 8000
-  health: /health
+  external_port_default: 8501
+  health: /
   type: docker
   gpu_backends: []
   category: optional
