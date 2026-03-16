@@ -172,7 +172,7 @@ async def check_service_health(service_id: str, config: dict) -> ServiceStatus:
         start = asyncio.get_event_loop().time()
         async with session.get(url) as resp:
             response_time = (asyncio.get_event_loop().time() - start) * 1000
-            status = "healthy" if resp.status < 500 else "unhealthy"
+            status = "healthy" if resp.status < 400 else "unhealthy"
     except asyncio.TimeoutError:
         # Service is reachable but slow — report degraded rather than down
         # to avoid false "offline" flashes during startup or heavy load.
@@ -205,7 +205,7 @@ async def _check_host_service_health(service_id: str, config: dict) -> ServiceSt
         start = asyncio.get_event_loop().time()
         async with session.get(url) as resp:
             response_time = (asyncio.get_event_loop().time() - start) * 1000
-            status = "healthy" if resp.status < 500 else "unhealthy"
+            status = "healthy" if resp.status < 400 else "unhealthy"
     except aiohttp.ClientConnectorError:
         status = "down"
     except Exception as e:
