@@ -27,7 +27,7 @@ from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 # --- Local modules ---
-from config import SERVICES, DATA_DIR, SIDEBAR_ICONS
+from config import SERVICES, DATA_DIR, SIDEBAR_ICONS, MANIFEST_ERRORS
 from models import (
     GPUInfo, ServiceStatus, DiskUsage, ModelInfo, BootstrapStatus,
     FullStatus, PortCheckRequest,
@@ -251,6 +251,7 @@ async def api_status(api_key: str = Depends(verify_api_key)):
             "ram": {"used_gb": 0, "total_gb": 0, "percent": 0},
             "inference": {"tokensPerSecond": 0, "lifetimeTokens": 0,
                           "loadedModel": None, "contextSize": None},
+            "manifest_errors": MANIFEST_ERRORS,
         }
 
 
@@ -315,7 +316,7 @@ async def _build_api_status() -> dict:
         elif vram_gb >= 8: tier = "Entry"
         else: tier = "Minimal"
 
-    return {
+    result = {
         "gpu": gpu_data, "services": services_data, "model": model_data,
         "bootstrap": bootstrap_data, "uptime": get_uptime(),
         "version": app.version, "tier": tier,
@@ -326,7 +327,9 @@ async def _build_api_status() -> dict:
             "loadedModel": loaded_model or (model_data["name"] if model_data else None),
             "contextSize": context_size or (model_data["contextLength"] if model_data else None),
         },
+        "manifest_errors": MANIFEST_ERRORS,
     }
+    return result
 
 
 # --- Settings ---
