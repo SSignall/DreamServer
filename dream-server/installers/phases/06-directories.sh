@@ -41,8 +41,13 @@ else
     mkdir -p "$INSTALL_DIR"/data/langfuse/{postgres,clickhouse,redis,minio}
     mkdir -p "$INSTALL_DIR"/config/{n8n,litellm,openclaw,searxng}
 
-    # Fix ownership of config dirs that may have been created by containers
-    # (e.g. SearXNG runs as uid 977 and owns config/searxng/)
+    # Fix ownership of data/config dirs that may have been created by containers
+    # (e.g. SearXNG runs as uid 977, ComfyUI data owned by root)
+    for _data_dir in "$INSTALL_DIR"/data/*/; do
+        if [[ -d "$_data_dir" ]] && ! [[ -w "$_data_dir" ]]; then
+            sudo chown -R "$(id -u):$(id -g)" "$_data_dir" 2>/dev/null || true
+        fi
+    done
     for _cfg_dir in "$INSTALL_DIR"/config/*/; do
         if [[ -d "$_cfg_dir" ]] && ! [[ -w "$_cfg_dir" ]]; then
             sudo chown -R "$(id -u):$(id -g)" "$_cfg_dir" 2>/dev/null || true
