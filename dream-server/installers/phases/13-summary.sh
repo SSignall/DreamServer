@@ -179,6 +179,18 @@ else
     log "Extension validation script not found — skipping extension checks"
 fi
 
+# Non-core extension runtime check (Docker + optional HTTP health; non-blocking)
+echo ""
+bootline
+echo -e "${BGRN}EXTENSION RUNTIME CHECK${NC}"
+bootline
+echo ""
+if [[ -f "$SCRIPT_DIR/scripts/extension-runtime-check.sh" ]]; then
+    bash "$SCRIPT_DIR/scripts/extension-runtime-check.sh" "$INSTALL_DIR" || true
+else
+    log "extension-runtime-check.sh not found — skipping"
+fi
+
 #=============================================================================
 # Desktop Shortcut & Sidebar Pin
 #=============================================================================
