@@ -1,32 +1,27 @@
 # Jan
 
-A ChatGPT alternative that runs 100% offline on your computer.
+A ChatGPT alternative that runs 100% offline on your computer. Multi-engine support (llama.cpp, TensorRT-LLM) with built-in model management — local-first, privacy-focused.
 
-## Features
+## Requirements
 
-- **Local-first**: All data stays on your machine
-- **Multi-engine support**: llama.cpp, TensorRT-LLM
-- **Privacy-focused**: No cloud dependency
-- **Model management**: Built-in model downloader and manager
+- **GPU:** NVIDIA or AMD
+- **Dependencies:** None
 
-## Configuration
+## Enable / Disable
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `JAN_HOST` | `jan` | Hostname for Jan service |
-| `JAN_PORT` | `1337` | External port for Jan UI |
+```bash
+dream enable jan
+dream disable jan
+```
 
-## Usage
+Your data is preserved when disabling. To re-enable later: `dream enable jan`
 
-1. Start the service: `docker compose up -d`
-2. Access at `http://localhost:1337`
+## Access
+
+- **URL:** `http://localhost:1337`
+
+## First-Time Setup
+
+1. Enable the service: `dream enable jan`
+2. Open `http://localhost:1337`
 3. Download models through the UI or place them in `./data/jan/models/`
-
-## Data Persistence
-
-- Models and conversations stored in `./data/jan/`
-
-## Resources
-
-- [Jan Documentation](https://jan.ai/docs)
-- [GitHub](https://github.com/janhq/jan)

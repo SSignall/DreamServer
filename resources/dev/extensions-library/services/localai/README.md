@@ -2,71 +2,38 @@
 
 OpenAI-compatible local inference API. Run LLMs, generate images, audio, video, and clone voices — all through the same API format as OpenAI, entirely on your own hardware.
 
-## What It Does
+## Requirements
 
-- Text generation via OpenAI-compatible `/v1/chat/completions` API
-- Image generation with local diffusion models
-- Audio generation and transcription
-- Video generation with local models
-- Voice cloning for text-to-speech
-- Drop-in replacement for OpenAI API in existing applications
+- **GPU:** NVIDIA or AMD (min 4 GB VRAM; CPU fallback available)
+- **Dependencies:** llama-server
 
-## Quick Start
+## Enable / Disable
 
 ```bash
 dream enable localai
-dream start localai
+dream disable localai
 ```
 
-Open **http://localhost:7803** to access the LocalAI web interface.
+Your data is preserved when disabling. To re-enable later: `dream enable localai`
 
-## API Usage
+## Access
 
-### Chat Completion (OpenAI-compatible)
+- **URL:** `http://localhost:7803`
+
+## First-Time Setup
+
+1. Enable the service: `dream enable localai`
+2. Open `http://localhost:7803` to access the web interface
+3. Use the OpenAI-compatible API for integration with existing applications
+
+### API Usage
 
 ```bash
+# Chat completion (OpenAI-compatible)
 curl -X POST http://localhost:7803/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -d '{
-    "model": "gpt-4",
-    "messages": [{"role": "user", "content": "Hello!"}]
-  }'
-```
+  -d '{"model": "gpt-4", "messages": [{"role": "user", "content": "Hello!"}]}'
 
-### List Available Models
-
-```bash
+# List available models
 curl http://localhost:7803/v1/models
 ```
-
-### Health Check
-
-```bash
-curl http://localhost:7803/healthz
-```
-
-## VRAM Requirements
-
-| Feature | VRAM |
-|---------|------|
-| Text Generation | 4 GB |
-| Audio Generation | 4 GB |
-| Voice Cloning | 4 GB |
-| Image Generation | 8 GB |
-| Video Generation | 16 GB |
-
-**GPU:** AMD or NVIDIA. CPU fallback available (slower).
-
-## Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `LOCALAI_EXTERNAL_PORT` | `7803` | External port |
-| `MODELS_PATH` | `/models` | Path to model files |
-| `CONFIG_PATH` | `/builds` | Path to build configs |
-| `LLM_API_URL` | `http://llama-server:8080` | Backend LLM API endpoint |
-
-## Data Persistence
-
-- `./data/localai/models/` — Downloaded model files
-- `./data/localai/builds/` — Build configurations and cached artifacts

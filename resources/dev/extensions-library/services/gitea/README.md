@@ -1,60 +1,38 @@
-# Gitea
+# Gitea (Git Hosting)
 
 Self-hosted lightweight Git server with code review, issue tracking, CI/CD, and wiki — a GitHub/GitLab alternative that runs on minimal resources.
 
-## What It Does
+## Requirements
 
-- Git repository hosting with web interface
-- Pull requests and code review
-- Issue tracking and project boards
-- Built-in CI/CD (Gitea Actions, compatible with GitHub Actions)
-- Wiki per repository
-- SQLite backend (zero external database dependencies)
+- **GPU:** CPU only — no GPU required
+- **Dependencies:** None
 
-## Quick Start
+## Enable / Disable
 
 ```bash
 dream enable gitea
-dream start gitea
+dream disable gitea
 ```
 
-Open **http://localhost:7830** to access the Gitea web UI.
+Your data is preserved when disabling. To re-enable later: `dream enable gitea`
 
-**Note:** Registration is disabled by default. Set `GITEA_ADMIN_USER` and `GITEA_ADMIN_PASSWORD` environment variables before first run to create the admin account.
+## Access
 
-### Clone via SSH
+- **URL:** `http://localhost:7830`
+- **SSH:** `ssh://git@localhost:2222/<user>/<repo>.git`
 
-```bash
-git clone ssh://git@localhost:2222/username/repo.git
-```
+## First-Time Setup
 
-## API Usage
+1. Enable the service: `dream enable gitea`
+2. Open `http://localhost:7830`
+3. Complete the initial setup wizard
+4. Create your first repository
 
-### List Repositories
+## Configuration
 
-```bash
-curl -H "Authorization: token YOUR_TOKEN" \
-  http://localhost:7830/api/v1/repos/search
-```
-
-### Health Check
-
-```bash
-curl http://localhost:7830/api/healthz
-```
-
-## Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `GITEA_HOST` | `localhost` | Hostname for Gitea server |
-| `GITEA_PORT` | `7830` | External port for web interface |
-| `GITEA_SSH_PORT` | `2222` | External port for SSH access |
-| `GITEA_APP_NAME` | `Dream Server Git` | Display name for the instance |
-| `GITEA_ADMIN_USER` | _(empty)_ | Admin username (created on first run) |
-| `GITEA_ADMIN_PASSWORD` | _(empty)_ | Admin password (created on first run) |
-| `GITEA_ADMIN_EMAIL` | `admin@localhost` | Admin email address |
-
-## Data Persistence
-
-- `./data/gitea/` — Repositories, database, configuration, and uploads
+| Variable | Description | Default |
+|----------|------------|---------|
+| `GITEA_HOST` | Hostname for Gitea server | `localhost` |
+| `GITEA_PORT` | External port for web interface | `7830` |
+| `GITEA_SSH_PORT` | External port for SSH access | `2222` |
+| `GITEA_APP_NAME` | Display name for the instance | `Dream Server Git` |

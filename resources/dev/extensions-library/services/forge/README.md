@@ -1,32 +1,37 @@
 # Forge / A1111
 
-Forge (based on Automatic1111) is the original Stable Diffusion web UI. Features extensive model support, extensions, inpainting, outpainting, and professional-grade image generation capabilities. GPU required.
+The original Stable Diffusion web UI (based on Automatic1111). Features extensive model support, extensions, inpainting, outpainting, and professional-grade image generation capabilities.
 
-## What It Does
+## Requirements
 
-- Full Stable Diffusion image generation with advanced settings
-- Inpainting with mask support
-- Outpainting beyond image boundaries
-- High-resolution upscaling with multiple engines
-- Extensive extension ecosystem
-- REST API for integration with external workflows
+- **GPU:** NVIDIA (min 8 GB VRAM)
+- **Dependencies:** None
 
-## Quick Start
+## Enable / Disable
 
 ```bash
 dream enable forge
-dream start forge
+dream disable forge
 ```
 
-Open **http://localhost:7861** to access the Forge web UI.
+Your data is preserved when disabling. To re-enable later: `dream enable forge`
 
-**Note:** First startup may download several GB of model files. Subsequent starts are instant.
+## Access
 
-## API Usage
+- **URL:** `http://localhost:7861`
 
-### Generate via txt2img API
+## First-Time Setup
+
+1. Enable the service: `dream enable forge`
+2. Open `http://localhost:7861`
+3. Start generating images with the txt2img tab
+
+First startup may download several GB of model files. Subsequent starts are instant.
+
+### API Usage
 
 ```bash
+# Generate via txt2img API
 curl -X POST http://localhost:7861/sdapi/v1/txt2img \
   -H "Content-Type: application/json" \
   -d '{
@@ -35,35 +40,7 @@ curl -X POST http://localhost:7861/sdapi/v1/txt2img \
     "width": 512,
     "height": 512
   }'
-```
 
-### Check Progress
-
-```bash
+# Check progress
 curl http://localhost:7861/sdapi/v1/progress
 ```
-
-## VRAM Requirements
-
-| Feature | VRAM |
-|---------|------|
-| Image Generation | 8 GB |
-| Inpainting | 8 GB |
-| Outpainting | 8 GB |
-| Upscaling | 4 GB |
-
-**GPU:** NVIDIA only.
-
-## Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `FORGE_PORT` | `7861` | External port |
-| `FORGE_PORT_HOST` | `7861` | Internal port binding |
-| `FORGE_ARGS` | `--api --listen` | Launch arguments |
-| `AUTO_UPDATE` | `false` | Auto-update on startup |
-
-## Data Persistence
-
-- `./data/forge/models/` — Stable Diffusion models, LoRAs, VAEs
-- `./data/forge/outputs/` — Generated images
