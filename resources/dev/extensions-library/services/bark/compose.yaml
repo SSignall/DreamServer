@@ -21,7 +21,7 @@ services:
       # Audio output directory
       - ./data/bark/output:/app/output
     healthcheck:
-      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:9200/health')"]
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9200/health')"]
       interval: 30s
       timeout: 15s
       retries: 5

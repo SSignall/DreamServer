@@ -21,7 +21,7 @@ services:
         tmpfs:
           size: 1000000000
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/api/version"]
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:5000/api/version"]
       interval: 30s
       timeout: 10s
       retries: 3
