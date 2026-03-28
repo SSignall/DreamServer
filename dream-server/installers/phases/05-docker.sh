@@ -142,7 +142,7 @@ if command -v docker &>/dev/null && ! $DRY_RUN; then
             # Warn the user with clear manual instructions.
             ai_warn "Automatic Docker downgrade is not supported on pacman-based distros."
             ai_warn "GPU containers may fail with device passthrough errors."
-            ai "  Manual fix: downgrade Docker using your distro's package cache:"
+            ai "  Manual fix: downgrade Docker from the Arch Linux Archive:"
             ai "    sudo pacman -U https://archive.archlinux.org/packages/d/docker/docker-1%3A29.2.1-1-x86_64.pkg.tar.zst"
             ai "  Or wait for Docker to fix the bug in a future release."
         else
