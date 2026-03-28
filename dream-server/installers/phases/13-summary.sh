@@ -252,8 +252,17 @@ if ! $DRY_RUN; then
             if sudo -n ln -sf "$INSTALL_DIR/dream-cli" /usr/local/bin/dream 2>/dev/null; then
                 ai_ok "dream command installed (try: dream status)"
             else
-                ai_warn "Could not create 'dream' command. Add manually:"
-                ai "  sudo ln -sf $INSTALL_DIR/dream-cli /usr/local/bin/dream"
+                # Fallback: user-local bin directory (no sudo needed)
+                mkdir -p "$HOME/.local/bin"
+                if ln -sf "$INSTALL_DIR/dream-cli" "$HOME/.local/bin/dream" 2>/dev/null; then
+                    ai_ok "dream command installed to ~/.local/bin/dream"
+                    if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
+                        ai_warn "Add to your shell profile: export PATH=\"\$HOME/.local/bin:\$PATH\""
+                    fi
+                else
+                    ai_warn "Could not create 'dream' command. Add manually:"
+                    ai "  sudo ln -sf $INSTALL_DIR/dream-cli /usr/local/bin/dream"
+                fi
             fi
         else
             ai_ok "dream command already available"
