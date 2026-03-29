@@ -524,6 +524,7 @@ if ($dryRun) {
         $_composeLogDir = Join-Path $installDir "logs"
         if (-not (Test-Path $_composeLogDir)) { New-Item -ItemType Directory -Path $_composeLogDir -Force | Out-Null }
         $_composeLog = Join-Path $_composeLogDir "compose-up.log"
+        Write-AI "Starting services... this may take several minutes."
         & docker compose @composeFlags up -d *> $_composeLog
         $composeExit = $LASTEXITCODE
         $ErrorActionPreference = $prevEAP

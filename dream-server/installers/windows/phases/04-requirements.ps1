@@ -85,8 +85,8 @@ $_minRamGB = switch ($selectedTier) {
 
 # Hard floor: Docker Desktop + WSL2 + containers need at least 8 GB to function
 if ($systemRamGB -lt 8) {
-    Write-AIBad "RAM: ${systemRamGB} GB detected. Dream Server requires at least 8 GB."
-    Write-AIBad "Docker Desktop + WSL2 + services need more memory than is available."
+    Write-AIError "RAM: ${systemRamGB} GB detected. Dream Server requires at least 8 GB."
+    Write-AIError "Docker Desktop + WSL2 + services need more memory than is available."
     Write-AI "  With ${systemRamGB} GB, Docker alone consumes most available RAM."
     $requirementsMet = $false
 } elseif ($systemRamGB -lt $_minRamGB) {
