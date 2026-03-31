@@ -3,7 +3,7 @@ import {
   FileText, Shield, Globe, Music, Video, Search, Puzzle,
   Box, Loader2, RefreshCw, ChevronDown, ChevronUp, Package, Info, X, Download, Trash2, ExternalLink, Terminal, Copy, Check,
 } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 const API_BASE = import.meta.env.VITE_API_URL || ''
 
@@ -320,7 +320,7 @@ function ExtensionCard({ ext, onDetails, onConsole, onAction, mutating }) {
   const isCore = ext.source === 'core'
   const isUserExt = ext.source === 'user'
   const isToggleable = isUserExt && (status === 'enabled' || status === 'disabled')
-  const showRemove = isUserExt && (status === 'enabled' || status === 'disabled')
+  const showRemove = isUserExt && status === 'disabled'
   const showInstall = status === 'not_installed' && ext.installable
 
   return (
@@ -587,7 +587,7 @@ function ConsoleModal({ ext, onClose }) {
   const [logs, setLogs] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const logRef = { current: null }
+  const logRef = useRef(null)
 
   const fetchLogs = async () => {
     try {
