@@ -148,12 +148,20 @@ def get_gpu_info_nvidia() -> Optional[GPUInfo]:
                     power_w = round(float(parts[5]), 1)
                 except (ValueError, TypeError):
                     pass
+            # Guard against [N/A] / [Not Supported] — skip row if memory is unavailable
+            na_values = ("[N/A]", "[Not Supported]", "N/A", "Not Supported", "")
+            if parts[1] in na_values or parts[2] in na_values:
+                continue
+            mem_used = int(parts[1])
+            mem_total = int(parts[2])
+            util = int(parts[3]) if parts[3] not in na_values else 0
+            temp = int(parts[4]) if parts[4] not in na_values else 0
             gpus.append({
                 "name": parts[0],
-                "mem_used": int(parts[1]),
-                "mem_total": int(parts[2]),
-                "util": int(parts[3]),
-                "temp": int(parts[4]),
+                "mem_used": mem_used,
+                "mem_total": mem_total,
+                "util": util,
+                "temp": temp,
                 "power_w": power_w,
             })
 
