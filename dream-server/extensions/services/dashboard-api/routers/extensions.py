@@ -21,8 +21,8 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from config import (
     AGENT_URL, CORE_SERVICE_IDS, DASHBOARD_API_KEY, DATA_DIR,
-    EXTENSION_CATALOG, EXTENSIONS_DIR, EXTENSIONS_LIBRARY_DIR,
-    GPU_BACKEND, SERVICES, USER_EXTENSIONS_DIR,
+    DREAM_AGENT_KEY, EXTENSION_CATALOG, EXTENSIONS_DIR,
+    EXTENSIONS_LIBRARY_DIR, GPU_BACKEND, SERVICES, USER_EXTENSIONS_DIR,
 )
 from security import verify_api_key
 
@@ -129,7 +129,7 @@ def _scan_compose_content(compose_path: Path) -> None:
         cap_add = svc_def.get("cap_add", [])
         if isinstance(cap_add, list):
             for cap in cap_add:
-                if cap in {
+                if str(cap).upper() in {
                     "SYS_ADMIN", "NET_ADMIN", "SYS_PTRACE", "NET_RAW",
                     "DAC_OVERRIDE", "SETUID", "SETGID", "SYS_MODULE",
                     "SYS_RAWIO", "ALL",
@@ -147,6 +147,16 @@ def _scan_compose_content(compose_path: Path) -> None:
             raise HTTPException(
                 status_code=400,
                 detail=f"Service '{svc_name}' uses host network mode",
+            )
+        if svc_def.get("ipc") == "host":
+            raise HTTPException(
+                status_code=400,
+                detail=f"Service '{svc_name}' uses host IPC namespace",
+            )
+        if svc_def.get("userns_mode") == "host":
+            raise HTTPException(
+                status_code=400,
+                detail=f"Service '{svc_name}' uses host user namespace",
             )
         user = svc_def.get("user")
         if user is not None and str(user).split(":")[0] in ("root", "0"):
@@ -185,20 +195,46 @@ def _scan_compose_content(compose_path: Path) -> None:
             )
         ports = svc_def.get("ports", [])
         for port in ports:
-            port_str = str(port)
-            if ":" in port_str:
-                parts = port_str.split(":")
-                if len(parts) >= 3:
-                    if parts[0] != "127.0.0.1":
-                        raise HTTPException(
-                            status_code=400,
-                            detail=f"Extension rejected: port binding '{port_str}' in {svc_name} must use 127.0.0.1",
-                        )
-                elif len(parts) == 2:
+            if isinstance(port, dict):
+                # Dict-form: {target: 80, published: 8080, host_ip: ...}
+                host_ip = port.get("host_ip", "")
+                if port.get("published") and host_ip != "127.0.0.1":
                     raise HTTPException(
                         status_code=400,
-                        detail=f"Extension rejected: port binding '{port_str}' in {svc_name} must specify 127.0.0.1 prefix",
+                        detail=f"Extension rejected: dict port binding in {svc_name} must use host_ip: 127.0.0.1",
                     )
+            else:
+                port_str = str(port)
+                if ":" in port_str:
+                    parts = port_str.split(":")
+                    if len(parts) >= 3:
+                        if parts[0] != "127.0.0.1":
+                            raise HTTPException(
+                                status_code=400,
+                                detail=f"Extension rejected: port binding '{port_str}' in {svc_name} must use 127.0.0.1",
+                            )
+                    elif len(parts) == 2:
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"Extension rejected: port binding '{port_str}' in {svc_name} must specify 127.0.0.1 prefix",
+                        )
+
+    # Scan top-level named volumes for bind-mount backdoors via driver_opts
+    top_volumes = data.get("volumes", {})
+    if isinstance(top_volumes, dict):
+        for vol_name, vol_def in top_volumes.items():
+            if not isinstance(vol_def, dict):
+                continue
+            driver_opts = vol_def.get("driver_opts", {})
+            if not isinstance(driver_opts, dict):
+                continue
+            vol_type = str(driver_opts.get("type", "")).lower()
+            device = str(driver_opts.get("device", ""))
+            if vol_type in ("none", "bind") and device.startswith("/"):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Extension rejected: named volume '{vol_name}' uses driver_opts to bind-mount host path '{device}'",
+                )
 
 
 def _ignore_special(directory: str, files: list[str]) -> list[str]:
@@ -232,7 +268,7 @@ def _call_agent(action: str, service_id: str) -> bool:
     url = f"{AGENT_URL}/v1/extension/{action}"
     headers = {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {DASHBOARD_API_KEY}",
+        "Authorization": f"Bearer {DREAM_AGENT_KEY}",
     }
     data = json.dumps({"service_id": service_id}).encode()
     req = urllib.request.Request(url, data=data, headers=headers, method="POST")
@@ -395,7 +431,7 @@ async def extension_logs(
     url = f"{AGENT_URL}/v1/extension/logs"
     headers = {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {DASHBOARD_API_KEY}",
+        "Authorization": f"Bearer {DREAM_AGENT_KEY}",
     }
     data = json.dumps({"service_id": service_id, "tail": 100}).encode()
     req = urllib.request.Request(url, data=data, headers=headers, method="POST")
@@ -550,12 +586,13 @@ def enable_extension(service_id: str, api_key: str = Depends(verify_api_key)):
                 detail=f"Missing dependencies: {', '.join(missing_deps)}",
             )
 
-    # Re-scan compose content (defense against post-install modification)
-    compose_path = ext_dir / "compose.yaml.disabled"
-    if compose_path.exists():
-        _scan_compose_content(compose_path)
-
     with _extensions_lock():
+        # Re-scan compose content inside lock (TOCTOU prevention —
+        # file contents could be modified between scan and rename)
+        compose_path = ext_dir / "compose.yaml.disabled"
+        if compose_path.exists():
+            _scan_compose_content(compose_path)
+
         # Reject symlinks (checked under lock to prevent TOCTOU)
         st = os.lstat(disabled_compose)
         if stat.S_ISLNK(st.st_mode):
@@ -618,7 +655,8 @@ def disable_extension(service_id: str, api_key: str = Depends(verify_api_key)):
                         peer_manifest.read_text(encoding="utf-8"),
                     )
                     if isinstance(peer_data, dict):
-                        deps = peer_data.get("depends_on", [])
+                        peer_svc = peer_data.get("service", {})
+                        deps = peer_svc.get("depends_on", []) if isinstance(peer_svc, dict) else []
                         if isinstance(deps, list) and service_id in deps:
                             dependents_warning.append(peer_dir.name)
                 except (yaml.YAMLError, OSError) as e:

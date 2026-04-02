@@ -603,7 +603,7 @@ class TestDisableExtension:
         dep_dir.mkdir()
         (dep_dir / "compose.yaml").write_text(_SAFE_COMPOSE)
         (dep_dir / "manifest.yaml").write_text(
-            yaml.dump({"depends_on": ["my-ext"]}),
+            yaml.dump({"service": {"depends_on": ["my-ext"]}}),
         )
         _patch_mutation_config(monkeypatch, tmp_path, user_dir=user_dir)
 
@@ -652,7 +652,7 @@ class TestUninstallExtension:
             headers=test_client.auth_headers,
         )
         assert resp.status_code == 400
-        assert "disabled before uninstall" in resp.json()["detail"]
+        assert "Disable extension before uninstalling" in resp.json()["detail"]
 
     def test_uninstall_core_service_403(self, test_client, monkeypatch, tmp_path):
         """403 when trying to uninstall a core service."""
@@ -889,6 +889,89 @@ class TestComposeScanEdgeCases:
         )
         assert resp.status_code == 400
         assert "SYS_PTRACE" in resp.json()["detail"]
+
+    def test_scan_rejects_lowercase_cap(
+        self, test_client, monkeypatch, tmp_path,
+    ):
+        """400 when compose adds lowercase capability (case-insensitive check)."""
+        compose = "services:\n  svc:\n    image: test\n    cap_add:\n      - sys_admin\n"
+        lib_dir = _setup_library_ext(tmp_path, "bad-ext", compose_content=compose)
+        _patch_mutation_config(monkeypatch, tmp_path, lib_dir=lib_dir)
+
+        resp = test_client.post(
+            "/api/extensions/bad-ext/install",
+            headers=test_client.auth_headers,
+        )
+        assert resp.status_code == 400
+        assert "dangerous capability" in resp.json()["detail"]
+
+    def test_scan_rejects_ipc_host(
+        self, test_client, monkeypatch, tmp_path,
+    ):
+        """400 when compose uses ipc: host."""
+        compose = "services:\n  svc:\n    image: test\n    ipc: host\n"
+        lib_dir = _setup_library_ext(tmp_path, "bad-ext", compose_content=compose)
+        _patch_mutation_config(monkeypatch, tmp_path, lib_dir=lib_dir)
+
+        resp = test_client.post(
+            "/api/extensions/bad-ext/install",
+            headers=test_client.auth_headers,
+        )
+        assert resp.status_code == 400
+        assert "host IPC" in resp.json()["detail"]
+
+    def test_scan_rejects_userns_mode_host(
+        self, test_client, monkeypatch, tmp_path,
+    ):
+        """400 when compose uses userns_mode: host."""
+        compose = "services:\n  svc:\n    image: test\n    userns_mode: host\n"
+        lib_dir = _setup_library_ext(tmp_path, "bad-ext", compose_content=compose)
+        _patch_mutation_config(monkeypatch, tmp_path, lib_dir=lib_dir)
+
+        resp = test_client.post(
+            "/api/extensions/bad-ext/install",
+            headers=test_client.auth_headers,
+        )
+        assert resp.status_code == 400
+        assert "host user namespace" in resp.json()["detail"]
+
+    def test_scan_rejects_named_volume_bind_mount(
+        self, test_client, monkeypatch, tmp_path,
+    ):
+        """400 when top-level volume uses driver_opts to bind-mount host path."""
+        compose = (
+            "services:\n  svc:\n    image: test:latest\n"
+            "    volumes:\n      - mydata:/data\n"
+            "volumes:\n  mydata:\n    driver_opts:\n"
+            "      type: none\n      o: bind\n      device: /etc\n"
+        )
+        lib_dir = _setup_library_ext(tmp_path, "bad-ext", compose_content=compose)
+        _patch_mutation_config(monkeypatch, tmp_path, lib_dir=lib_dir)
+
+        resp = test_client.post(
+            "/api/extensions/bad-ext/install",
+            headers=test_client.auth_headers,
+        )
+        assert resp.status_code == 400
+        assert "bind-mount host path" in resp.json()["detail"]
+
+    def test_scan_rejects_dict_port_without_localhost(
+        self, test_client, monkeypatch, tmp_path,
+    ):
+        """400 when compose uses dict-form port binding without 127.0.0.1."""
+        compose = (
+            "services:\n  svc:\n    image: test\n"
+            "    ports:\n      - target: 80\n        published: 8080\n"
+        )
+        lib_dir = _setup_library_ext(tmp_path, "bad-ext", compose_content=compose)
+        _patch_mutation_config(monkeypatch, tmp_path, lib_dir=lib_dir)
+
+        resp = test_client.post(
+            "/api/extensions/bad-ext/install",
+            headers=test_client.auth_headers,
+        )
+        assert resp.status_code == 400
+        assert "127.0.0.1" in resp.json()["detail"]
 
 
 # --- Size quota enforcement ---
