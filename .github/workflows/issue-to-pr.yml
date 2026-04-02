@@ -114,7 +114,7 @@ jobs:
             --print \
             --model claude-sonnet-4-6-v1 \
             --max-turns 30 \
-            --allowedTools "Read,Edit,Write,Glob,Grep,Bash(git diff *),Bash(git log *),Bash(git status),Bash(ruff *),Bash(python -m py_compile *),Bash(pytest *),Bash(shellcheck *),Bash(bash -n *),Bash(ls *),Bash(find *),Bash(cat *),Bash(head *),Bash(tail *)"
+            --allowedTools "Read,Edit,Write,Glob,Grep,Bash(git diff *),Bash(git log *),Bash(git status),Bash(ruff *),Bash(python -m py_compile *),Bash(pytest *),Bash(shellcheck *),Bash(bash -n *),Bash(ls *)"
 
       - name: Detect changes
         id: detect
