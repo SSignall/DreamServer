@@ -72,6 +72,25 @@ if ! $INTERACTIVE && [[ "$ENABLE_COMFYUI" == "true" ]]; then
     esac
 fi
 
+# Sync ComfyUI compose state with ENABLE_COMFYUI — the resolver uses the
+# .disabled convention to exclude services from the compose stack.
+_comfyui_compose="$SCRIPT_DIR/extensions/services/comfyui/compose.yaml"
+if [[ "${ENABLE_COMFYUI:-}" == "true" ]]; then
+    # Re-enable if previously disabled (re-install with different options)
+    if [[ ! -f "$_comfyui_compose" && -f "${_comfyui_compose}.disabled" ]]; then
+        mv "${_comfyui_compose}.disabled" "$_comfyui_compose"
+        log "ComfyUI compose re-enabled"
+    fi
+else
+    # Disable — prevents resolve-compose-stack.sh from including a compose
+    # file whose image was never built/pulled, blocking ALL containers.
+    if [[ -f "$_comfyui_compose" ]]; then
+        mv "$_comfyui_compose" "${_comfyui_compose}.disabled"
+        log "ComfyUI compose disabled (image generation not enabled)"
+    fi
+fi
+unset _comfyui_compose
+
 # All services are core — no profiles needed (compose profiles removed)
 
 # Select tier-appropriate OpenClaw config
