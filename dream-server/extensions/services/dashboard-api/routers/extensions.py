@@ -789,6 +789,6 @@ def uninstall_extension(service_id: str, api_key: str = Depends(verify_api_key))
     return {
         "id": service_id,
         "action": "uninstalled",
-        "message": f"Extension uninstalled. Docker volumes may remain — run 'docker volume ls' to check.",
-        "cleanup_hint": f"To remove orphaned volumes: docker volume rm $(docker volume ls -q --filter name=*{service_id}*)",
+        "message": "Extension uninstalled. Docker volumes may remain — run 'docker volume ls' to check.",
+        "cleanup_hint": f"To remove orphaned volumes: docker volume ls --filter 'name={service_id}' -q | xargs docker volume rm",
     }
