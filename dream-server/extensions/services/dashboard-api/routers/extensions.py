@@ -182,7 +182,7 @@ def _scan_compose_content(compose_path: Path, *, trusted: bool = False) -> None:
         security_opt = svc_def.get("security_opt", [])
         if isinstance(security_opt, list):
             for opt in security_opt:
-                opt_str = str(opt).lower()
+                opt_str = str(opt).lower().replace("=", ":")
                 if opt_str in ("seccomp:unconfined", "apparmor:unconfined", "label:disable"):
                     raise HTTPException(
                         status_code=400,
@@ -218,6 +218,12 @@ def _scan_compose_content(compose_path: Path, *, trusted: bool = False) -> None:
                             status_code=400,
                             detail=f"Extension rejected: port binding '{port_str}' in {svc_name} must specify 127.0.0.1 prefix",
                         )
+                else:
+                    # Bare port (e.g. "8080") — Docker binds 0.0.0.0
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Extension rejected: bare port '{port_str}' in {svc_name} must use 127.0.0.1:host:container format",
+                    )
 
     # Scan top-level named volumes for bind-mount backdoors via driver_opts
     top_volumes = data.get("volumes", {})

@@ -3,6 +3,7 @@
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
+import yaml
 from models import ServiceStatus
 
 
@@ -987,6 +988,42 @@ class TestComposeScanEdgeCases:
         )
         assert resp.status_code == 400
         assert "127.0.0.1" in resp.json()["detail"]
+
+    def test_scan_rejects_bare_port_no_colon(
+        self, test_client, monkeypatch, tmp_path,
+    ):
+        """400 when compose uses bare port without colon (e.g. '8080')."""
+        compose = (
+            "services:\n  svc:\n    image: test\n"
+            "    ports:\n      - '8080'\n"
+        )
+        lib_dir = _setup_library_ext(tmp_path, "bad-ext", compose_content=compose)
+        _patch_mutation_config(monkeypatch, tmp_path, lib_dir=lib_dir)
+
+        resp = test_client.post(
+            "/api/extensions/bad-ext/install",
+            headers=test_client.auth_headers,
+        )
+        assert resp.status_code == 400
+        assert "bare port" in resp.json()["detail"]
+
+    def test_scan_rejects_security_opt_equals_separator(
+        self, test_client, monkeypatch, tmp_path,
+    ):
+        """400 when compose uses security_opt with '=' separator."""
+        compose = (
+            "services:\n  svc:\n    image: test\n"
+            "    security_opt:\n      - seccomp=unconfined\n"
+        )
+        lib_dir = _setup_library_ext(tmp_path, "bad-ext", compose_content=compose)
+        _patch_mutation_config(monkeypatch, tmp_path, lib_dir=lib_dir)
+
+        resp = test_client.post(
+            "/api/extensions/bad-ext/install",
+            headers=test_client.auth_headers,
+        )
+        assert resp.status_code == 400
+        assert "dangerous security_opt" in resp.json()["detail"]
 
 
 # --- Size quota enforcement ---
