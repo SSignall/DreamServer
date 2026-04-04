@@ -18,6 +18,7 @@ from typing import Optional
 
 import yaml
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 
 from config import (
     AGENT_URL, CORE_SERVICE_IDS, DATA_DIR,
@@ -276,6 +277,21 @@ def _ignore_special(directory: str, files: list[str]) -> list[str]:
 def _copytree_safe(src: Path, dst: Path) -> None:
     """Copy directory tree, skipping symlinks and special files."""
     shutil.copytree(src, dst, ignore=_ignore_special)
+
+
+def _get_service_data_info(service_id: str) -> dict | None:
+    """Return data directory info for a service, or None if no data dir exists."""
+    from helpers import dir_size_gb  # noqa: PLC0415 — deferred to avoid circular import at module level
+    data_path = Path(DATA_DIR) / service_id
+    if not data_path.is_dir():
+        return None
+    size_gb = dir_size_gb(data_path)
+    return {
+        "path": f"data/{service_id}",
+        "size_gb": size_gb,
+        "preserved": True,
+        "purge_command": f"dream purge {service_id}",
+    }
 
 
 # --- Host Agent Helpers ---
@@ -770,6 +786,7 @@ def disable_extension(service_id: str, api_key: str = Depends(verify_api_key)):
         "action": "disabled",
         "restart_required": not agent_ok,
         "dependents_warning": dependents_warning,
+        "data_info": _get_service_data_info(service_id),
         "message": message,
     }
 
@@ -815,6 +832,77 @@ def uninstall_extension(service_id: str, api_key: str = Depends(verify_api_key))
     return {
         "id": service_id,
         "action": "uninstalled",
+        "data_info": _get_service_data_info(service_id),
         "message": "Extension uninstalled. Docker volumes may remain — run 'docker volume ls' to check.",
         "cleanup_hint": f"To remove orphaned volumes: docker volume ls --filter 'name={service_id}' -q | xargs docker volume rm",
     }
+
+
+class PurgeRequest(BaseModel):
+    confirm: bool = False
+
+
+@router.delete("/api/extensions/{service_id}/data")
+async def purge_extension_data(
+    service_id: str,
+    body: PurgeRequest,
+    api_key: str = Depends(verify_api_key),
+):
+    """Permanently delete service data directory."""
+    if not _SERVICE_ID_RE.match(service_id):
+        raise HTTPException(status_code=404, detail=f"Invalid service_id: {service_id}")
+
+    if service_id in CORE_SERVICE_IDS:
+        raise HTTPException(status_code=403, detail="Cannot purge core service data")
+
+    # Check if service is still enabled (built-in or user extension)
+    for check_dir in [Path(EXTENSIONS_DIR) / service_id, USER_EXTENSIONS_DIR / service_id]:
+        if (check_dir / "compose.yaml").exists():
+            raise HTTPException(status_code=400, detail=f"{service_id} is still enabled. Disable it first.")
+
+    data_path = (Path(DATA_DIR) / service_id).resolve()
+    if not data_path.is_relative_to(Path(DATA_DIR).resolve()):
+        raise HTTPException(status_code=400, detail="Invalid data path")
+
+    if not data_path.is_dir():
+        raise HTTPException(status_code=404, detail=f"No data directory found for {service_id}")
+
+    if not body.confirm:
+        raise HTTPException(status_code=400, detail="Confirmation required: set confirm=true")
+
+    from helpers import dir_size_gb  # noqa: PLC0415
+    size_gb = dir_size_gb(data_path)
+
+    shutil.rmtree(data_path, ignore_errors=True)
+
+    if data_path.exists():
+        raise HTTPException(status_code=500, detail=f"Could not fully remove {data_path}. Some files may be owned by root.")
+
+    return {"id": service_id, "action": "purged", "size_gb_freed": size_gb}
+
+
+@router.get("/api/storage/orphaned")
+async def orphaned_storage(api_key: str = Depends(verify_api_key)):
+    """Find data directories not belonging to any known service."""
+    from helpers import dir_size_gb  # noqa: PLC0415
+
+    data_path = Path(DATA_DIR)
+    if not data_path.is_dir():
+        return {"orphaned": [], "total_gb": 0}
+
+    # Known system directories that are not service data
+    system_dirs = {"models", "config", "user-extensions", "extensions-library"}
+    known_ids = set(SERVICES.keys()) | system_dirs
+
+    orphaned = []
+    total = 0.0
+    for child in sorted(data_path.iterdir()):
+        if not child.is_dir():
+            continue
+        if child.name in known_ids:
+            continue
+        size = dir_size_gb(child)
+        orphaned.append({"name": child.name, "size_gb": size, "path": f"data/{child.name}"})
+        total += size
+
+    return {"orphaned": orphaned, "total_gb": round(total, 2)}
