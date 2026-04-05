@@ -1392,7 +1392,7 @@ cmd_purge() {
         error "$service_id is still enabled. Run 'dream disable $service_id' first."
     fi
 
-    # Check if container is still running
+    # Check if container is still running (disable may have failed to stop it)
     local _container="${SERVICE_CONTAINERS[$service_id]:-dream-$service_id}"
     if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^${_container}$"; then
         error "$service_id container is still running. Run 'dream stop $service_id' first."
