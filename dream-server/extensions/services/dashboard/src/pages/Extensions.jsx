@@ -70,12 +70,52 @@ export default function Extensions() {
   const [toast, setToast] = useState(null)
   const [consoleExt, setConsoleExt] = useState(null)
   const [refreshing, setRefreshing] = useState(false)
-  const [installProgress, setInstallProgress] = useState(null)
-  const installProgressRef = useRef(null)
+  const [progressMap, setProgressMap] = useState({})
+  const activePollers = useRef({})
+
+  const pollProgress = (serviceId) => {
+    if (activePollers.current[serviceId]) return
+    activePollers.current[serviceId] = setInterval(async () => {
+      try {
+        const res = await fetchJson(`/api/extensions/${serviceId}/progress`)
+        if (!res.ok) return
+        const data = await res.json()
+        if (data.status === 'idle') return
+        setProgressMap(prev => ({ ...prev, [serviceId]: data }))
+        if (data.status === 'started' || data.status === 'error') {
+          clearInterval(activePollers.current[serviceId])
+          delete activePollers.current[serviceId]
+          if (data.status === 'started') {
+            setToast({ type: 'success', text: `Extension installed and started.` })
+          } else if (data.status === 'error') {
+            setToast({ type: 'error', text: data.error || 'Installation failed' })
+          }
+          setProgressMap(prev => { const next = { ...prev }; delete next[serviceId]; return next })
+          fetchCatalog()
+        }
+      } catch { /* ignore */ }
+    }, 3000)
+  }
 
   useEffect(() => {
     fetchCatalog()
+    return () => { Object.values(activePollers.current).forEach(clearInterval); activePollers.current = {} }
   }, [])
+
+  // Start polling for installing extensions + fetch progress for error state (after page refresh)
+  useEffect(() => {
+    if (!catalog) return
+    const installing = catalog.extensions.filter(e => e.status === 'installing' || e.status === 'setting_up')
+    installing.forEach(e => pollProgress(e.id))
+    catalog.extensions.filter(e => e.status === 'error').forEach(async (e) => {
+      try {
+        const res = await fetchJson(`/api/extensions/${e.id}/progress`)
+        if (!res.ok) return
+        const data = await res.json()
+        if (data.status === 'error') setProgressMap(prev => ({ ...prev, [e.id]: data }))
+      } catch { /* ignore */ }
+    })
+  }, [catalog])
 
   useEffect(() => {
     if (toast && toast.type !== 'info') {
@@ -112,22 +152,6 @@ export default function Extensions() {
     setMutating(serviceId)
     setConfirm(null)
 
-    let pollInterval = null
-    if (action === 'install' || action === 'enable') {
-      pollInterval = setInterval(async () => {
-        try {
-          const res = await fetchJson(`/api/extensions/${serviceId}/progress`)
-          if (res.ok) {
-            const data = await res.json()
-            if (data.status !== 'idle') {
-            installProgressRef.current = data
-            setInstallProgress(data)
-          }
-          }
-        } catch { /* ignore polling errors */ }
-      }, 3000)
-    }
-
     try {
       const url = action === 'uninstall'
         ? `/api/extensions/${serviceId}`
@@ -148,29 +172,32 @@ export default function Extensions() {
         throw new Error(err.detail || `Failed to ${action}`)
       }
       const data = await res.json()
-      let successText = data.message || (
-        action === 'uninstall' ? 'Extension removed' :
-        action === 'purge' ? `Data purged — ${data.size_gb_freed ?? 0} GB freed` :
-        `Extension ${action}d`
-      )
-      if (data.data_info) {
-        successText += ` Data preserved (${data.data_info.size_gb} GB) — purge to remove.`
-      }
-      if (data.restart_required) {
-        setToast({ type: 'info', text: `${successText} — restart needed to apply.` })
+
+      if (action === 'install' || action === 'enable') {
+        // Refresh catalog to show "installing" state, then let the
+        // catalog-driven poller handle the rest (toast + final refresh)
+        await fetchCatalog()
+        pollProgress(serviceId)
       } else {
-        setToast({ type: 'success', text: successText })
+        let successText = data.message || (
+          action === 'uninstall' ? 'Extension removed' :
+          action === 'purge' ? `Data purged — ${data.size_gb_freed ?? 0} GB freed` :
+          `Extension ${action}d`
+        )
+        if (data.data_info) {
+          successText += ` Data preserved (${data.data_info.size_gb} GB) — purge to remove.`
+        }
+        if (data.restart_required) {
+          setToast({ type: 'info', text: `${successText} — restart needed to apply.` })
+        } else {
+          setToast({ type: 'success', text: successText })
+        }
+        await fetchCatalog()
       }
-      await fetchCatalog()
     } catch (err) {
-      const progressError = installProgressRef.current?.service_id === serviceId
-          ? installProgressRef.current.error : null
       const base = friendlyError(err.message) || `Failed to ${action} extension`
-      setToast({ type: 'error', text: progressError ? `${base} — ${progressError}` : base })
+      setToast({ type: 'error', text: base })
     } finally {
-      if (pollInterval) clearInterval(pollInterval)
-      installProgressRef.current = null
-      setInstallProgress(null)
       setMutating(null)
     }
   }
@@ -335,7 +362,7 @@ export default function Extensions() {
               onConsole={() => setConsoleExt(ext)}
               onAction={requestAction}
               mutating={mutating}
-              installProgress={installProgress}
+              progressData={progressMap[ext.id]}
             />
           ))}
         </div>
@@ -402,7 +429,7 @@ function SummaryItem({ label, value, color }) {
   )
 }
 
-function ExtensionCard({ ext, gpuBackend, agentAvailable, onDetails, onConsole, onAction, mutating, installProgress }) {
+function ExtensionCard({ ext, gpuBackend, agentAvailable, onDetails, onConsole, onAction, mutating, progressData }) {
   const iconName = ext.features?.[0]?.icon
   const Icon = (iconName && ICON_MAP[iconName]) || Package
   const status = ext.status || 'not_installed'
@@ -415,9 +442,10 @@ function ExtensionCard({ ext, gpuBackend, agentAvailable, onDetails, onConsole, 
 
   const isCore = ext.source === 'core'
   const isUserExt = ext.source === 'user'
+  const isError = status === 'error'
   const isStopped = status === 'stopped'
   const isToggleable = isUserExt && (status === 'enabled' || status === 'disabled' || isStopped)
-  const showRemove = isUserExt && status === 'disabled'
+  const showRemove = isUserExt && (status === 'disabled' || isError)
   const showInstall = status === 'not_installed' && ext.installable
 
   return (
@@ -504,11 +532,17 @@ function ExtensionCard({ ext, gpuBackend, agentAvailable, onDetails, onConsole, 
         <p className="text-xs text-theme-text-muted line-clamp-2 leading-relaxed">{ext.description || 'No description available.'}</p>
       </div>
 
-      {/* Progress indicator */}
-      {isMutating && installProgress?.service_id === ext.id && (
+      {/* Progress indicator — shows during active install/setup, survives page refresh */}
+      {(progressData || ext.status === 'installing' || ext.status === 'setting_up') && (
         <div className="px-4 py-2 border-t border-theme-border/60 text-xs text-blue-300 flex items-center gap-2">
           <Loader2 size={12} className="animate-spin" />
-          <span>{installProgress.phase_label || 'Working...'}</span>
+          <span>{progressData?.phase_label || (ext.status === 'setting_up' ? 'Running setup...' : 'Installing...')}</span>
+        </div>
+      )}
+      {/* Error message */}
+      {ext.status === 'error' && progressData?.error && (
+        <div className="px-4 py-2 border-t border-red-500/30 text-xs text-red-300 leading-relaxed">
+          {progressData.error.length > 200 ? progressData.error.slice(0, 200) + '...' : progressData.error}
         </div>
       )}
 
@@ -533,6 +567,16 @@ function ExtensionCard({ ext, gpuBackend, agentAvailable, onDetails, onConsole, 
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-green-500/20 text-green-300 hover:bg-green-500/30 transition-colors disabled:opacity-50"
             >
               {isMutating ? <Loader2 size={12} className="animate-spin" /> : 'Start'}
+            </button>
+          )}
+          {isError && (
+            <button
+              disabled={actionDisabled}
+              title={disabledTitle}
+              onClick={() => onAction(ext, 'enable')}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-500/20 text-blue-300 hover:bg-blue-500/30 transition-colors disabled:opacity-50"
+            >
+              {isMutating ? <Loader2 size={12} className="animate-spin" /> : <><RefreshCw size={12} /> Retry</>}
             </button>
           )}
           {showRemove && (
