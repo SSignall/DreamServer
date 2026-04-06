@@ -14,6 +14,7 @@ import signal
 import subprocess
 import sys
 import threading
+from datetime import datetime, timezone
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 from socketserver import ThreadingMixIn
@@ -171,7 +172,6 @@ def _parse_mem_value(s: str) -> float:
 
 
 def _iso_now() -> str:
-    from datetime import datetime, timezone
     return datetime.now(timezone.utc).isoformat()
 
 

@@ -13,7 +13,7 @@ from helpers import (
     get_uptime, get_cpu_metrics, get_ram_metrics,
     check_service_health, get_all_services,
     get_llama_metrics, get_loaded_model, get_llama_context_size,
-    get_disk_usage,
+    get_disk_usage, dir_size_gb,
     _get_aio_session, set_services_cache, get_cached_services,
     _check_host_service_health, _get_lifetime_tokens,
 )
@@ -802,3 +802,36 @@ class TestBootstrapStatusEtaEdge:
         status = get_bootstrap_status()
         assert status.active is True
         assert status.eta_seconds is None
+
+
+# --- dir_size_gb ---
+
+
+class TestDirSizeGb:
+
+    def test_nonexistent_path_returns_zero(self, tmp_path):
+        assert dir_size_gb(tmp_path / "does-not-exist") == 0.0
+
+    def test_empty_directory_returns_zero(self, tmp_path):
+        empty = tmp_path / "empty"
+        empty.mkdir()
+        assert dir_size_gb(empty) == 0.0
+
+    def test_directory_with_files(self, tmp_path):
+        d = tmp_path / "data"
+        d.mkdir()
+        # Write 100 MiB (avoids allocating 1 GiB in CI)
+        size = 1024 * 1024 * 100
+        (d / "bigfile.bin").write_bytes(b"\x00" * size)
+        assert dir_size_gb(d) == 0.1
+
+    def test_symlinks_are_skipped(self, tmp_path):
+        d = tmp_path / "withlinks"
+        d.mkdir()
+        real = d / "real.bin"
+        real.write_bytes(b"\x00" * 1024)
+        link = d / "link.bin"
+        link.symlink_to(real)
+        # Only real.bin should be counted (1024 B ≈ 0.0 GB when rounded to 2dp)
+        result = dir_size_gb(d)
+        assert result == 0.0  # 1024 bytes rounds to 0.0 GB
