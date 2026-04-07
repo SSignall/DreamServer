@@ -71,6 +71,7 @@ export default function Extensions() {
   const [consoleExt, setConsoleExt] = useState(null)
   const [refreshing, setRefreshing] = useState(false)
   const [progressMap, setProgressMap] = useState({})
+  const installProgressRef = useRef(null)
   const activePollers = useRef({})
 
   const pollProgress = (serviceId) => {
@@ -82,16 +83,27 @@ export default function Extensions() {
         const data = await res.json()
         if (data.status === 'idle') return
         setProgressMap(prev => ({ ...prev, [serviceId]: data }))
-        if (data.status === 'started' || data.status === 'error') {
+        if (data.status === 'error') {
           clearInterval(activePollers.current[serviceId])
           delete activePollers.current[serviceId]
-          if (data.status === 'started') {
-            setToast({ type: 'success', text: `Extension installed and started.` })
-          } else if (data.status === 'error') {
-            setToast({ type: 'error', text: data.error || 'Installation failed' })
-          }
+          setToast({ type: 'error', text: data.error || 'Installation failed' })
           setProgressMap(prev => { const next = { ...prev }; delete next[serviceId]; return next })
           fetchCatalog()
+        } else if (data.status === 'started') {
+          // Container is up but healthcheck may not have passed yet.
+          // Refresh catalog — if it shows "enabled", we're done.
+          const catRes = await fetchJson('/api/extensions/catalog')
+          if (!catRes.ok) return
+          const catData = await catRes.json()
+          setCatalog(catData)
+          const ext = catData.extensions?.find(e => e.id === serviceId)
+          if (ext && ext.status === 'enabled') {
+            clearInterval(activePollers.current[serviceId])
+            delete activePollers.current[serviceId]
+            setToast({ type: 'success', text: `Extension installed and started.` })
+            setProgressMap(prev => { const next = { ...prev }; delete next[serviceId]; return next })
+          }
+          // If not yet "enabled", keep polling — healthcheck still running
         }
       } catch { /* ignore */ }
     }, 3000)
@@ -107,6 +119,7 @@ export default function Extensions() {
     if (!catalog) return
     const installing = catalog.extensions.filter(e => e.status === 'installing' || e.status === 'setting_up')
     installing.forEach(e => pollProgress(e.id))
+    // Fetch progress once for errored extensions to show the error message
     catalog.extensions.filter(e => e.status === 'error').forEach(async (e) => {
       try {
         const res = await fetchJson(`/api/extensions/${e.id}/progress`)
@@ -808,6 +821,7 @@ function ConsoleModal({ ext, onClose }) {
   const [error, setError] = useState(null)
   const [disconnected, setDisconnected] = useState(false)
   const [atBottom, setAtBottom] = useState(true)
+  const [installInfo, setInstallInfo] = useState(null)
   const logRef = useRef(null)
   const isNearBottom = useRef(true)
 
@@ -816,6 +830,23 @@ function ConsoleModal({ ext, onClose }) {
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
   }, [onClose])
+
+  // Fetch install progress info
+  useEffect(() => {
+    let active = true
+    const fetchProgress = async () => {
+      try {
+        const res = await fetchJson(`/api/extensions/${ext.id}/progress`)
+        if (res.ok && active) {
+          const data = await res.json()
+          if (data.status !== 'idle') setInstallInfo(data)
+        }
+      } catch { /* ignore */ }
+    }
+    fetchProgress()
+    const interval = setInterval(fetchProgress, 5000)
+    return () => { active = false; clearInterval(interval) }
+  }, [ext.id])
 
   useEffect(() => {
     let active = true
@@ -917,6 +948,26 @@ function ConsoleModal({ ext, onClose }) {
             <X size={16} />
           </button>
         </div>
+        {installInfo && (
+          <div className={`px-4 py-2 border-b text-xs flex items-center gap-2 ${
+            installInfo.status === 'error' ? 'border-red-500/30 bg-red-500/10 text-red-300' :
+            installInfo.status === 'started' ? 'border-green-500/30 bg-green-500/10 text-green-300' :
+            'border-blue-500/30 bg-blue-500/10 text-blue-300'
+          }`}>
+            {installInfo.status !== 'error' && installInfo.status !== 'started' && (
+              <Loader2 size={12} className="animate-spin" />
+            )}
+            <span className="font-medium">{installInfo.phase_label || installInfo.status}</span>
+            {installInfo.error && (
+              <span className="ml-2 text-red-300">— {installInfo.error}</span>
+            )}
+            {installInfo.started_at && (
+              <span className="ml-auto text-theme-text-muted">
+                {new Date(installInfo.started_at).toLocaleTimeString()}
+              </span>
+            )}
+          </div>
+        )}
         <div className="relative flex-1">
           <div
             ref={el => { logRef.current = el }}
