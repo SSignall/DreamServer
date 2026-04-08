@@ -176,16 +176,25 @@ else
 fi
 
 # ── Phase 2: Verify integrity (if SHA256 provided) ──
-if [[ -n "$FULL_GGUF_SHA256" ]] && command -v sha256sum &>/dev/null; then
+if [[ -n "$FULL_GGUF_SHA256" ]]; then
     write_status "verifying" 100 "$TOTAL_BYTES" "$TOTAL_BYTES" 0 ""
     log "Verifying SHA256..."
-    ACTUAL_HASH=$(sha256sum "$MODELS_DIR/$FULL_GGUF_FILE" 2>/dev/null | awk '{print $1}')
-    if [[ "$ACTUAL_HASH" != "$FULL_GGUF_SHA256" ]]; then
-        rm -f "$MODELS_DIR/$FULL_GGUF_FILE"
-        write_status "failed"
-        fail "SHA256 mismatch (expected: $FULL_GGUF_SHA256, got: $ACTUAL_HASH). Deleted corrupt file."
+    if command -v sha256sum &>/dev/null; then
+        ACTUAL_HASH=$(sha256sum "$MODELS_DIR/$FULL_GGUF_FILE" 2>/dev/null | awk '{print $1}')
+    elif command -v shasum &>/dev/null; then
+        ACTUAL_HASH=$(shasum -a 256 "$MODELS_DIR/$FULL_GGUF_FILE" 2>/dev/null | awk '{print $1}')
+    else
+        log "WARNING: No checksum tool available — skipping SHA256 verification"
+        ACTUAL_HASH=""
     fi
-    log "SHA256 verified"
+    if [[ -n "$ACTUAL_HASH" ]]; then
+        if [[ "$ACTUAL_HASH" != "$FULL_GGUF_SHA256" ]]; then
+            rm -f "$MODELS_DIR/$FULL_GGUF_FILE"
+            write_status "failed"
+            fail "SHA256 mismatch (expected: $FULL_GGUF_SHA256, got: $ACTUAL_HASH). Deleted corrupt file."
+        fi
+        log "SHA256 verified"
+    fi
     write_status "complete"
 fi
 
@@ -327,6 +336,16 @@ elif [[ -f "$INSTALL_DIR/data/.llama-server.pid" ]]; then
                 fi
             fi
 
+            # Read reasoning mode from .env (default off to prevent thinking models
+            # from consuming the entire token budget on internal reasoning)
+            _reasoning=$(grep '^LLAMA_REASONING=' "$ENV_FILE" 2>/dev/null | cut -d= -f2 || echo "")
+            [[ -z "$_reasoning" ]] && _reasoning="off"
+            case "$_reasoning" in
+                off)  _reasoning_fmt="none" ;;
+                on)   _reasoning_fmt="deepseek" ;;
+                *)    _reasoning_fmt="$_reasoning" ;;
+            esac
+
             # Relaunch with new model
             log "Starting native llama-server with ${_gguf_file}..."
             "$LLAMA_SERVER_BIN" \
@@ -334,6 +353,7 @@ elif [[ -f "$INSTALL_DIR/data/.llama-server.pid" ]]; then
                 --model "$_model_path" \
                 --ctx-size "$_ctx_size" \
                 --n-gpu-layers 999 \
+                --reasoning-format "$_reasoning_fmt" \
                 --metrics \
                 > "$LLAMA_SERVER_LOG" 2>&1 &
             _new_pid=$!
@@ -365,6 +385,7 @@ elif [[ -f "$INSTALL_DIR/data/.llama-server.pid" ]]; then
                         --model "$_old_model_path" \
                         --ctx-size "$_ctx_size" \
                         --n-gpu-layers 999 \
+                        --reasoning-format "${_reasoning_fmt:-none}" \
                         --metrics \
                         > "$LLAMA_SERVER_LOG" 2>&1 &
                     _rollback_pid=$!
