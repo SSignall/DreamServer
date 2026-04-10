@@ -1,5 +1,6 @@
 """Extensions portal endpoints."""
 
+import asyncio
 import contextlib
 import json
 import logging
@@ -52,11 +53,14 @@ def _compute_extension_status(ext: dict, services_by_id: dict) -> str:
             return "enabled"
         return "disabled"
 
-    # User-installed extension (file-based status — compose.yaml = enabled)
+    # User-installed extension — health-based when compose.yaml exists
     user_dir = USER_EXTENSIONS_DIR / ext_id
     if user_dir.is_dir():
         if (user_dir / "compose.yaml").exists():
-            return "enabled"
+            svc = services_by_id.get(ext_id)
+            if svc and svc.status == "healthy":
+                return "enabled"
+            return "stopped"
         if (user_dir / "compose.yaml.disabled").exists():
             return "disabled"
 
@@ -395,6 +399,35 @@ async def extensions_catalog(
         service_list = await get_all_services()
     services_by_id = {s.id: s for s in service_list}
 
+    # Health-check user extensions so _compute_extension_status can distinguish
+    # "enabled" (healthy) from "stopped" (unhealthy / not running).
+    from helpers import check_service_health
+    from user_extensions import get_user_services_cached
+
+    user_svc_configs = get_user_services_cached(USER_EXTENSIONS_DIR)
+
+    # Only health-check extensions that declare a health endpoint
+    checkable = {sid: cfg for sid, cfg in user_svc_configs.items() if cfg.get("health")}
+    user_health_tasks = [
+        check_service_health(sid, cfg) for sid, cfg in checkable.items()
+    ]
+    user_health = await asyncio.gather(*user_health_tasks, return_exceptions=True)
+    for (sid, _), result in zip(checkable.items(), user_health):
+        if not isinstance(result, BaseException):
+            services_by_id[sid] = result
+
+    # Extensions without health endpoints — assume running if scanned
+    # (presence in user_svc_configs means compose.yaml + manifest exist)
+    from models import ServiceStatus
+    for sid, cfg in user_svc_configs.items():
+        if not cfg.get("health") and sid not in services_by_id:
+            services_by_id[sid] = ServiceStatus(
+                id=sid, name=cfg.get("name", sid),
+                port=cfg.get("port", 0),
+                external_port=cfg.get("external_port", cfg.get("port", 0)),
+                status="healthy", response_time_ms=None,
+            )
+
     extensions = []
     for ext in EXTENSION_CATALOG:
         status = _compute_extension_status(ext, services_by_id)
@@ -415,9 +448,10 @@ async def extensions_catalog(
 
     summary = {
         "total": len(extensions),
-        "installed": sum(1 for e in extensions if e["status"] in ("enabled", "disabled")),
+        "installed": sum(1 for e in extensions if e["status"] in ("enabled", "disabled", "stopped")),
         "enabled": sum(1 for e in extensions if e["status"] == "enabled"),
         "disabled": sum(1 for e in extensions if e["status"] == "disabled"),
+        "stopped": sum(1 for e in extensions if e["status"] == "stopped"),
         "not_installed": sum(1 for e in extensions if e["status"] == "not_installed"),
         "incompatible": sum(1 for e in extensions if e["status"] == "incompatible"),
     }
@@ -452,10 +486,33 @@ async def extension_detail(
     if not ext:
         raise HTTPException(status_code=404, detail=f"Extension not found: {service_id}")
 
-    from helpers import get_all_services
+    from helpers import check_service_health, get_all_services
+    from user_extensions import get_user_services_cached
 
     service_list = await get_all_services()
     services_by_id = {s.id: s for s in service_list}
+
+    user_svc_configs = get_user_services_cached(USER_EXTENSIONS_DIR)
+
+    checkable = {sid: cfg for sid, cfg in user_svc_configs.items() if cfg.get("health")}
+    user_health_tasks = [
+        check_service_health(sid, cfg) for sid, cfg in checkable.items()
+    ]
+    user_health = await asyncio.gather(*user_health_tasks, return_exceptions=True)
+    for (sid, _), result in zip(checkable.items(), user_health):
+        if not isinstance(result, BaseException):
+            services_by_id[sid] = result
+
+    from models import ServiceStatus
+    for sid, cfg in user_svc_configs.items():
+        if not cfg.get("health") and sid not in services_by_id:
+            services_by_id[sid] = ServiceStatus(
+                id=sid, name=cfg.get("name", sid),
+                port=cfg.get("port", 0),
+                external_port=cfg.get("external_port", cfg.get("port", 0)),
+                status="healthy", response_time_ms=None,
+            )
+
     status = _compute_extension_status(ext, services_by_id)
     installable = _is_installable(service_id)
 
@@ -636,10 +693,28 @@ def enable_extension(service_id: str, api_key: str = Depends(verify_api_key)):
     disabled_compose = ext_dir / "compose.yaml.disabled"
     enabled_compose = ext_dir / "compose.yaml"
 
+    # Stopped case: compose.yaml exists but container is not running — just start it
     if enabled_compose.exists():
-        raise HTTPException(
-            status_code=409, detail=f"Extension already enabled: {service_id}",
-        )
+        with _extensions_lock():
+            st = os.lstat(enabled_compose)
+            if stat.S_ISLNK(st.st_mode):
+                raise HTTPException(
+                    status_code=400, detail="Compose file is a symlink",
+                )
+            _scan_compose_content(enabled_compose)
+        # Dependencies were satisfied at install time; compose content is re-scanned above
+        agent_ok = _call_agent("start", service_id)
+        logger.info("Started stopped extension: %s", service_id)
+        return {
+            "id": service_id,
+            "action": "enabled",
+            "restart_required": not agent_ok,
+            "message": (
+                "Extension started." if agent_ok
+                else "Extension is enabled. Run 'dream restart' to start."
+            ),
+        }
+
     if not disabled_compose.exists():
         raise HTTPException(
             status_code=404, detail=f"Extension has no compose file: {service_id}",
