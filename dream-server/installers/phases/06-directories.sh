@@ -272,7 +272,10 @@ RENDER_GID=$(getent group render 2>/dev/null | cut -d: -f3 || echo 992)
 
 #=== AMD ROCm Settings ===
 HSA_OVERRIDE_GFX_VERSION=11.5.1
-ROCBLAS_USE_HIPBLASLT=0
+HSA_XNACK=1
+ROCBLAS_USE_HIPBLASLT=1
+AMDGPU_TARGET=gfx1151
+LLAMA_CPP_REF=master
 AMD_ENV
 fi)
 $(if [[ "$GPU_BACKEND" == "sycl" ]]; then cat << INTEL_ENV
