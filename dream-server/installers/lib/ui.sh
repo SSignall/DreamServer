@@ -413,6 +413,7 @@ show_install_menu() {
             ENABLE_RAG=false
             ENABLE_OPENCLAW=false
             ENABLE_COMFYUI=false
+            ENABLE_DREAMFORGE=false
             ENABLE_LANGFUSE=false
             ;;
         3)
