@@ -126,6 +126,9 @@ fi
 # ============================================
 header "2/6" "Docker Compose Validation"
 
+# Provide required compose variables so validation doesn't fail on :? guards
+export WEBUI_SECRET="${WEBUI_SECRET:-test}"
+
 if [[ -z "$COMPOSE_FILE" ]]; then
     fail "No compose file found (expected base+overlay or docker-compose.yml)"
 else
