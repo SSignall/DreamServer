@@ -94,12 +94,16 @@ Fix with: sudo chown -R \$(id -u):\$(id -g) $INSTALL_DIR/config $INSTALL_DIR/dat
                 "$SCRIPT_DIR/" "$INSTALL_DIR/"
         else
             # Fallback: cp -r everything, then remove runtime artifacts
-            cp -r "$SCRIPT_DIR"/* "$INSTALL_DIR/" 2>/dev/null || true
-            cp "$SCRIPT_DIR"/.gitignore "$INSTALL_DIR/" 2>/dev/null || true
-            rm -rf "$INSTALL_DIR/.git" 2>/dev/null || true
+            if ! cp -r "$SCRIPT_DIR"/* "$INSTALL_DIR/" 2>>"$LOG_FILE"; then
+                warn "Source copy incomplete — some files may be missing"
+            fi
+            if ! cp "$SCRIPT_DIR"/.gitignore "$INSTALL_DIR/" 2>>"$LOG_FILE"; then
+                warn "Failed to copy .gitignore"
+            fi
+            rm -rf "$INSTALL_DIR/.git" 2>>"$LOG_FILE" || true
         fi
         # Ensure scripts are executable
-        chmod +x "$INSTALL_DIR"/*.sh "$INSTALL_DIR"/scripts/*.sh "$INSTALL_DIR"/dream-cli 2>/dev/null || true
+        chmod +x "$INSTALL_DIR"/*.sh "$INSTALL_DIR"/scripts/*.sh "$INSTALL_DIR"/dream-cli 2>>"$LOG_FILE" || warn "Some scripts may not be executable — verify after install"
         ai_ok "Source files installed"
     else
         log "Running in-place (source == install dir), skipping file copy"
@@ -124,7 +128,9 @@ Fix with: sudo chown -R \$(id -u):\$(id -g) $INSTALL_DIR/config $INSTALL_DIR/dat
             cp "$SCRIPT_DIR/config/openclaw/$OPENCLAW_CONFIG" "$INSTALL_DIR/config/openclaw/openclaw.json"
         else
             warn "OpenClaw config $OPENCLAW_CONFIG not found, using default"
-            cp "$SCRIPT_DIR/config/openclaw/openclaw.json.example" "$INSTALL_DIR/config/openclaw/openclaw.json" 2>/dev/null || true
+            if ! cp "$SCRIPT_DIR/config/openclaw/openclaw.json.example" "$INSTALL_DIR/config/openclaw/openclaw.json" 2>>"$LOG_FILE"; then
+                warn "Failed to copy OpenClaw default config — you may need to create it manually"
+            fi
         fi
         # Resolve provider name/URL before any sed replacements that depend on them
         OPENCLAW_PROVIDER_NAME="${OPENCLAW_PROVIDER_NAME_DEFAULT}"
