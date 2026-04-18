@@ -65,16 +65,32 @@ Downloaded models are cached in `data/whisper/` (mounted at `/home/ubuntu/.cache
 
 ## Model Downloads
 
-**Important:** Speaches does NOT auto-download models on transcription requests — it returns `404 Model ... is not installed locally` if the model isn't already cached. The installer's Phase 12 (`installers/phases/12-health.sh`) pre-downloads the default STT model by triggering `POST /v1/models/{id}` against the service.
+**Important:** Speaches does NOT auto-download models on transcription requests — it returns `404 Model ... is not installed locally` if the model isn't already cached.
+
+The installer pre-downloads the STT model on all platforms:
+- **Linux:** Phase 12 (`installers/phases/12-health.sh`)
+- **macOS:** `installers/macos/install-macos.sh` (post-health check)
+- **Windows:** `installers/windows/install-windows.ps1` (post-health check)
+
+The model to download is controlled by the `AUDIO_STT_MODEL` variable in `.env`:
+- **NVIDIA default:** `deepdml/faster-whisper-large-v3-turbo-ct2` (~1.5GB)
+- **macOS / AMD / CPU default:** `Systran/faster-whisper-base` (~130MB)
+
+Edit `AUDIO_STT_MODEL` in `.env` to use a different model, then reinstall or manually run the recovery command below. Open WebUI automatically picks up the same `AUDIO_STT_MODEL` value so transcription requests always match the cached model.
+
+### Recovery
 
 If the pre-download fails (network issue, models API not ready in time), run the recovery command manually:
 
 ```bash
-# For AMD / CPU / Intel (default: base model, ~130MB):
-curl -X POST http://localhost:9000/v1/models/Systran%2Ffaster-whisper-base
+# Linux / macOS — the model ID from your .env:
+curl --max-time 3600 -X POST http://localhost:9000/v1/models/Systran%2Ffaster-whisper-base
 
-# For NVIDIA (default: large-v3 turbo, ~1.5GB):
-curl -X POST http://localhost:9000/v1/models/deepdml%2Ffaster-whisper-large-v3-turbo-ct2
+# For NVIDIA turbo:
+curl --max-time 3600 -X POST http://localhost:9000/v1/models/deepdml%2Ffaster-whisper-large-v3-turbo-ct2
+
+# Windows (PowerShell):
+Invoke-WebRequest -Method POST -Uri 'http://localhost:9000/v1/models/Systran%2Ffaster-whisper-base' -TimeoutSec 3600
 
 # Wait 2-5 minutes (depending on model size + network). Verify it cached:
 curl http://localhost:9000/v1/models

@@ -167,7 +167,11 @@ dream_progress 95 "health" "Checking voice services"
 # We must trigger the download explicitly here, verify it completed, and
 # surface a clear recovery command if anything fails.
 if [[ "$ENABLE_VOICE" == "true" ]]; then
-    if [[ "$GPU_BACKEND" == "nvidia" ]]; then
+    # Prefer AUDIO_STT_MODEL from .env (written by Phase 06). Fall back to the
+    # GPU_BACKEND switch for backward compat with older .env files missing it.
+    if [[ -n "${AUDIO_STT_MODEL:-}" ]]; then
+        STT_MODEL="$AUDIO_STT_MODEL"
+    elif [[ "$GPU_BACKEND" == "nvidia" ]]; then
         STT_MODEL="deepdml/faster-whisper-large-v3-turbo-ct2"
     else
         STT_MODEL="Systran/faster-whisper-base"

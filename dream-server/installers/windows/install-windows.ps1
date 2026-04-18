@@ -657,6 +657,74 @@ foreach ($check in $healthChecks) {
     }
 }
 
+# ── Pre-download the Whisper STT model ───────────────────────────────────────
+# Speaches does NOT auto-download on transcription requests — it returns 404.
+# Trigger the download explicitly, verify it completed, surface recovery
+# instructions on failure. Mirrors Linux Phase 12 and macOS install-macos.sh.
+if ($enableVoice) {
+    # Read AUDIO_STT_MODEL from .env (written by env-generator.ps1).
+    $sttModel = "Systran/faster-whisper-base"  # safe fallback
+    $envPath = Join-Path $installDir ".env"
+    if (Test-Path $envPath) {
+        $envLine = Get-Content $envPath -ErrorAction SilentlyContinue | Where-Object { $_ -match "^AUDIO_STT_MODEL=(.+)$" } | Select-Object -First 1
+        if ($envLine -match "^AUDIO_STT_MODEL=(.+)$") {
+            $sttModel = $Matches[1].Trim('"').Trim()
+        }
+    }
+    $sttModelEncoded = $sttModel -replace "/", "%2F"
+    $whisperPort = 9000  # Windows doesn't reassign this port
+    $whisperUrl = "http://localhost:$whisperPort"
+    $sttRecoveryCmd = "Invoke-WebRequest -Method POST -Uri '$whisperUrl/v1/models/$sttModelEncoded' -TimeoutSec 3600"
+
+    # Step 1: wait briefly for the models API to be ready (max 15s).
+    $sttApiReady = $false
+    for ($i = 1; $i -le 15; $i++) {
+        try {
+            $probe = Invoke-WebRequest -Uri "$whisperUrl/v1/models" -TimeoutSec 2 -UseBasicParsing -ErrorAction Stop
+            if ($probe.StatusCode -eq 200) { $sttApiReady = $true; break }
+        } catch { }
+        Start-Sleep -Seconds 1
+    }
+
+    if (-not $sttApiReady) {
+        Write-AIWarn "STT models API not ready -- download manually:"
+        Write-Host "    $sttRecoveryCmd" -ForegroundColor DarkGray
+    } else {
+        # Step 2: skip if already cached.
+        $alreadyCached = $false
+        try {
+            $check = Invoke-WebRequest -Uri "$whisperUrl/v1/models/$sttModelEncoded" -TimeoutSec 10 -UseBasicParsing -ErrorAction Stop
+            if ($check.StatusCode -eq 200) { $alreadyCached = $true }
+        } catch { }
+
+        if ($alreadyCached) {
+            Write-AISuccess "STT model already cached ($sttModel)"
+        } else {
+            # Step 3: POST to trigger download.
+            Write-AI "Downloading STT model ($sttModel)..."
+            try {
+                Invoke-WebRequest -Method POST -Uri "$whisperUrl/v1/models/$sttModelEncoded" -TimeoutSec 3600 -UseBasicParsing -ErrorAction Stop | Out-Null
+            } catch {
+                # Fall through to verification step regardless — POST can succeed or partial-fail.
+            }
+
+            # Step 4: verify the model is actually cached.
+            $verified = $false
+            try {
+                $verify = Invoke-WebRequest -Uri "$whisperUrl/v1/models/$sttModelEncoded" -TimeoutSec 10 -UseBasicParsing -ErrorAction Stop
+                if ($verify.StatusCode -eq 200) { $verified = $true }
+            } catch { }
+
+            if ($verified) {
+                Write-AISuccess "STT model cached ($sttModel)"
+            } else {
+                Write-AIWarn "STT model download failed -- run manually:"
+                Write-Host "    $sttRecoveryCmd" -ForegroundColor DarkGray
+            }
+        }
+    }
+}
+
 # ── Auto-configure Perplexica ─────────────────────────────────────────────────
 Write-AI "Configuring Perplexica..."
 $perplexicaOk = Set-PerplexicaConfig -PerplexicaPort 3004 -LlmModel $tierConfig.LlmModel
