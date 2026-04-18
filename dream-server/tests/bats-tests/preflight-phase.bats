@@ -51,15 +51,32 @@ teardown() {
 # ── Root check ──────────────────────────────────────────────────────────────
 
 @test "preflight: fails when run as root" {
-    # Simulate root by setting EUID=0
-    # We can't actually run as root in tests, so we test the logic directly
+    local patched_phase="$BATS_TEST_TMPDIR/01-preflight-root-test.sh"
+    sed 's/\[\[ \$EUID -eq 0 \]\]/[[ ${TEST_EUID:-$EUID} -eq 0 ]]/' \
+        "$BATS_TEST_DIRNAME/../../installers/phases/01-preflight.sh" > "$patched_phase"
+
     run bash -c '
+        export SCRIPT_DIR="'"$SCRIPT_DIR"'"
+        export INSTALL_DIR="'"$INSTALL_DIR"'"
+        export LOG_FILE="'"$LOG_FILE"'"
+        export INTERACTIVE=false
+        export DRY_RUN=false
+        export PKG_MANAGER="apt"
+        export VERSION="2.3.0"
+        export TEST_EUID=0
+
+        log() { :; }
+        warn() { :; }
         error() { echo "ROOT_ERROR"; exit 1; }
-        EUID=0
-        if [[ $EUID -eq 0 ]]; then
-            error "Do not run as root."
-        fi
-        echo "passed"
+        ai() { :; }
+        ai_ok() { :; }
+        ai_bad() { :; }
+        signal() { :; }
+        show_phase() { :; }
+        show_stranger_boot() { :; }
+        dream_progress() { :; }
+
+        source "'"$patched_phase"'"
     '
     assert_failure
     assert_output --partial "ROOT_ERROR"
@@ -204,7 +221,7 @@ MOCK
     touch "$SCRIPT_DIR/docker-compose.base.yml"
     mkdir -p "$BATS_TEST_TMPDIR/bin"
 
-    # Create curl and jq but NOT rsync
+    # Create curl, jq, and sed wrappers but NOT rsync, then use an isolated PATH
     cat > "$BATS_TEST_TMPDIR/bin/curl" << 'MOCK'
 #!/bin/bash
 echo "curl 8.0.0"
@@ -215,9 +232,13 @@ MOCK
 echo "jq-1.7"
 MOCK
     chmod +x "$BATS_TEST_TMPDIR/bin/jq"
-    export PATH="$BATS_TEST_TMPDIR/bin:$PATH"
+    cat > "$BATS_TEST_TMPDIR/bin/sed" << 'MOCK'
+#!/bin/bash
+/usr/bin/sed "$@"
+MOCK
+    chmod +x "$BATS_TEST_TMPDIR/bin/sed"
 
-    run bash -c '
+    run /usr/bin/env PATH="'"$BATS_TEST_TMPDIR/bin"'" /usr/bin/bash -c '
         export SCRIPT_DIR="'"$SCRIPT_DIR"'"
         export INSTALL_DIR="'"$INSTALL_DIR"'"
         export LOG_FILE="'"$LOG_FILE"'"

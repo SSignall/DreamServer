@@ -42,13 +42,23 @@ teardown() {
 
 @test "tier_rank: returns correct rank for numeric tiers" {
     run bash -c '
-        source "'"$BATS_TEST_DIRNAME/../../installers/lib/tier-map.sh"'"
+        export SCRIPT_DIR="'"$BATS_TEST_TMPDIR/dream-server"'"
+        mkdir -p "$SCRIPT_DIR/lib"
+        cat > "$SCRIPT_DIR/lib/safe-env.sh" << "STUB"
+load_env_from_output() { :; }
+STUB
+        source "'"$BATS_TEST_DIRNAME/../../installers/lib/detection.sh"'"
         tier_rank 1
     '
     assert_output "1"
 
     run bash -c '
-        source "'"$BATS_TEST_DIRNAME/../../installers/lib/tier-map.sh"'"
+        export SCRIPT_DIR="'"$BATS_TEST_TMPDIR/dream-server"'"
+        mkdir -p "$SCRIPT_DIR/lib"
+        cat > "$SCRIPT_DIR/lib/safe-env.sh" << "STUB"
+load_env_from_output() { :; }
+STUB
+        source "'"$BATS_TEST_DIRNAME/../../installers/lib/detection.sh"'"
         tier_rank 4
     '
     assert_output "4"
