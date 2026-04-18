@@ -1093,6 +1093,55 @@ for ((idx=0; idx<${#HEALTH_NAMES[@]}; idx++)); do
     fi
 done
 
+# ── Pre-download the Whisper STT model ──
+# Speaches does NOT auto-download on transcription requests — it returns 404.
+# We must trigger the download explicitly here, verify it completed, and
+# surface a clear recovery command if anything fails.
+if [[ "$ENABLE_VOICE" == "true" ]]; then
+    # Read AUDIO_STT_MODEL from .env (written by env-generator). On macOS the
+    # default is base; user can override by editing .env before reinstalling.
+    STT_MODEL=$(grep -m1 '^AUDIO_STT_MODEL=' "${INSTALL_DIR}/.env" 2>/dev/null \
+                | cut -d= -f2- | tr -d '"' | tr -d '\r' || true)
+    [[ -z "$STT_MODEL" ]] && STT_MODEL="Systran/faster-whisper-base"
+    STT_MODEL_ENCODED="${STT_MODEL//\//%2F}"
+    # macOS reassigns Whisper to 9100 if port 9000 is in use (AirPlay Receiver).
+    WHISPER_PORT_RESOLVED="${WHISPER_PORT:-9000}"
+    WHISPER_URL="http://localhost:${WHISPER_PORT_RESOLVED}"
+    STT_RECOVERY_CMD="curl --max-time 3600 -X POST ${WHISPER_URL}/v1/models/${STT_MODEL_ENCODED}"
+
+    # Step 1: wait briefly for the models API to be ready (max 15s).
+    _stt_api_ready=false
+    for _i in $(seq 1 15); do
+        if curl -sf --max-time 2 "${WHISPER_URL}/v1/models" &>/dev/null; then
+            _stt_api_ready=true
+            break
+        fi
+        sleep 1
+    done
+
+    if ! $_stt_api_ready; then
+        ai_warn "STT models API not ready -- download manually:"
+        echo "    $STT_RECOVERY_CMD"
+    # Step 2: skip if already cached.
+    elif curl -sf --max-time 10 "${WHISPER_URL}/v1/models/${STT_MODEL_ENCODED}" &>/dev/null; then
+        ai_ok "STT model already cached (${STT_MODEL})"
+    else
+        # Step 3: POST to trigger download.
+        ai "Downloading STT model (${STT_MODEL})..."
+        curl -s --max-time 3600 -X POST "${WHISPER_URL}/v1/models/${STT_MODEL_ENCODED}" \
+            >> "$DS_LOG_FILE" 2>&1 || true
+
+        # Step 4: verify the model is actually cached.
+        if curl -sf --max-time 10 "${WHISPER_URL}/v1/models/${STT_MODEL_ENCODED}" &>/dev/null; then
+            ai_ok "STT model cached (${STT_MODEL})"
+        else
+            ai_warn "STT model download failed -- run manually:"
+            echo "    $STT_RECOVERY_CMD"
+            echo "    See $DS_LOG_FILE for details."
+        fi
+    fi
+fi
+
 # ── Auto-configure Perplexica ──
 ai "Configuring Perplexica..."
 if configure_perplexica 3004 "$LLM_MODEL"; then

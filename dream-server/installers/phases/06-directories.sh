@@ -249,6 +249,16 @@ Fix with: sudo chown -R \$(id -u):\$(id -g) $INSTALL_DIR/config $INSTALL_DIR/dat
     # Network binding (--lan sets 0.0.0.0; default is localhost-only)
     BIND_ADDRESS=$(_env_get BIND_ADDRESS "${BIND_ADDRESS:-127.0.0.1}")
 
+    # Whisper STT model — NVIDIA picks the larger turbo model, everyone else
+    # uses base. Phase 12 reads this to pre-download the right file, and
+    # Open WebUI reads it to request the same model for transcription.
+    if [[ "$GPU_BACKEND" == "nvidia" ]]; then
+        _default_stt_model="deepdml/faster-whisper-large-v3-turbo-ct2"
+    else
+        _default_stt_model="Systran/faster-whisper-base"
+    fi
+    AUDIO_STT_MODEL=$(_env_get AUDIO_STT_MODEL "${AUDIO_STT_MODEL:-$_default_stt_model}")
+
     # Preserve user-supplied cloud API keys
     ANTHROPIC_API_KEY=$(_env_get ANTHROPIC_API_KEY "${ANTHROPIC_API_KEY:-}")
     OPENAI_API_KEY=$(_env_get OPENAI_API_KEY "${OPENAI_API_KEY:-}")
@@ -355,6 +365,9 @@ DIFY_SECRET_KEY=${DIFY_SECRET_KEY}
 
 #=== Voice Settings ===
 WHISPER_MODEL=base
+# Whisper STT model passed to Open WebUI and pre-downloaded by Phase 12.
+# Auto-selected based on GPU backend; edit to override.
+AUDIO_STT_MODEL=${AUDIO_STT_MODEL}
 TTS_VOICE=en_US-lessac-medium
 
 #=== Web UI Settings ===

@@ -298,6 +298,10 @@ DIFY_SECRET_KEY=$difySecretKey
 
 #=== Voice Settings ===
 WHISPER_MODEL=base
+# Whisper STT model — NVIDIA uses the larger turbo model, others use base.
+# Open WebUI reads this to request transcription; installer pre-downloads
+# the same model so the first transcription works.
+AUDIO_STT_MODEL=$(Get-EnvOrNew "AUDIO_STT_MODEL" $(if ($GpuBackend -eq "nvidia") { "deepdml/faster-whisper-large-v3-turbo-ct2" } else { "Systran/faster-whisper-base" }))
 TTS_VOICE=en_US-lessac-medium
 
 #=== Web UI Settings ===
