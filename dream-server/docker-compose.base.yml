@@ -82,7 +82,7 @@ services:
       ENABLE_SEARCH_QUERY_GENERATION: "true"
       WEB_SEARCH_RESULT_COUNT: "5"
       # ── ComfyUI Image Generation (SDXL Lightning 4-step) ──
-      ENABLE_IMAGE_GENERATION: "${ENABLE_IMAGE_GENERATION:-true}"
+      ENABLE_IMAGE_GENERATION: "${ENABLE_IMAGE_GENERATION:-false}"
       IMAGE_GENERATION_ENGINE: "comfyui"
       COMFYUI_BASE_URL: "http://comfyui:8188"
       IMAGE_SIZE: "1024x1024"
