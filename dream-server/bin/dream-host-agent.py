@@ -264,12 +264,14 @@ def _precreate_data_dirs(service_id: str):
             vol_str = str(vol).split(":")[0]
             # Accept any relative bind-mount source (e.g. "./data/state",
             # "./upload", "config/stuff"). Skip named volumes (no "/") and
-            # absolute paths ("/etc/..."). Compose resolves relative paths
-            # against the compose file's directory, so anchor on ext_dir.
+            # absolute paths ("/etc/..."). Docker Compose v2 resolves relative
+            # bind paths against the project directory (the first -f file's
+            # parent = INSTALL_DIR), not the individual fragment's directory,
+            # so anchor on INSTALL_DIR to match where Compose actually mounts.
             if vol_str and not vol_str.startswith("/") and "/" in vol_str:
-                dir_path = (ext_dir / vol_str.lstrip("./")).resolve()
+                dir_path = (INSTALL_DIR / vol_str.lstrip("./")).resolve()
                 try:
-                    dir_path.relative_to(ext_dir.resolve())
+                    dir_path.relative_to(INSTALL_DIR.resolve())
                 except ValueError:
                     logger.warning("Skipping out-of-tree volume path in %s: %s", service_id, vol_str)
                     continue

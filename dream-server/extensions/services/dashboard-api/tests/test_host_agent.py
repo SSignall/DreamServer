@@ -535,9 +535,12 @@ class TestHandleModelDownloadCancel:
 # so built-in extensions (under EXTENSIONS_DIR) are found — the old
 # USER_EXTENSIONS_DIR-only path silently no-op'd for every built-in.
 #
-# Defect 3/4: _precreate_data_dirs must create dirs for any relative bind
-# source (not just "./data/..."), anchored on ext_dir (not INSTALL_DIR),
-# because Compose resolves relative paths against the compose file.
+# Defect 3: _precreate_data_dirs must create dirs for any relative bind
+# source (not just "./data/..."), so extensions with "./upload:/..." style
+# mounts also get their dirs pre-created. Anchored on INSTALL_DIR because
+# Docker Compose v2 resolves relative bind paths against the project
+# directory (the first -f file's parent = INSTALL_DIR), not against the
+# individual fragment's directory.
 #
 # Defect 5: _handle_install must verify the container reached "running"
 # state before reporting success — compose `up -d` returns 0 even for
@@ -575,9 +578,10 @@ class TestPrecreateDataDirs:
 
         _mod._precreate_data_dirs("svc-b")
 
-        # Dir lives under ext_dir, NOT INSTALL_DIR (Defect 4 anchor fix).
-        assert (ext_dir / "data" / "state").is_dir()
-        assert not (install_dir / "data" / "state").exists()
+        # Dir lives under INSTALL_DIR (the Compose project directory),
+        # NOT under ext_dir — matching where Compose actually mounts.
+        assert (install_dir / "data" / "state").is_dir()
+        assert not (ext_dir / "data" / "state").exists()
 
     def test_creates_dirs_for_non_data_prefix(self, tmp_path, monkeypatch):
         """Defect 3: relative bind sources outside './data/' must still be created."""
@@ -597,8 +601,10 @@ class TestPrecreateDataDirs:
 
         _mod._precreate_data_dirs("svc-u")
 
-        assert (ext_dir / "upload").is_dir()
-        assert (ext_dir / "data" / "state").is_dir()
+        # Both non-"./data/" and "./data/..." mounts must materialise under
+        # INSTALL_DIR (the Compose project directory).
+        assert (install_dir / "upload").is_dir()
+        assert (install_dir / "data" / "state").is_dir()
 
     def test_skips_named_volumes(self, tmp_path, monkeypatch):
         """Named volumes (no '/') must not trigger filesystem creation."""
