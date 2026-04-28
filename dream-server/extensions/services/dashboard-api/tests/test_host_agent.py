@@ -325,9 +325,10 @@ class TestInstallStartCommandNoDeps:
 # --- _post_install_core_recreate ---
 #
 # openclaw's compose.yaml adds OPENAI_API_BASE_URLS to open-webui as an overlay;
-# `docker compose up -d --no-deps openclaw` (used by _handle_install) won't
-# pick up overlay changes targeting already-running core services. Hence the
-# post-install recreate of open-webui whenever openclaw is installed.
+# `docker compose up -d openclaw` (used by _handle_install) won't pick up
+# overlay changes targeting already-running core services without
+# `--force-recreate`. Hence the post-install recreate of open-webui whenever
+# openclaw is installed.
 
 
 class TestPostInstallCoreRecreate:
