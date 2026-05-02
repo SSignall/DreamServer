@@ -806,7 +806,7 @@ async def extensions_catalog(
     from helpers import _CATALOG_HEALTH_TIMEOUT, check_service_health
     from user_extensions import get_user_services_cached
 
-    user_svc_configs = get_user_services_cached(USER_EXTENSIONS_DIR)
+    user_svc_configs = await asyncio.to_thread(get_user_services_cached, USER_EXTENSIONS_DIR)
 
     # Only health-check extensions that declare a health endpoint.  Use a
     # short per-probe timeout so one slow extension cannot stall the catalog
@@ -950,7 +950,7 @@ async def extension_detail(
     service_list = await get_all_services()
     services_by_id = {s.id: s for s in service_list}
 
-    user_svc_configs = get_user_services_cached(USER_EXTENSIONS_DIR)
+    user_svc_configs = await asyncio.to_thread(get_user_services_cached, USER_EXTENSIONS_DIR)
 
     # Same short per-probe timeout as the catalog fan-out — one slow user
     # extension must not block the detail view.
