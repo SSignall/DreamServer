@@ -1,6 +1,8 @@
 services:
   whisper:
-    image: ghcr.io/speaches-ai/speaches:0.9.0-rc.3-cuda
+    # Default pin is amd64-only. Installers/phases/02-detection.sh overrides
+    # WHISPER_IMAGE to a multi-arch sha-<commit>-cuda tag on arm64 hosts.
+    image: ${WHISPER_IMAGE:-ghcr.io/speaches-ai/speaches:0.9.0-rc.3-cuda}
     deploy:
       resources:
         reservations:
