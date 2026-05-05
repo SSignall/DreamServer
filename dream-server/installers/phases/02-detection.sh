@@ -145,6 +145,10 @@ OPENCLAW_PROVIDER_URL_DEFAULT="${BACKEND_PROVIDER_URL:-http://llama-server:8080/
 # var is set with := so a user-supplied value (env or .env) wins.
 HOST_ARCH=$(detect_host_arch)
 log "Host architecture: ${HOST_ARCH}"
+if [[ "$HOST_ARCH" == "arm64" ]]; then
+    # dreamforge upstream image is amd64-only — build locally on arm64.
+    : "${DREAMFORGE_PULL_POLICY:=build}"
+fi
 if [[ "$HOST_ARCH" == "arm64" && "$GPU_BACKEND" == "nvidia" ]]; then
     : "${WHISPER_IMAGE:=ghcr.io/speaches-ai/speaches:sha-c78b77d-cuda}"
 fi
