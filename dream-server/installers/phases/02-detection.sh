@@ -149,9 +149,6 @@ if [[ "$HOST_ARCH" == "arm64" ]]; then
     # dreamforge upstream image is amd64-only — build locally on arm64.
     : "${DREAMFORGE_PULL_POLICY:=build}"
 fi
-if [[ "$HOST_ARCH" == "arm64" && "$GPU_BACKEND" == "nvidia" ]]; then
-    : "${WHISPER_IMAGE:=ghcr.io/speaches-ai/speaches:sha-c78b77d-cuda}"
-fi
 
 #-----------------------------------------------------------------------------
 # Secure Boot + NVIDIA auto-fix
