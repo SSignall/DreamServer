@@ -207,6 +207,12 @@ CTX_SIZE=${MAX_CONTEXT}
 GPU_BACKEND=apple
 HOST_RAM_GB=${SYSTEM_RAM_GB}
 $(if [[ -n "${LLAMA_SERVER_IMAGE:-}" ]]; then echo "LLAMA_SERVER_IMAGE=${LLAMA_SERVER_IMAGE}"; fi)
+$(if [[ "$(uname -m)" == "arm64" ]]; then
+    # Apple Silicon: dreamforge upstream image is linux/amd64 only.
+    # Build locally via Dockerfile.rust to get a native arm64 image
+    # instead of relying on Rosetta 2 emulation.
+    echo "DREAMFORGE_PULL_POLICY=build"
+fi)
 LLAMA_CPU_LIMIT=${detected_cpu_limit}
 LLAMA_CPU_RESERVATION=${detected_cpu_reservation}
 
