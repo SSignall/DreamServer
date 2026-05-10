@@ -18,6 +18,7 @@ services:
       - LITELLM_KEY=${LITELLM_KEY:-}
       - SEARXNG_BASE_URL=http://searxng:8080
       - OPENCLAW_EXTERNAL_PORT=${OPENCLAW_PORT:-7860}
+      - HOST_LAN_IP=${HOST_LAN_IP:-}
       - BIND_ADDRESS=${BIND_ADDRESS:-127.0.0.1}
       - HOME=/home/node
     user: "0:0"
