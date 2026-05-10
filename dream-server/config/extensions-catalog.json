@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-10T13:55:11Z",
+  "generated_at": "2026-05-10T14:01:59Z",
   "schema_version": "1.0.0",
   "extensions": [
     {
@@ -51,7 +51,8 @@
           "setup_time": "~1 minute",
           "priority": 11
         }
-      ]
+      ],
+      "startup_check": false
     },
     {
       "id": "anythingllm",

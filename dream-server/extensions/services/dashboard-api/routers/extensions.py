@@ -141,9 +141,21 @@ def _sync_extension_config(service_id: str) -> bool:
     return _call_agent_sync_config(service_id)
 
 
+def _is_one_shot_extension(ext: dict) -> bool:
+    """Return whether the catalog entry represents a one-shot CLI/setup tool.
+
+    Prefer the explicit catalog copy of ``service.startup_check: false``. Fall
+    back to ``port: 0`` for catalogs generated before that field was exposed.
+    """
+    if "startup_check" in ext:
+        return ext.get("startup_check") is False
+    return ext.get("port") == 0
+
+
 def _compute_extension_status(ext: dict, services_by_id: dict) -> str:
     """Compute the runtime status of an extension."""
     ext_id = ext["id"]
+    one_shot = _is_one_shot_extension(ext)
 
     # Check for in-flight install operations (progress files take priority)
     progress = _read_progress(ext_id)
@@ -168,6 +180,13 @@ def _compute_extension_status(ext: dict, services_by_id: dict) -> str:
             # show "installing". If older, the user likely stopped the
             # container afterwards — fall through to normal status logic.
             if not _is_stale(progress.get("updated_at", ""), max_age_seconds=300):
+                # One-shot CLI tools (port=0, no healthcheck) reach a terminal
+                # success state the moment compose returns 0 — surface that
+                # explicitly so the dashboard stops polling and shows the
+                # CLI-tool guidance instead of looping on a non-existent
+                # health endpoint.
+                if one_shot:
+                    return "cli_installed"
                 svc = services_by_id.get(ext_id)
                 if not (svc and svc.status == "healthy"):
                     return "installing"
@@ -183,6 +202,11 @@ def _compute_extension_status(ext: dict, services_by_id: dict) -> str:
     user_dir = USER_EXTENSIONS_DIR / ext_id
     if user_dir.is_dir():
         if (user_dir / "compose.yaml").exists():
+            # One-shot CLI extensions don't expose a healthcheck — once
+            # installed they're permanently in the "ready to invoke"
+            # cli_installed state until uninstalled.
+            if one_shot:
+                return "cli_installed"
             svc = services_by_id.get(ext_id)
             if svc and svc.status == "healthy":
                 return "enabled"
@@ -885,8 +909,9 @@ async def extensions_catalog(
 
     summary = {
         "total": len(extensions),
-        "installed": sum(1 for e in extensions if e["status"] in ("enabled", "disabled", "stopped", "unhealthy")),
+        "installed": sum(1 for e in extensions if e["status"] in ("enabled", "cli_installed", "disabled", "stopped", "unhealthy")),
         "enabled": sum(1 for e in extensions if e["status"] == "enabled"),
+        "cli_installed": sum(1 for e in extensions if e["status"] == "cli_installed"),
         "disabled": sum(1 for e in extensions if e["status"] == "disabled"),
         "stopped": sum(1 for e in extensions if e["status"] == "stopped"),
         "unhealthy": sum(1 for e in extensions if e["status"] == "unhealthy"),
