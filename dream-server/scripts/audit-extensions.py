@@ -277,6 +277,18 @@ def parse_positive_int(value: Any) -> int | None:
     return integer if integer > 0 else None
 
 
+def parse_non_negative_int(value: Any) -> int | None:
+    if value is None or value == "":
+        return None
+    if isinstance(value, bool):
+        return None
+    try:
+        integer = int(value)
+    except (TypeError, ValueError):
+        return None
+    return integer if integer >= 0 else None
+
+
 def collect_service_references(feature: dict[str, Any]) -> list[str]:
     refs: list[str] = []
     for path in FEATURE_SERVICE_KEYS:
@@ -325,6 +337,15 @@ def load_compose_definitions(record: ServiceRecord) -> tuple[dict[str, Any], dic
 
 
 def extract_target_ports(service_def: Any) -> list[int]:
+    """Return every container-internal port a service makes available.
+
+    Looks at BOTH `ports:` (host-bound) and `expose:` (internal-only)
+    declarations so internal-only services like dream-hermes (fronted by
+    hermes-proxy) still register their port. Without this, a service
+    that switches from `ports:` to `expose:` would fail
+    compose-port-mismatch even though its container is fully reachable
+    by other containers on the bridge network.
+    """
     if not isinstance(service_def, dict):
         return []
 
@@ -349,6 +370,20 @@ def extract_target_ports(service_def: Any) -> list[int]:
             target_int = parse_positive_int(target)
             if target_int:
                 results.append(target_int)
+
+    # `expose:` is a list of "<port>" or "<port>/<proto>" strings/ints —
+    # internal-network-only, never bound to the host.
+    for entry in as_list(service_def.get("expose")):
+        if isinstance(entry, int):
+            if entry > 0:
+                results.append(entry)
+            continue
+        if isinstance(entry, str):
+            head = entry.split("/", 1)[0]
+            try:
+                results.append(int(head))
+            except ValueError:
+                continue
     return results
 
 
@@ -467,11 +502,11 @@ def validate_records(
             )
 
         ext_port_default = service.get("external_port_default")
-        if ext_port_default not in (None, "") and parse_positive_int(ext_port_default) is None:
+        if ext_port_default not in (None, "") and parse_non_negative_int(ext_port_default) is None:
             record.add_issue(
                 "error",
                 "service-external-port-invalid",
-                "service.external_port_default must be a positive integer when set",
+                "service.external_port_default must be a non-negative integer when set",
                 path=record.manifest_path,
             )
 
