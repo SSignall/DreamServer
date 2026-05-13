@@ -80,8 +80,8 @@ teardown() {
     resolve_tier_config
     assert_equal "$TIER_NAME" "NVIDIA Ultra (90GB+, aarch64 — A3B substitution)"
     assert_equal "$MODEL_PROFILE_EFFECTIVE" "qwen"
-    assert_equal "$LLM_MODEL" "qwen3.5-35b-a3b"
-    assert_equal "$GGUF_FILE" "Qwen3.5-35B-A3B-Q4_K_M.gguf"
+    assert_equal "$LLM_MODEL" "qwen3.6-35b-a3b"
+    assert_equal "$GGUF_FILE" "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf"
     assert_equal "$MAX_CONTEXT" "131072"
 }
 
@@ -170,7 +170,7 @@ teardown() {
 @test "tier_to_model: arm64 NV_ULTRA maps to A3B MoE substitution" {
     HOST_ARCH=arm64
     run tier_to_model NV_ULTRA
-    assert_output "qwen3.5-35b-a3b"
+    assert_output "qwen3.6-35b-a3b"
 }
 
 @test "tier_to_model: invalid tier returns empty string" {
@@ -271,5 +271,5 @@ teardown() {
 
     HOST_ARCH=arm64
     run tier_to_model NV_ULTRA qwen
-    assert_output "qwen3.5-35b-a3b"
+    assert_output "qwen3.6-35b-a3b"
 }

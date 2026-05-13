@@ -102,19 +102,18 @@ set_qwen_tier_config() {
             # llama.cpp b9014 on Blackwell-aarch64 (SHA256 verifies, server
             # starts cleanly, decode rate is normal, but every token is `?`).
             # Verified bug is coder-next-specific, not a general MoE kernel
-            # bug: Qwen3.5-35B-A3B-Q4_K_M serves cleanly on the same build,
-            # same hardware (~59 tok/s warm decode, coherent output).
-            # Until upstream fixes coder-next on this build, route Spark to
-            # the A3B MoE — same architectural fit (large total / small
-            # active params on unified memory).
+            # bug: Qwen3.6-35B-A3B (UD-Q4_K_M) serves cleanly on the same
+            # build, same hardware. Until upstream fixes coder-next on this
+            # build, route Spark to the A3B MoE — same architectural fit
+            # (large total / small active params on unified memory).
             if [[ "${HOST_ARCH:-}" == "arm64" ]]; then
                 TIER_NAME="NVIDIA Ultra (90GB+, aarch64 — A3B substitution)"
-                LLM_MODEL="qwen3.5-35b-a3b"
-                GGUF_FILE="Qwen3.5-35B-A3B-Q4_K_M.gguf"
-                GGUF_URL="https://huggingface.co/unsloth/Qwen3.5-35B-A3B-GGUF/resolve/main/Qwen3.5-35B-A3B-Q4_K_M.gguf"
-                GGUF_SHA256="3b46d1066bc91cc2d613e3bc22ce691dd77e6f0d33c9060690d24ce6de494375"
+                LLM_MODEL="qwen3.6-35b-a3b"
+                GGUF_FILE="Qwen3.6-35B-A3B-UD-Q4_K_M.gguf"
+                GGUF_URL="https://huggingface.co/unsloth/Qwen3.6-35B-A3B-GGUF/resolve/main/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf"
+                GGUF_SHA256="ac0e2c1189e055faa36eff361580e79c5bd6f8e76bffb4ce547f167d53e31a61"
                 MAX_CONTEXT=131072
-                LLM_MODEL_SIZE_MB=22000
+                LLM_MODEL_SIZE_MB=21110
             fi
             ;;
         SH_LARGE)
@@ -351,7 +350,7 @@ tier_to_model() {
                 CLOUD)          model="anthropic/claude-sonnet-4-5-20250514" ;;
                 NV_ULTRA)
                     if [[ "${HOST_ARCH:-}" == "arm64" ]]; then
-                        model="qwen3.5-35b-a3b"
+                        model="qwen3.6-35b-a3b"
                     else
                         model="qwen3-coder-next"
                     fi

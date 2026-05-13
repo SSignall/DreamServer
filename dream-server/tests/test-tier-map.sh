@@ -107,8 +107,8 @@ HOST_ARCH=arm64
 run_tier NV_ULTRA
 assert_eq "TIER_NAME"   "NVIDIA Ultra (90GB+, aarch64 — A3B substitution)" "$TIER_NAME"
 assert_eq "MODEL_PROFILE_EFFECTIVE" "qwen"                   "$MODEL_PROFILE_EFFECTIVE"
-assert_eq "LLM_MODEL"   "qwen3.5-35b-a3b"                    "$LLM_MODEL"
-assert_eq "GGUF_FILE"   "Qwen3.5-35B-A3B-Q4_K_M.gguf"        "$GGUF_FILE"
+assert_eq "LLM_MODEL"   "qwen3.6-35b-a3b"                    "$LLM_MODEL"
+assert_eq "GGUF_FILE"   "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf"     "$GGUF_FILE"
 assert_eq "MAX_CONTEXT"  "131072"                               "$MAX_CONTEXT"
 unset HOST_ARCH
 echo ""
