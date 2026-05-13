@@ -20,6 +20,7 @@ setup() {
 
 teardown() {
     unset MODEL_PROFILE
+    unset HOST_ARCH
 }
 
 # ── resolve_tier_config ─────────────────────────────────────────────────────
@@ -71,6 +72,17 @@ teardown() {
     assert_equal "$LLM_MODEL" "qwen3-coder-next"
     assert_equal "$GGUF_FILE" "qwen3-coder-next-Q4_K_M.gguf"
     assert_equal "$MAX_CONTEXT" "131072"
+}
+
+@test "resolve_tier_config: arm64 NV_ULTRA falls back to dense Qwen" {
+    TIER=NV_ULTRA
+    HOST_ARCH=arm64
+    resolve_tier_config
+    assert_equal "$TIER_NAME" "NVIDIA Ultra (90GB+, aarch64 — MoE workaround)"
+    assert_equal "$MODEL_PROFILE_EFFECTIVE" "qwen"
+    assert_equal "$LLM_MODEL" "qwen3.5-9b"
+    assert_equal "$GGUF_FILE" "Qwen3.5-9B-Q4_K_M.gguf"
+    assert_equal "$MAX_CONTEXT" "32768"
 }
 
 @test "resolve_tier_config: default profile keeps SH_LARGE on Qwen Coder Next" {
@@ -153,6 +165,12 @@ teardown() {
 
     run tier_to_model SH
     assert_output "qwen3-30b-a3b"
+}
+
+@test "tier_to_model: arm64 NV_ULTRA maps to dense Qwen workaround" {
+    HOST_ARCH=arm64
+    run tier_to_model NV_ULTRA
+    assert_output "qwen3.5-9b"
 }
 
 @test "tier_to_model: invalid tier returns empty string" {
@@ -250,4 +268,8 @@ teardown() {
 
     run tier_to_model NV_ULTRA qwen
     assert_output "qwen3-coder-next"
+
+    HOST_ARCH=arm64
+    run tier_to_model NV_ULTRA qwen
+    assert_output "qwen3.5-9b"
 }

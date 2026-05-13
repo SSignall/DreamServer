@@ -350,7 +350,13 @@ tier_to_model() {
         *)
             case "$t" in
                 CLOUD)          model="anthropic/claude-sonnet-4-5-20250514" ;;
-                NV_ULTRA)       model="qwen3-coder-next" ;;
+                NV_ULTRA)
+                    if [[ "${HOST_ARCH:-}" == "arm64" ]]; then
+                        model="qwen3.5-9b"
+                    else
+                        model="qwen3-coder-next"
+                    fi
+                    ;;
                 SH_LARGE)       model="qwen3-coder-next" ;;
                 SH_COMPACT|SH)  model="qwen3-30b-a3b" ;;
                 ARC)            model="qwen3.5-9b" ;;
