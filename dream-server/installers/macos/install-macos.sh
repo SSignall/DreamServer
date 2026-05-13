@@ -540,6 +540,12 @@ info_box "  RAG:" "$(if $ENABLE_RAG; then echo enabled; else echo disabled; fi)"
 info_box "  Hermes:" "$(if $ENABLE_HERMES; then echo enabled; else echo disabled; fi)"
 info_box "  OpenClaw:" "$(if $ENABLE_OPENCLAW; then echo "enabled (DEPRECATED)"; else echo disabled; fi)"
 info_box "  Langfuse:" "$(if $ENABLE_LANGFUSE; then echo enabled; else echo disabled; fi)"
+# The macOS installer doesn't currently ship a ComfyUI container — none of
+# the published ComfyUI images target Apple Silicon Metal, and the upstream
+# Python build under MPS is non-trivial to package as a Docker service.
+# Surface this to operators who passed --all so they aren't left wondering
+# why the dashboard shows no image-gen tile after install.
+info_box "  ComfyUI:" "not available on macOS (no MPS Docker image upstream)"
 
 if $ENABLE_VOICE && [[ -z "$_docker_cpu_override" ]] && [[ "${_docker_cpu_preflight_min:-0}" -lt 10 ]]; then
     _require_docker_cpu_budget 10 8 "voice-enabled compose stack"
@@ -835,6 +841,22 @@ else
                 sleep 2
             fi
         fi
+        # Reap orphan native llama-server processes from prior install runs.
+        # The PID file only tracks the most recent process, so model switches
+        # or interrupted installs can leave older copies shadowing the new
+        # config. Scope to this install dir so personal llama-server installs
+        # elsewhere are left alone, and do this only when we are about to start
+        # the replacement server so failed preflights do not take a working
+        # server down.
+        _reaped=0
+        if command -v pgrep >/dev/null 2>&1 && [[ -x "${LLAMA_SERVER_BIN:-}" ]]; then
+            while read -r _pid; do
+                [[ -z "$_pid" ]] && continue
+                kill "$_pid" 2>/dev/null && _reaped=$((_reaped + 1))
+            done < <(pgrep -f "$LLAMA_SERVER_BIN" 2>/dev/null)
+            [[ "$_reaped" -gt 0 ]] && ai "Reaped $_reaped orphan llama-server process(es) from prior install run(s)."
+        fi
+        unset _reaped
 
         # Read reasoning mode from .env (default off to prevent thinking models
         # from consuming the entire token budget on internal reasoning)
