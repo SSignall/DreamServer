@@ -517,6 +517,75 @@ LITELLM_UPGRADE_EOF
                 log "WARNING: No compose binary available (DOCKER_COMPOSE_CMD empty or compose args missing) — OpenClaw was NOT recreated. The new model will not take effect until OpenClaw is recreated manually with: docker compose up -d --force-recreate openclaw"
             fi
         fi
+        # Patch Hermes Agent's config so it stops asking the LLM server for the
+        # bootstrap model id. PR #1191 substitutes model.default in the template
+        # at install time, but at install time we've only loaded the bootstrap
+        # model (Qwen3.5-2B) — Hermes's /opt/data/config.yaml is therefore
+        # pinned to that name. Once this script swaps Lemonade/llama-server
+        # to the full model, Hermes keeps sending the stale bootstrap id and
+        # every chat completion 404s.
+        #
+        # This is hard-broken on AMD/Lemonade (which strictly validates the
+        # `model` field) and silently masked on NVIDIA/Apple (llama.cpp
+        # ignores the field and serves whatever's loaded), so the bug
+        # surfaces as "Hermes works on Tower2/Mac but every prompt 404s on
+        # Strix Halo" after a bootstrap-to-full swap.
+        #
+        # Two files to keep in sync:
+        #   1. /opt/data/config.yaml inside the container — the live config
+        #      Hermes reads at startup. Owned by container UID; patch via
+        #      `docker exec` so we don't need host sudo.
+        #   2. extensions/services/hermes/cli-config.yaml.template — the
+        #      source Hermes copies into /opt/data on first start. Updating
+        #      it keeps subsequent down-and-up cycles correct.
+        # Lemonade prefixes the served model id with "extra."; llama.cpp
+        # serves under the bare file name. Mirror the same branch PR #1191
+        # added in installers/phases/11-services.sh.
+        _hermes_old_model="$BOOTSTRAP_GGUF_FILE"
+        _hermes_new_model="$FULL_GGUF_FILE"
+        _gpu_backend_for_hermes=$(grep -E '^GPU_BACKEND=' "$ENV_FILE" 2>/dev/null | cut -d= -f2 | tr -d '"\047\r' || echo "")
+        if [[ "$_gpu_backend_for_hermes" == "amd" ]]; then
+            _hermes_old_model="extra.$BOOTSTRAP_GGUF_FILE"
+            _hermes_new_model="extra.$FULL_GGUF_FILE"
+        fi
+        log "Patching Hermes config: model.default $_hermes_old_model -> $_hermes_new_model"
+
+        # Template on host (user-owned, no sudo needed). Patch this even when
+        # Hermes is stopped so future container creates do not copy the stale
+        # bootstrap model id.
+        _hermes_tpl="$INSTALL_DIR/extensions/services/hermes/cli-config.yaml.template"
+        if [[ -f "$_hermes_tpl" ]]; then
+            if sed -i.bak \
+                -e "s|^  default: \"${_hermes_old_model}\"|  default: \"${_hermes_new_model}\"|" \
+                "$_hermes_tpl" 2>&1; then
+                rm -f "${_hermes_tpl}.bak"
+            else
+                log "WARNING: Could not patch ${_hermes_tpl} (non-fatal — operator can hand-edit before restarting Hermes)"
+            fi
+        fi
+
+        if $DOCKER_CMD ps --filter name=dream-hermes --format '{{.Names}}' 2>/dev/null | grep -q dream-hermes; then
+            # Live config inside the running container (owned by container UID).
+            $DOCKER_CMD exec dream-hermes sh -c \
+                "sed -i 's|^  default: \"${_hermes_old_model}\"|  default: \"${_hermes_new_model}\"|' /opt/data/config.yaml" 2>&1 || \
+                log "WARNING: Could not patch Hermes /opt/data/config.yaml (non-fatal — operator can hand-edit and 'docker restart dream-hermes')"
+            log "Restarting Hermes to pick up model change..."
+            $DOCKER_CMD restart dream-hermes 2>&1 || log "WARNING: Hermes restart failed (non-fatal — hand-restart with 'docker restart dream-hermes')"
+        else
+            # If Hermes is stopped, its persisted /opt/data mount may still
+            # exist on the host. Patch it when writable; otherwise the template
+            # update above still protects first-time/fresh data starts.
+            _hermes_live="$INSTALL_DIR/data/hermes/config.yaml"
+            if [[ -f "$_hermes_live" ]]; then
+                if sed -i.bak \
+                    -e "s|^  default: \"${_hermes_old_model}\"|  default: \"${_hermes_new_model}\"|" \
+                    "$_hermes_live" 2>&1; then
+                    rm -f "${_hermes_live}.bak"
+                else
+                    log "WARNING: Could not patch ${_hermes_live} (non-fatal — operator can hand-edit and restart Hermes)"
+                fi
+            fi
+        fi
         sync_windows_opencode_config
     else
         log "WARNING: llama-server health check timed out. The model may still be loading."
