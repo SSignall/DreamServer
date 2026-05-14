@@ -6,6 +6,20 @@
 
 set -euo pipefail
 
+# Anchor CWD to a known-good directory. Without this, a user who just
+# uninstalled Dream Server and immediately re-runs the bootstrap from the
+# same terminal will land here with a deleted working directory — `git
+# clone` then fails with `fatal: Unable to read current working directory`
+# and the user sees a misleading "check your internet connection" message.
+DREAM_BOOTSTRAP_ROOT="${HOME:-/tmp}"
+if ! cd "$DREAM_BOOTSTRAP_ROOT" 2>/dev/null; then
+    DREAM_BOOTSTRAP_ROOT="/tmp"
+    cd "$DREAM_BOOTSTRAP_ROOT" 2>/dev/null || {
+        echo "[error] Cannot find a usable working directory (\$HOME and /tmp both inaccessible)." >&2
+        exit 1
+    }
+fi
+
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -16,7 +30,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 REPO_URL="https://github.com/Light-Heart-Labs/DreamServer.git"
-INSTALL_DIR="$HOME/dream-server"
+INSTALL_DIR="$DREAM_BOOTSTRAP_ROOT/dream-server"
 
 log()     { echo -e "${CYAN}[dream]${NC} $1"; }
 success() { echo -e "${GREEN}[  ok ]${NC} $1"; }
@@ -186,16 +200,27 @@ log "Cloning Dream Server..."
 TEMP_DIR=$(mktemp -d)
 trap 'rm -rf "$TEMP_DIR"' EXIT
 
-git clone --depth 1 --filter=blob:none --sparse "$REPO_URL" "$TEMP_DIR/repo" 2>&1 | tail -1 || \
-    error "Failed to clone repository. Check your internet connection."
+_clone_err=$(git clone --depth 1 --filter=blob:none --sparse "$REPO_URL" "$TEMP_DIR/repo" 2>&1) || {
+    case "$_clone_err" in
+        *"Unable to read current working directory"*|*"getcwd"*)
+            error "git could not read the current working directory. This usually means the directory you launched from has been deleted (e.g. you uninstalled Dream Server and re-ran the bootstrap from the same shell). Run \`cd ~\` and re-run the bootstrap." ;;
+        *"Could not resolve host"*|*"Failed to connect"*|*"Connection refused"*|*"Network is unreachable"*)
+            error "Failed to reach github.com. Check your internet connection or proxy settings.\n  git said: $_clone_err" ;;
+        *"Permission denied"*|*"could not create"*)
+            error "git failed to write to $TEMP_DIR (permissions). Check that /tmp is writable.\n  git said: $_clone_err" ;;
+        *)
+            error "Failed to clone repository.\n  git said: $_clone_err" ;;
+    esac
+}
+echo "$_clone_err" | tail -1
 
 cd "$TEMP_DIR/repo"
 git sparse-checkout set dream-server 2>/dev/null || {
     # Fallback: full clone if sparse checkout fails
-    cd /
+    cd "$DREAM_BOOTSTRAP_ROOT"
     rm -rf "$TEMP_DIR/repo"
     git clone --depth 1 "$REPO_URL" "$TEMP_DIR/repo" 2>&1 | tail -1 || \
-        error "Failed to clone repository."
+        error "Failed to clone repository (fallback full clone also failed)."
     cd "$TEMP_DIR/repo"
 }
 
